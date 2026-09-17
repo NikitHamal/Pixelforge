@@ -13,7 +13,7 @@ PF.RPG.items = (() => {
   const OUT32 = PF.Color.hexToU32(OUT); // cached: one lookup, not one per frame
   const finish = buf => buf.set(PF.Raster.outline(buf, 32, 32, OUT32));
   const S1 = (name, painter, fps = 6) => D(name, fps, true, [Fr(ms(fps), painter)]);
-  const item = painter => (buf, W, H) => { const api = apiFor(buf, W, H); P().shadowFlat(api, 16, 28, 7); painter(api); finish(buf); };
+  const item = painter => (buf, W, H) => { const api = apiFor(buf, W, H); painter(api); finish(buf); };
 
   /* ================= ARMOR RACK ================= */
   function armorSuite() {
@@ -301,7 +301,6 @@ PF.RPG.items = (() => {
   function magic2Suite() {
     const tornado = i => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 6);
       for (let k = 0; k < 6; k++) {
         const y = 6 + k * 4, w = 2 + k * 2, off = ((i + k) % 2 ? 1 : -1);
         api.ellipse(16 - w + off, y, 16 + w + off, y + 3, k % 2 ? '#c0cbdc' : '#8b9bb4', k > 3);
@@ -326,7 +325,6 @@ PF.RPG.items = (() => {
     };
     const heal = i => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 5);
       api.rect(14, 6, 18, 28, '#63c74d'); api.rect(15, 6, 17, 28, '#c9f27e'); api.px(16, 4 + (i % 2), '#ffffff');
       const cy = 24 - i * 5;
       [[16, cy], [12, cy + 3], [20, cy + 2]].forEach(([x, y]) => {
@@ -337,7 +335,6 @@ PF.RPG.items = (() => {
     };
     const summon = i => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 10);
       for (let k = 0; k < 12; k++) {
         const a = (k / 12) * Math.PI * 2 + i * 0.26;
         api.px(16 + Math.cos(a) * 11, 22 + Math.sin(a) * 4, k % 3 ? '#b55088' : '#ffffff');
@@ -373,7 +370,6 @@ PF.RPG.items = (() => {
     };
     const poison = i => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 9);
       [[12, 20, 5], [19, 17, 6], [15, 13, 4]].forEach(([x, y, r], k) => {
         const dx = ((i + k) % 2 ? 1 : -1);
         api.ellipse(x - r + dx, y - 3, x + r + dx, y + 3, k % 2 ? '#68386c' : '#3e8948', true);

@@ -24,6 +24,10 @@ const must = (tag, c, msg) => { isNew(tag) ? ok(c, msg) : (c ? pass++ : warn('LE
 
 const GROUND_CATS = new Set(['Heroes', 'NPCs', 'Enemies']);
 const GROUND_IDS = new Set(['rpg_village', 'rpg_dungeon_props', 'rpg_savepoint']);
+/* States that are airborne by design. Sprites no longer carry a baked shadow,
+   so a jump apex legitimately has no pixel in the ground band — without this
+   exemption every jump would be reported as "floating". */
+const AIRBORNE = /jump|fall|dash|fly|hop|swoop|float|leap|vanish|teleport/;
 
 for (const t of list) {
   const tag = t.id;
@@ -72,9 +76,11 @@ for (const t of list) {
     }
   }
   if ((GROUND_CATS.has(t.category) || GROUND_IDS.has(t.id)) && !t.tags.includes('flying')) {
-    const lows = doc.states.flatMap(s => s.frames.map(f => f._lowest));
-    const minLow = Math.min(...lows);
-    must(tag, minLow >= doc.height - 9, `${tag}: floats (lowest px row ${minLow} of ${doc.height})`);
+    const lows = doc.states.filter(s => !AIRBORNE.test(s.name)).flatMap(s => s.frames.map(f => f._lowest));
+    if (lows.length) {
+      const minLow = Math.min(...lows);
+      must(tag, minLow >= doc.height - 9, `${tag}: floats (lowest px row ${minLow} of ${doc.height})`);
+    }
   }
   // docStats path (hub/app)
   try {

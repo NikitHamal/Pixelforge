@@ -133,7 +133,6 @@ PF.World = (() => {
     // sw = canopy offset per frame; every loop is seamless AND first/last differ
     const paintTree = (variant, sw, t = 0) => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      PF.Pixel.shadowFlat(api, 16, 29, 7);
       const X = x => x + sw;
       if (variant === 0) { // oak: canopy breathes + a leaf drops each cycle
         api.rect(14, 20, 17, 28, '#733e39'); api.rect(17, 22, 17, 28, '#3e2731');
@@ -188,7 +187,6 @@ PF.World = (() => {
     for (let t = 0; t < 4; t++) {
       frames.push(Fr(ms(8), (buf, W, H) => {
         const api = apiFor(buf, W, H);
-        PF.Pixel.shadowFlat(api, 16, 29, 8);
         // stones ring
         for (let i = 0; i < 8; i++) {
           const a = (i / 8) * Math.PI * 2;
@@ -218,26 +216,28 @@ PF.World = (() => {
   function torchSuite() {
     const frames = [];
     for (let t = 0; t < 4; t++) {
-      frames.push(Fr(ms(10), (buf, W, H) => {
+      frames.push(Fr(ms(8), (buf, W, H) => {
         const api = apiFor(buf, W, H);
         api.rect(14, 14, 17, 28, '#733e39');
         api.rect(16, 14, 17, 28, '#3e2731');
         api.rect(13, 12, 18, 15, '#3e2731');
-        const w = Math.sin(t * 1.9) * 1.5;
-        api.ellipse(11 + w * 0.4, 2, 20 + w * 0.4, 13, '#f77622', true);
-        api.ellipse(13, 5, 18, 13, '#fee761', true);
-        api.px(15 + Math.round(w * 0.4), 8, '#ffffff');
+        // the old sway was a fractional sine rounded away to zero, so all four
+        // frames were identical; use whole-pixel offsets and a height beat
+        const w = Math.round(Math.sin(t * 1.57) * 2), h = [0, 1, 2, 1][t];
+        api.ellipse(11 + w, 2 + h, 20 + w, 13 + h, '#f77622', true);
+        api.ellipse(13 + w, 5 + h, 18 + w, 13, '#fee761', true);
+        api.px(15 + w, 8 + h, '#ffffff');
+        api.px(14 + w, 4 + h, '#fff6c9');
         finishProps(buf, W, H);
       }));
     }
-    return { width: 32, height: 32, name: 'torch', layers: [{ name: 'Body' }], states: [D('burn', 10, true, frames)] };
+    return { width: 32, height: 32, name: 'torch', layers: [{ name: 'Body' }], states: [D('burn', 8, true, frames)] };
   }
 
   /* ---------- CHEST ---------- */
   function chestSuite() {
     const closed = (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      PF.Pixel.shadowFlat(api, 16, 28, 9);
       api.rect(6, 12, 25, 27, '#b86f50');
       api.rect(6, 12, 25, 18, '#733e39');
       api.rect(6, 17, 25, 18, '#3e2731');
@@ -250,9 +250,9 @@ PF.World = (() => {
       D('closed', 1, true, [Fr(500, closed)]),
       D('open', 8, false, [
         Fr(ms(8), closed),
-        Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); PF.Pixel.shadowFlat(api, 16, 28, 9); api.rect(6, 18, 25, 27, '#b86f50'); api.rect(6, 6, 25, 12, '#733e39'); api.rect(14, 20, 17, 24, '#3e2731'); api.rect(10, 14, 21, 18, '#fee761'); api.px(15, 15, '#ffffff'); finishProps(buf, W, H); }),
-        Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); PF.Pixel.shadowFlat(api, 16, 28, 9); api.rect(6, 18, 25, 27, '#b86f50'); api.rect(6, 3, 25, 9, '#733e39'); api.rect(10, 12, 21, 18, '#fee761'); api.px(13, 13, '#ffffff'); api.px(18, 14, '#ffffff'); PF.Pixel.sparks(api, 16, 10, 1, '#fee761', 6, 2, 5); finishProps(buf, W, H); }),
-        Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); PF.Pixel.shadowFlat(api, 16, 28, 9); api.rect(6, 18, 25, 27, '#b86f50'); api.rect(6, 3, 25, 9, '#733e39'); api.rect(10, 14, 21, 18, '#fee761'); api.px(15, 15, '#ffffff'); finishProps(buf, W, H); })
+        Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.rect(6, 18, 25, 27, '#b86f50'); api.rect(6, 6, 25, 12, '#733e39'); api.rect(14, 20, 17, 24, '#3e2731'); api.rect(10, 14, 21, 18, '#fee761'); api.px(15, 15, '#ffffff'); finishProps(buf, W, H); }),
+        Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.rect(6, 18, 25, 27, '#b86f50'); api.rect(6, 3, 25, 9, '#733e39'); api.rect(10, 12, 21, 18, '#fee761'); api.px(13, 13, '#ffffff'); api.px(18, 14, '#ffffff'); PF.Pixel.sparks(api, 16, 10, 1, '#fee761', 6, 2, 5); finishProps(buf, W, H); }),
+        Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.rect(6, 18, 25, 27, '#b86f50'); api.rect(6, 3, 25, 9, '#733e39'); api.rect(10, 14, 21, 18, '#fee761'); api.px(15, 15, '#ffffff'); finishProps(buf, W, H); })
       ])
     ] };
   }
@@ -286,7 +286,6 @@ PF.World = (() => {
     for (let t = 0; t < 4; t++) {
       frames.push(Fr(ms(8), (buf, W, H) => {
         const api = apiFor(buf, W, H);
-        PF.Pixel.shadowFlat(api, 16, 29, 8);
         // stone pillars
         api.rect(4, 6, 8, 28, '#5a6988'); api.rect(23, 6, 27, 28, '#5a6988');
         api.rect(3, 3, 9, 6, '#8b9bb4'); api.rect(22, 3, 28, 6, '#8b9bb4');
@@ -312,7 +311,6 @@ PF.World = (() => {
   function crystalFrame(pulse, hit, shatter) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), cx = 16;
-      PF.Pixel.shadowFlat(api, cx, 28, 7);
       if (shatter) {
         api.ellipse(9, 23, 23, 27, '#5a6988', true);
         api.ellipse(11, 24, 21, 26, '#3a4466', true);

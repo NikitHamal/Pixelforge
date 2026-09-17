@@ -653,6 +653,19 @@ RF.Game = (() => {
     cv.width = Math.round(cv.clientWidth * DPR);
     cv.height = Math.round(cv.clientHeight * DPR);
   }
+  /* Runtime drop shadow. Library sprites deliberately ship with NO baked
+     shadow — the engine places one per entity so it can be scaled, tinted and
+     faded independently of the art. Called with the entity's ground point. */
+  function drawShadow(x, y, rx, alpha = 0.3) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#0b0a12';
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, rx * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function drawSprite(id, state, frame, x, y, scale = 2, flip = false, flash = false) {
     const f = S.frame(id, state, frame);
     if (!f) return;
@@ -736,6 +749,11 @@ RF.Game = (() => {
       } });
     }
     if (p) draws.push({ y: p.y, f: () => drawSprite(p.spr, p.state, p.frame, p.x, p.y, 2, p.flip, p.flash) });
+    // ground-contact pass: every entity's shadow goes down before any sprite,
+    // so a nearer sprite can never paint over a further one's shadow
+    for (const e of G.enemies) if (!e.dead) drawShadow(e.x, e.y + 1, e.r * 0.95 * (e.def.scale || 1) * 0.7);
+    if (p && !p.deadT) drawShadow(p.x, p.y + 1, 8);
+
     draws.sort((a, b) => a.y - b.y);
     draws.forEach(d => d.f());
 

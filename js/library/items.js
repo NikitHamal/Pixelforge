@@ -35,7 +35,6 @@ PF.Items = (() => {
   function paintPotion(color, cap) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      PF.Pixel.shadowFlat(api, 16, 28, 5);
       api.rect(13, 6, 18, 10, '#c28569'); // neck
       api.rect(12, 4, 19, 6, cap); // cork
       api.ellipse(9, 10, 22, 26, '#c0cbdc', true); // glass
@@ -48,7 +47,6 @@ PF.Items = (() => {
   function paintFood(kind) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      PF.Pixel.shadowFlat(api, 16, 28, 5);
       if (kind === 'apple') { api.ellipse(10, 12, 21, 25, '#e43b44', true); api.ellipse(12, 13, 16, 18, '#f6757a', true); api.line(16, 12, 16, 8, '#3e8948', 2); api.ellipse(17, 8, 20, 10, '#63c74d', true); }
       else if (kind === 'bread') { api.ellipse(8, 14, 23, 24, '#b86f50', true); api.ellipse(10, 15, 21, 21, '#ead4aa', true); api.line(12, 14, 12, 24, '#733e39', 1); api.line(16, 14, 16, 24, '#733e39', 1); api.line(20, 14, 20, 24, '#733e39', 1); }
       else if (kind === 'meat') { api.ellipse(9, 12, 20, 22, '#b86f50', true); api.ellipse(11, 13, 18, 20, '#f6757a', true); api.line(19, 18, 24, 23, '#ead4aa', 3); api.ellipse(22, 21, 26, 26, '#ffffff', true); }
@@ -200,19 +198,22 @@ PF.Items = (() => {
         api.px(x + Math.cos(a) * 2, y + Math.sin(a) * 2, '#ffffff');
       }
     }));
-    const auraFrames = [0, 1, 2, 3].map(i => Fr(ms(8), (buf, W, H) => {
+    // Four runes 90 degrees apart rotate to the SAME set of positions when the
+    // phase is a multiple of 90 degrees — every frame was identical. Use an
+    // off-axis phase plus a pulsing radius instead.
+    const auraFrames = [0, 1, 2, 3].map(i => Fr(ms(7), (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      const a = (i / 4) * Math.PI * 2;
+      const a = i * 0.6, r = 9 + (i % 2);
       api.ellipse(7, 7, 25, 25, '#fee761', false);
       api.ellipse(9, 9, 23, 23, '#ffffff', false);
       for (let k = 0; k < 4; k++) {
         const rot = a + (k / 4) * Math.PI * 2;
-        api.px(16 + Math.cos(rot) * 9, 16 + Math.sin(rot) * 9, '#fee761');
-        api.px(16 + Math.cos(rot) * 11, 16 + Math.sin(rot) * 11, '#ffffff');
+        api.px(16 + Math.cos(rot) * r, 16 + Math.sin(rot) * r, '#fee761');
+        api.px(16 + Math.cos(rot) * (r + 2), 16 + Math.sin(rot) * (r + 2), '#ffffff');
       }
     }));
     return { width: 32, height: 32, name: 'spells', layers: [{ name: 'FX' }],
-      states: [D('fireball', 10, true, fireballFrames), D('lightning', 10, true, boltFrames), D('ice_nova', 8, true, iceFrames), D('holy_shield', 8, true, auraFrames)] };
+      states: [D('fireball', 10, true, fireballFrames), D('lightning', 10, true, boltFrames), D('ice_nova', 8, true, iceFrames), D('holy_shield', 7, true, auraFrames)] };
   }
 
   return { coinSuite, consumablesSuite, weaponsSuite, fxSuite, heartsSuite, spellsSuite };

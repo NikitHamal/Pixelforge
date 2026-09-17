@@ -25,7 +25,6 @@ PF.RPG.beasts = (() => {
       const s = pose.step !== undefined ? Math.sin(pose.step * Math.PI * 2) : 0;
       const bob = pose.step !== undefined ? Math.round(-Math.abs(s) * (g.bobAmp ?? 1)) : (pose.bob || 0);
       const Y = y => y + bob;
-      P().shadowFlat(api, 16, 29, g.shadow);
       const sw = g.swing ?? 3, l1 = Math.round(s * sw), l2 = -l1;
       const lt = Y(g.legTop), lb = Y(g.legBot), lw = g.legW - 1;
       const L = g.legs;
@@ -43,10 +42,10 @@ PF.RPG.beasts = (() => {
       if (g.wool) { // sheep: bumpy fleece along the back
         for (let x = g.bodyL + 1; x < g.bodyR; x += 3) api.ellipse(x, Y(g.bodyTop - 1), x + 3, Y(g.bodyTop + 2), p.body, true);
       }
-      // tail
-      const t = g.tail, tw = t.w || 2;
-      api.line(t.x, Y(t.y), t.x + t.dx, Y(t.y + t.dy), p.shade, tw);
-      if (t.tip) api.px(t.x + t.dx, Y(t.y + t.dy), t.tip);
+      // tail — pose.tailDy flicks it without moving the feet
+      const t = g.tail, tw = t.w || 2, td = pose.tailDy || 0;
+      api.line(t.x, Y(t.y), t.x + t.dx, Y(t.y + t.dy + td), p.shade, tw);
+      if (t.tip) api.px(t.x + t.dx, Y(t.y + t.dy + td), t.tip);
       // near leg pair
       api.rect(L[0] + l1, lt, L[0] + l1 + lw, lb, p.leg);
       api.rect(L[2] + l2, lt, L[2] + l2 + lw, lb, p.leg);
@@ -122,7 +121,6 @@ PF.RPG.beasts = (() => {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H);
       const hop = pose.hop || 0, Y = y => y - hop;
-      P().shadowFlat(api, 16, 29, 6 - Math.round(hop / 2));
       const G = pose.flash ? '#ffffff' : '#63c74d', Dk = pose.flash ? '#e8e8e8' : '#3e8948', L = '#c9f27e';
       // haunches
       api.ellipse(7, Y(19), 15, Y(27), Dk, true);
@@ -132,27 +130,41 @@ PF.RPG.beasts = (() => {
       api.ellipse(10, Y(21), 22, Y(26), L, true);
       // webbed feet
       api.rect(5, Y(26), 12, Y(27), Dk); api.rect(20, Y(26), 27, Y(27), Dk);
-      // eyes: two big domes on top
+      // eyes: two big domes on top (blink closes them for the idle)
       api.ellipse(10, Y(10), 15, Y(15), G, true);
       api.ellipse(17, Y(10), 22, Y(15), G, true);
-      api.ellipse(11, Y(11), 14, Y(14), '#ffffff', true);
-      api.ellipse(18, Y(11), 21, Y(14), '#ffffff', true);
-      api.rect(12, Y(12), 13, Y(14), '#181425'); api.rect(19, Y(12), 20, Y(14), '#181425');
+      if (pose.blink) {
+        api.line(11, Y(13), 14, Y(13), '#181425', 1);
+        api.line(18, Y(13), 21, Y(13), '#181425', 1);
+      } else {
+        api.ellipse(11, Y(11), 14, Y(14), '#ffffff', true);
+        api.ellipse(18, Y(11), 21, Y(14), '#ffffff', true);
+        api.rect(12, Y(12), 13, Y(14), '#181425'); api.rect(19, Y(12), 20, Y(14), '#181425');
+      }
       // mouth
       api.line(11, Y(19), 21, Y(19), Dk, 1);
       api.px(16, Y(20), Dk);
+      // throat: a small pulse for the idle, a full sac for the croak
+      if (pose.throat) api.ellipse(13, Y(19), 19, Y(19 + pose.throat), '#f6757a', true);
       if (pose.croak) { api.ellipse(13, Y(17), 19, Y(21), '#f6757a', true); }
       finish(buf, W, H);
     };
   }
   function frogSuite() {
-    const walk = [0, 1, 2, 3].map(i => Fr(ms(9), frogFrame({ hop: [0, 2, 3, 1][i] })));
+    const walk = [0, 1, 2, 3].map(i => Fr(ms(8), frogFrame({ hop: [0, 2, 3, 1][i] })));
     return { width: 32, height: 32, name: 'rpg-frog', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [0, 1, 2, 1].map(i => Fr(ms(6), frogFrame({ hop: i === 1 ? 1 : 0 })))),
-      D('hop', 9, true, walk),
+      // Idle: throat pulse + a blink, feet planted. No hop — the frog is
+      // sitting, not bouncing.
+      D('idle', 5, true, [
+        Fr(ms(5), frogFrame({})),
+        Fr(ms(5), frogFrame({ throat: 2 })),
+        Fr(ms(5), frogFrame({ throat: 2, blink: true })),
+        Fr(ms(5), frogFrame({ throat: 1 }))
+      ]),
+      D('hop', 8, true, walk),
       D('croak', 5, true, [Fr(ms(5), frogFrame({})), Fr(ms(5), frogFrame({ croak: true })), Fr(ms(5), frogFrame({ croak: true, hop: 1 })), Fr(ms(5), frogFrame({ hop: 1 }))]),
       D('hurt', 10, true, [Fr(ms(10), frogFrame({ flash: true })), Fr(ms(10), frogFrame({ hop: 2 }))]),
-      D('death', 8, false, [Fr(ms(8), frogFrame({ flash: true })), Fr(ms(8), frogFrame({ hop: 1 })), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); P().shadowFlat(api, 16, 29, 7); api.ellipse(9, 23, 23, 27, '#3e8948', true); api.px(12, 24, '#181425'); finish(buf, W, H); })])
+      D('death', 8, false, [Fr(ms(8), frogFrame({ flash: true })), Fr(ms(8), frogFrame({ hop: 1 })), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.ellipse(9, 23, 23, 27, '#3e8948', true); api.px(12, 24, '#181425'); finish(buf, W, H); })])
     ] };
   }
 
@@ -161,7 +173,8 @@ PF.RPG.beasts = (() => {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), cx = 16 + (pose.dx || 0);
       const Y = y => y - (pose.hop || 0);
-      P().shadowFlat(api, cx, 29, 5);
+      // head/neck ride headDy so the idle bobs the head without lifting the feet
+      const HY = y => y - (pose.hop || 0) + (pose.headDy || 0);
       const B = pose.flash ? '#ffffff' : '#ead4aa', Dk = pose.flash ? '#e8e8e8' : '#c8b28a', Beak = '#feae34', Feet = '#f77622';
       // feet
       api.rect(cx - 3, Y(26), cx + 1, Y(27), Feet); api.rect(cx + 2, Y(26), cx + 6, Y(27), Feet);
@@ -171,27 +184,33 @@ PF.RPG.beasts = (() => {
       // folded wing
       api.ellipse(cx - 5, Y(18), cx + 2, Y(23), '#fff6c9', true);
       api.px(cx - 3, Y(21), Dk); api.px(cx - 1, Y(22), Dk);
-      // tail feathers
-      api.line(cx - 8, Y(19), cx - 11, Y(16), B, 2);
+      // tail feathers (tailUp flicks them for the idle)
+      api.line(cx - 8, Y(19), cx - 11, Y(16 - (pose.tailUp || 0)), B, 2);
       // neck + head
-      api.rect(cx + 2, Y(12), cx + 6, Y(18), B);
-      api.ellipse(cx + 2, Y(7), cx + 9, Y(15), B, true);
-      api.px(cx + 7, Y(10), '#181425');
+      api.rect(cx + 2, HY(12), cx + 6, Y(18), B);
+      api.ellipse(cx + 2, HY(7), cx + 9, HY(15), B, true);
+      api.px(cx + 7, HY(10), '#181425');
       // bill
-      api.rect(cx + 9, Y(11), cx + 12, Y(13), Beak);
-      api.px(cx + 12, Y(12), '#f77622');
+      api.rect(cx + 9, HY(11), cx + 12, HY(13), Beak);
+      api.px(cx + 12, HY(12), '#f77622');
       // drake plumage hint
-      if (pose.drake) { api.rect(cx + 3, Y(8), cx + 7, Y(10), '#3e8948'); }
+      if (pose.drake) { api.rect(cx + 3, HY(8), cx + 7, HY(10), '#3e8948'); }
       finish(buf, W, H);
     };
   }
   function duckSuite() {
     return { width: 32, height: 32, name: 'rpg-duck', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [0, 1, 2, 1].map(i => Fr(ms(6), duckFrame({ dx: i === 1 ? 1 : 0, hop: i === 2 ? 1 : 0 })))),
-      D('walk', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), duckFrame({ dx: [0, 1, 0, -1][i], hop: i % 2 })))),
-      D('swim', 5, true, [0, 1, 2, 3].map(i => Fr(ms(5), duckFrame({ dx: [0, 1, 0, -1][i] })))),
+      // Idle: head bob + tail flick, feet planted.
+      D('idle', 5, true, [
+        Fr(ms(5), duckFrame({})),
+        Fr(ms(5), duckFrame({ headDy: 1 })),
+        Fr(ms(5), duckFrame({ headDy: 1, tailUp: 1 })),
+        Fr(ms(5), duckFrame({ tailUp: 1 }))
+      ]),
+      D('walk', 7, true, [0, 1, 2, 3].map(i => Fr(ms(7), duckFrame({ dx: [0, 1, 0, -1][i], hop: i % 2 })))),
+      D('swim', 5, true, [0, 1, 2, 3].map(i => Fr(ms(5), duckFrame({ dx: [0, 1, 0, -1][i], headDy: i % 2 })))),
       D('hurt', 10, true, [Fr(ms(10), duckFrame({ flash: true })), Fr(ms(10), duckFrame({ hop: 2, dx: -1 }))]),
-      D('death', 8, false, [Fr(ms(8), duckFrame({ flash: true })), Fr(ms(8), duckFrame({ hop: 1 })), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); P().shadowFlat(api, 16, 29, 7); api.ellipse(8, 23, 24, 27, '#c8b28a', true); api.px(12, 24, '#181425'); finish(buf, W, H); })])
+      D('death', 8, false, [Fr(ms(8), duckFrame({ flash: true })), Fr(ms(8), duckFrame({ hop: 1 })), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.ellipse(8, 23, 24, 27, '#c8b28a', true); api.px(12, 24, '#181425'); finish(buf, W, H); })])
     ] };
   }
 
@@ -200,15 +219,18 @@ PF.RPG.beasts = (() => {
     const states = [];
     for (const key of Object.keys(A)) {
       const a = A[key], g = a.geo, p = a.pal;
-      const idle = [0, 1, 2, 1].map(i => Fr(ms(6), quad(g, p, { bob: i % 2 ? -1 : 0 })));
-      const walk = [0, 1, 2, 3].map(i => Fr(ms(8), quad(g, p, { step: i / 4 })));
+      // Idle: the head settles and the tail flicks. Nothing lifts the feet —
+      // a whole-body bob on a standing animal reads as hopping, not breathing.
+      const IDLE_H = [0, 1, 1, 0], IDLE_T = [0, -1, 1, 1];
+      const idle = [0, 1, 2, 3].map(i => Fr(ms(5), quad(g, p, { headDy: IDLE_H[i], tailDy: IDLE_T[i] })));
+      const walk = [0, 1, 2, 3].map(i => Fr(ms(6), quad(g, p, { step: i / 4 })));
       // head dips a few pixels only: a deeper dip would invert the neck rect
       // and merge the head into the torso. The last frame stays lifted-but-not-
       // level so the loop has no dead repeat against frame 0.
-      const graze = [0, 2, 3, 1].map(d => Fr(ms(7), quad(g, p, { headDy: d })));
-      states.push(D(key + '_idle', 6, true, idle));
-      states.push(D(key + '_walk', 8, true, walk));
-      states.push(D(key + '_graze', 7, true, graze));
+      const graze = [0, 2, 3, 1].map(d => Fr(ms(8), quad(g, p, { headDy: d })));
+      states.push(D(key + '_idle', 5, true, idle));
+      states.push(D(key + '_walk', 6, true, walk));
+      states.push(D(key + '_graze', 8, true, graze));
     }
     return { width: 32, height: 32, name: 'rpg-animals', layers: [{ name: 'Body' }], states };
   }
@@ -220,7 +242,6 @@ PF.RPG.beasts = (() => {
       const i = pose.i || 0;
       const bob = pose.bob !== undefined ? pose.bob : (i % 2 ? -2 : 0);
       const top = 6 + bob, bot = 26 + bob;
-      P().shadowFlat(api, 16, 29, 7);
       const Cloak = pose.flash ? '#ffffff' : '#3e2347', CloakD = pose.flash ? '#e8e8e8' : '#262b44', Trim = '#68386c';
       // cloak body: shoulders -> flaring hem
       api.rect(11, top, 20, top + 6, Cloak);
@@ -255,7 +276,7 @@ PF.RPG.beasts = (() => {
   }
   function wraithSuite() {
     return { width: 32, height: 32, name: 'rpg-wraith', layers: [{ name: 'Body' }], states: [
-      D('float', 6, true, [0, 1, 2, 3].map(i => Fr(ms(6), wraithFrame({ i, smoke: i === 3 })))),
+      D('float', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), wraithFrame({ i, smoke: i === 3 })))),
       D('cast', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), wraithFrame({ i, cast: i })))),
       D('lunge', 10, true, [Fr(ms(10), wraithFrame({ i: 0 })), Fr(ms(10), wraithFrame({ i: 1, bob: -4 })), Fr(ms(10), wraithFrame({ i: 2, bob: -1 })), Fr(ms(10), wraithFrame({ i: 3 }))]),
       D('hurt', 8, true, [Fr(ms(8), wraithFrame({ flash: true })), Fr(ms(8), wraithFrame({ i: 1 }))]),
@@ -275,49 +296,52 @@ PF.RPG.beasts = (() => {
   function gargoyleFrame(pose = {}) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      const crouch = pose.crouch || 0, Y = y => y + crouch;
-      P().shadowFlat(api, 16, 29, 8);
+      // crouch moves the whole statue (used when airborne); settle compresses
+      // only the torso/head/wings so the perched idle never sinks the feet.
+      const crouch = pose.crouch || 0, settle = pose.settle || 0;
+      const Y = y => y + crouch, BY = y => y + crouch + settle;
       const R1 = pose.flash ? '#ffffff' : '#8b9bb4', R2 = pose.flash ? '#e8e8e8' : '#5a6988', R3 = '#3a4466', Eye = '#ff0044';
       const flap = pose.flap || 0;
       // wings behind, folded (0) or spread (1)
       const wy = flap ? 6 : 14;
-      api.line(11, Y(14), 3, Y(wy), R3, 3); api.line(3, Y(wy), 1, Y(wy + 6), R3, 2);
-      api.line(21, Y(14), 29, Y(wy), R3, 3); api.line(29, Y(wy), 31, Y(wy + 6), R3, 2);
-      api.line(11, Y(15), 4, Y(wy + 2), R2, 1); api.line(21, Y(15), 28, Y(wy + 2), R2, 1);
-      // perched legs: bent, clawed
+      api.line(11, BY(14), 3, BY(wy), R3, 3); api.line(3, BY(wy), 1, BY(wy + 6), R3, 2);
+      api.line(21, BY(14), 29, BY(wy), R3, 3); api.line(29, BY(wy), 31, BY(wy + 6), R3, 2);
+      api.line(11, BY(15), 4, BY(wy + 2), R2, 1); api.line(21, BY(15), 28, BY(wy + 2), R2, 1);
+      // perched legs: bent, clawed — planted, so they ignore `settle`
       api.rect(9, Y(21), 13, Y(26), R2); api.rect(19, Y(21), 23, Y(26), R2);
       api.rect(7, Y(26), 13, Y(27), R3); api.rect(19, Y(26), 25, Y(27), R3);
       api.px(7, Y(27), R3); api.px(25, Y(27), R3);
       // torso
-      api.rect(9, Y(13), 22, Y(22), R1);
-      api.rect(19, Y(13), 22, Y(22), R2); api.rect(9, Y(13), 11, Y(22), R2);
-      api.line(14, Y(15), 16, Y(18), R3, 1); // crack
+      api.rect(9, BY(13), 22, BY(22), R1);
+      api.rect(19, BY(13), 22, BY(22), R2); api.rect(9, BY(13), 11, BY(22), R2);
+      api.line(14, BY(15), 16, BY(18), R3, 1); // crack
       // arms crossed in front
-      api.rect(7, Y(16), 10, Y(21), R2); api.rect(21, Y(16), 24, Y(21), R2);
+      api.rect(7, BY(16), 10, BY(21), R2); api.rect(21, BY(16), 24, BY(21), R2);
       // horned head
-      api.rect(12, Y(6), 19, Y(13), R1);
-      api.rect(17, Y(6), 19, Y(13), R2);
-      api.line(12, Y(7), 10, Y(3), R2, 2); api.line(19, Y(7), 21, Y(3), R2, 2); // horns
-      api.rect(13, Y(9), 15, Y(10), Eye); api.rect(17, Y(9), 18, Y(10), Eye);
-      api.rect(13, Y(6), 18, Y(7), R3); // brow
-      api.line(14, Y(12), 17, Y(12), R3, 1); // jaw
+      api.rect(12, BY(6), 19, BY(13), R1);
+      api.rect(17, BY(6), 19, BY(13), R2);
+      api.line(12, BY(7), 10, BY(3), R2, 2); api.line(19, BY(7), 21, BY(3), R2, 2); // horns
+      api.rect(13, BY(9), 15, BY(10), Eye); api.rect(17, BY(9), 18, BY(10), Eye);
+      api.rect(13, BY(6), 18, BY(7), R3); // brow
+      api.line(14, BY(12), 17, BY(12), R3, 1); // jaw
       // moss + weathering
-      api.px(10, Y(14), '#63c74d'); api.px(21, Y(20), '#3e8948'); api.px(13, Y(7), '#3e8948');
+      api.px(10, BY(14), '#63c74d'); api.px(21, BY(20), '#3e8948'); api.px(13, BY(7), '#3e8948');
       finish(buf, W, H);
       if (pose.fade) PF.RPG.fadeOut(buf, W, H, pose.fade, 7);
     };
   }
   function gargoyleSuite() {
     return { width: 32, height: 32, name: 'rpg-gargoyle', layers: [{ name: 'Body' }], states: [
-      D('perch', 5, true, [Fr(ms(5), gargoyleFrame({})), Fr(ms(5), gargoyleFrame({ crouch: 1 })), Fr(ms(5), gargoyleFrame({})), Fr(ms(5), gargoyleFrame({ crouch: 1, flap: 0 }))]),
-      D('swoop', 10, true, [Fr(ms(10), gargoyleFrame({ flap: 1, crouch: -3 })), Fr(ms(10), gargoyleFrame({ flap: 0, crouch: -5 })), Fr(ms(10), gargoyleFrame({ flap: 1, crouch: -3 })), Fr(ms(10), gargoyleFrame({ crouch: 0 }))]),
-      D('slam', 8, true, [Fr(ms(8), gargoyleFrame({ crouch: -4, flap: 1 })), Fr(ms(8), gargoyleFrame({ crouch: 2, flap: 0 })), Fr(ms(8), gargoyleFrame({ crouch: 1 })), Fr(ms(8), gargoyleFrame({}))]),
+      // Perch: the stone torso settles and the head dips; the claws stay put.
+      D('perch', 4, true, [0, 1, 2, 1].map(sv => Fr(ms(4), gargoyleFrame({ settle: sv })))),
+      D('swoop', 9, true, [Fr(ms(9), gargoyleFrame({ flap: 1, crouch: -3 })), Fr(ms(9), gargoyleFrame({ flap: 0, crouch: -5 })), Fr(ms(9), gargoyleFrame({ flap: 1, crouch: -3 })), Fr(ms(9), gargoyleFrame({ crouch: 0 }))]),
+      D('slam', 7, true, [Fr(ms(7), gargoyleFrame({ crouch: -4, flap: 1 })), Fr(ms(7), gargoyleFrame({ crouch: 2, flap: 0 })), Fr(ms(7), gargoyleFrame({ crouch: 1 })), Fr(ms(7), gargoyleFrame({}))]),
       D('hurt', 8, true, [Fr(ms(8), gargoyleFrame({ flash: true })), Fr(ms(8), gargoyleFrame({ crouch: 1 }))]),
       D('death', 6, false, [
         Fr(ms(6), gargoyleFrame({ flash: true })),
         Fr(ms(6), gargoyleFrame({ crouch: 3 })),
-        Fr(ms(6), (buf, W, H) => { const api = apiFor(buf, W, H); P().shadowFlat(api, 16, 29, 9); api.rect(6, 22, 13, 26, '#5a6988'); api.rect(15, 24, 21, 27, '#8b9bb4'); api.rect(23, 23, 27, 26, '#3a4466'); finish(buf, W, H); }),
-        Fr(ms(6), (buf, W, H) => { const api = apiFor(buf, W, H); P().shadowFlat(api, 16, 29, 9); api.rect(6, 25, 13, 27, '#5a6988'); api.rect(15, 26, 21, 27, '#8b9bb4'); api.rect(23, 25, 27, 27, '#3a4466'); finish(buf, W, H); })
+        Fr(ms(6), (buf, W, H) => { const api = apiFor(buf, W, H); api.rect(6, 22, 13, 26, '#5a6988'); api.rect(15, 24, 21, 27, '#8b9bb4'); api.rect(23, 23, 27, 26, '#3a4466'); finish(buf, W, H); }),
+        Fr(ms(6), (buf, W, H) => { const api = apiFor(buf, W, H); api.rect(6, 25, 13, 27, '#5a6988'); api.rect(15, 26, 21, 27, '#8b9bb4'); api.rect(23, 25, 27, 27, '#3a4466'); finish(buf, W, H); })
       ])
     ] };
   }
@@ -328,7 +352,6 @@ PF.RPG.beasts = (() => {
       const api = apiFor(buf, W, H);
       const i = pose.i || 0;
       const hop = pose.hop || 0, Y = y => y - hop;
-      P().shadowFlat(api, 16, 29, 5 - Math.round(hop / 2));
       const R = pose.flash ? '#ffffff' : '#e43b44', Dk = pose.flash ? '#e8e8e8' : '#a22633', Horn = '#ead4aa', Wing = '#5c1a1a';
       const flap = pose.flap || 0;
       // bat wings
@@ -365,7 +388,7 @@ PF.RPG.beasts = (() => {
   }
   function impSuite() {
     return { width: 32, height: 32, name: 'rpg-imp', layers: [{ name: 'Body' }], states: [
-      D('idle', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), impFrame({ i, flap: i % 2 })))),
+      D('idle', 6, true, [0, 1, 2, 3].map(i => Fr(ms(10), impFrame({ i, flap: i % 2 })))),
       D('dart', 12, true, [0, 1, 2, 3].map(i => Fr(ms(12), impFrame({ i, hop: [0, 3, 1, 0][i], flap: 1 })))),
       D('hex', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), impFrame({ i, flap: i % 2, spark: i >= 2 })))),
       D('hurt', 10, true, [Fr(ms(10), impFrame({ flash: true })), Fr(ms(10), impFrame({ i: 1, hop: 2 }))]),

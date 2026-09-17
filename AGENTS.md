@@ -266,8 +266,8 @@ These are enforced by `scripts/check-rpg.js`. Breaking them fails the gate.
 | 1 | **Determinism.** No `Math.random()`, no `Date.now()`, no locale/timezone dependence in templates. | The hub re-renders thumbnails and the pixel-regression harness depends on byte-stable output. Use `api.hash(x, y, seed)`. |
 | 2 | **`build()` is pure.** | Gallery/hub rendering must not mutate the open project. |
 | 3 | **Outline last.** Every frame's final act is a 1px `#181425` outline pass. | The house art style. Interiors are drawn first, outline traces the silhouette. |
-| 4 | **Ground contact at y=25..27, shadow at groundY=29.** | A clear row must separate feet from shadow or the outline pass fuses them into a blob. |
-| 5 | **Frames must differ.** Consecutive frames in a looping state must differ by ≥8 pixels. | Catches stalled animations. See §6.3 for the classic trap. |
+| 4 | **No baked drop shadows.** Ground contact sits at y=25..27 and the sprite stops there. | Shadows are the *engine's* job — games place them per entity so they can be scaled, tinted and faded independently of the art. `PF.Pixel.shadowFlat(api, cx, groundY, halfWidth)` is the helper for that; call it from game code, never from a template. |
+| 5 | **Frames must differ.** Consecutive frames in a looping state must differ by ≥8 pixels (≥4 for `*idle*`, which is intentionally subtle). | Catches stalled animations. See §6.3 for the classic trap. |
 | 6 | **No new runtime dependencies.** | The project runs from a static server with no toolchain. |
 | 7 | **Never touch `scripts/hashes-baseline.json` to make a test pass.** | It is the regression oracle. Re-baseline only for *intended* visual changes, and say so. |
 
@@ -278,8 +278,8 @@ These are enforced by `scripts/check-rpg.js`. Breaking them fails the gate.
 ### 6.1 Geometry
 
 - Sprites: **32×32**. Tilesheets: **64×64** (4×4 grid of 16px tiles).
-- Characters occupy roughly y=4..27, centred on x=16.
-- Shadow: `PF.Pixel.shadowFlat(api, cx, 29, halfWidth)`.
+- Characters occupy roughly y=4..27, centred on x=16, feet on y=25..27.
+- **No shadow in the sprite.** The engine draws it at runtime — see §5 rule 4.
 - Outline colour: `#181425` (`OUT` in most packs).
 - Palettes are 32-colour and come from `PF.Store.DEFAULT_PALETTE`.
 
@@ -299,7 +299,53 @@ Options: `weapon`, `shield`, `cast`, `sneak`, `garb` (cape/wings/tail), `head`
 `PF.Chars.sidePose(i, n, amp, pal, extra)` derive limb offsets from a sine phase.
 Pass `extra.bob` to override the vertical bob.
 
-### 6.3 Gait cycles — the sine trap
+### 6.3 Idle animations — breathe, don't bounce
+
+An idle must never move the feet. The original form was `bob = -(i % 2)` at 6fps:
+two poses lifting the *whole* body three times a second. On a 32×32 sprite that
+reads as hopping, not breathing, and it was the single most common complaint
+about the library.
+
+The house idle is a **4-frame breath at 4fps** (1s loop):
+
+```js
+const IDLE_HEAD = [0, 1, 1, 0];   // head settles into the shoulders
+const IDLE_ARM  = [0, 0, 1, 1];   // arms follow half a beat later
+cfg.headDy = IDLE_HEAD[i];
+cfg.armL = { dx: 0, dy: IDLE_ARM[i] };  // …and armR / armF / armB
+cfg.bob = 0;                            // never bob the whole body
+```
+
+Four *distinct* frames matter: `[0,1,1,0]` alone gives only two, so the arm
+channel is what keeps every consecutive pair different and the loop from
+hitching. For creatures that hover or fly (wraith, wisp, dragon, bat) a body bob
+is correct — they are not standing on anything.
+
+`headDy` is respected by the head **and by headgear** (hood, helm, crown, hat,
+beard, horns). If headgear ignores it the head slides out from under a static
+hood — which both looks wrong and drops the per-frame pixel delta below the
+gate threshold. Shoulder pads are the one exception; they follow the body.
+
+### 6.4 Playback timing
+
+Frame count and playback speed are separate decisions. Current house values:
+
+| Action | Frames | fps | Why |
+|---|---|---|---|
+| idle | 4 | 4 | settle/hold; a slow breath |
+| walk | 4 | 6 | 3 steps/sec — a brisk walk, not a jog |
+| run | 6 | 10 | 3.3 strides/sec |
+| attack | 5 | 10 | windup → strike → impact → recover |
+| cast | 4 | 7 | prepare → release → peak → recover |
+| hurt | 2 | 7 | a fast reaction flash |
+| death | 4 | 6 | loss of balance → fall → settle |
+
+`ms(fps) = round(1000/fps)`, so a **lower fps argument means a longer frame**.
+When you retime a state, change the `Fr(ms(n), …)` duration *and* the `fps`
+argument on the state — and change **every** frame in the state, not just the
+first. A state with mixed durations plays unevenly.
+
+### 6.5 Gait cycles — the sine trap
 
 `sin(i / n * 2π)` **repeats its magnitude on n/2 boundaries**. For a 6-frame
 cycle, frames 1 and 2 are identical and so are 4 and 5 — the animation visibly
@@ -316,7 +362,26 @@ const bob = Math.round(-Math.abs(Math.sin(a)) * 2 - Math.cos(a)); // 6 distinct 
 Note the gate only compares *consecutive* frames, so a 4-frame cycle can hide
 identical frames 0 and 2. Check first-vs-last yourself when authoring a new cycle.
 
-### 6.4 Animation state naming
+### 6.6 Capes — three facings, three different jobs
+
+A cape is not one shape pasted behind the body. The original implementation
+flanked the torso with a wide triangle on both sides, which reads as a skirt or
+a pair of wings.
+
+| Facing | Where the cape is | What you see | Drawn |
+|---|---|---|---|
+| `down` (front) | behind the body | shoulder line beside the head, outer edges past the arms, hem below the legs — **never flanking the torso** | `pre` (behind the body) |
+| `side` | trailing behind | a triangle with a pointed tip that kicks up on alternate stride frames | `pre` |
+| `up` (back) | between camera and body | the whole cape: collar, back panel, centre folds, hem, clasp | `post` (**over** the body) |
+
+The back view is the one people get wrong. Facing away, the cape covers the
+back — so `capeBack()` runs in the `post` hook, on top of the torso. Drawn
+behind the body it is invisible, which is why the up-facing used to look bare.
+
+Keep capes dark and give the character one bright accent (a clasp, a belt). A
+large saturated cape swamps a 32×32 silhouette.
+
+### 6.7 Animation state naming
 
 Consumers drive states by name, so keep the vocabulary consistent:
 
@@ -423,7 +488,7 @@ Runs, in order:
 | Step | Script | Passing means |
 |---|---|---|
 | Syntax | `node --check` on every `.js` | Everything parses |
-| Sprite quality | `scripts/check-rpg.js` | **0 fail**, warnings only for `LEGACY *` packs |
+| Sprite quality | `scripts/check-rpg.js` | **0 fail, 0 warnings** |
 | Pixel regression | `scripts/sprite-hash.js diff` | `0 changed, 0 removed` unless the change was intended |
 | Game wiring | `scripts/check-game.js` | Every sprite id, state name and DOM id the game names resolves |
 | Page integrity | `scripts/check-pages.js` | Every asset path resolves; every `$('#id')` has markup |
@@ -480,10 +545,15 @@ the record.
 - **A large, high-saturation cape swamps a 32x32 silhouette.** The ninja's first
   crimson cape read as a robed monk; a dark cloak plus one bright accent (the
   obi) reads correctly.
-- **Legacy warnings are expected.** `scripts/check-rpg.js` reports `LEGACY *`
-  warnings for packs that predate the gate (drake, wolf, boar, chicken, torch,
-  spells). These are known and should not be "fixed" opportunistically — they
-  would change shipped pixels.
+- **The gate is clean — keep it that way.** `scripts/check-rpg.js` reports 0
+  fail / 0 warnings across all 84 templates. It used to carry 32 `LEGACY *`
+  warnings (duplicate frames, loop hitches, floating sprites); those were real
+  animation defects and have all been fixed, not suppressed. A new warning is a
+  new defect.
+- **Shadows live in the engine.** `PF.Pixel.shadowFlat(api, cx, groundY, halfWidth)`
+  is still exported for game code (Runefall calls it via `drawShadow()`), but no
+  template may call it. If a sprite looks like it is floating, the fix is a
+  runtime shadow, not a baked one.
 
 ---
 

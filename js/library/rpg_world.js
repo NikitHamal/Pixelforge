@@ -132,7 +132,6 @@ PF.RPG.world = (() => {
     const S = (name, fps, painters) => D(name, fps, true, painters.map(p => Fr(ms(fps), p)));
     const cottage = (smoke) => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 11);
       // walls + timber
       api.rect(7, 15, 25, 28, '#ead4aa');
       api.rect(7, 15, 8, 28, '#fff6c9'); api.rect(24, 15, 25, 28, '#c28569');
@@ -155,7 +154,6 @@ PF.RPG.world = (() => {
     };
     const well = (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 8);
       api.rect(9, 7, 11, 22, '#733e39'); api.rect(21, 7, 23, 22, '#733e39');
       api.line(9, 7, 16, 3, '#a22633', 2); api.line(23, 7, 16, 3, '#a22633', 2);
       api.line(9, 7, 16, 4, '#e43b44', 1); api.line(23, 7, 16, 4, '#e43b44', 1);
@@ -170,7 +168,6 @@ PF.RPG.world = (() => {
     };
     const stall = (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 10);
       api.rect(6, 10, 8, 28, '#733e39'); api.rect(24, 10, 26, 28, '#733e39');
       for (let x = 5; x <= 27; x += 4) { api.rect(x, 6, x + 1, 10, (x / 4) % 2 ? '#e8ecf5' : '#a22633'); }
       api.rect(5, 5, 27, 6, '#733e39');
@@ -183,7 +180,6 @@ PF.RPG.world = (() => {
     };
     const signpost = (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 4);
       api.rect(15, 8, 17, 28, '#733e39'); api.rect(15, 8, 15, 28, '#b86f50');
       api.rect(6, 9, 15, 12, '#b86f50'); api.px(6, 10, '#733e39');
       api.rect(17, 13, 27, 16, '#b86f50'); api.px(27, 14, '#733e39');
@@ -192,7 +188,6 @@ PF.RPG.world = (() => {
     };
     const lamp = (flick) => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 4);
       api.rect(15, 12, 17, 28, '#3a4466'); api.rect(13, 27, 19, 28, '#262b44');
       api.rect(12, 5, 20, 12, '#262b44');
       api.rect(13, 6, 19, 11, flick ? '#fee761' : '#feae34');
@@ -203,7 +198,6 @@ PF.RPG.world = (() => {
     };
     const fountain = (i) => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 11);
       api.ellipse(5, 20, 27, 28, '#8b9bb4', true);
       api.ellipse(7, 21, 25, 27, '#5a6988', true);
       api.ellipse(9, 22, 23, 26, '#124e89', true);
@@ -237,7 +231,6 @@ PF.RPG.world = (() => {
     const S2 = (name, fps, a, b) => D(name, fps, true, [Fr(ms(fps), a), Fr(ms(fps), b)]);
     const pillar = (broken) => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 6);
       const top = broken ? 14 : 4;
       api.rect(9, 25, 23, 28, '#5a6988'); api.rect(9, 25, 23, 26, '#8b9bb4');
       api.rect(11, top, 21, 25, '#8b9bb4'); api.rect(11, top, 13, 25, '#c0cbdc'); api.rect(19, top, 21, 25, '#5a6988');
@@ -249,7 +242,6 @@ PF.RPG.world = (() => {
     };
     const altar = (lit) => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 9);
       api.rect(8, 24, 24, 28, '#5a6988'); api.rect(8, 24, 24, 25, '#8b9bb4');
       api.rect(10, 16, 22, 24, '#8b9bb4'); api.rect(10, 16, 12, 24, '#c0cbdc');
       api.rect(10, 16, 22, 17, '#3e2731');
@@ -264,7 +256,6 @@ PF.RPG.world = (() => {
     };
     const sarcophagus = (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 9);
       api.rect(8, 12, 24, 28, '#8b9bb4'); api.rect(8, 12, 10, 28, '#c0cbdc'); api.rect(22, 12, 24, 28, '#5a6988');
       api.rect(8, 12, 24, 14, '#c0cbdc');
       // carved face: brow + eyes + nose + mouth lines
@@ -277,7 +268,6 @@ PF.RPG.world = (() => {
     };
     const bones = (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 28, 10);
       api.ellipse(10, 22, 20, 27, '#ead4aa', false);
       [12, 14, 16, 18].forEach(x => api.line(x, 22, x, 27, '#ead4aa', 1));
       api.rect(21, 20, 25, 24, '#ead4aa'); api.px(22, 22, '#181425'); api.px(24, 22, '#181425');
@@ -306,7 +296,6 @@ PF.RPG.world = (() => {
     };
     const statue = (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 7);
       api.rect(10, 24, 22, 28, '#5a6988'); api.rect(10, 24, 22, 25, '#8b9bb4');
       api.rect(13, 14, 19, 24, '#8b9bb4'); api.rect(13, 14, 14, 24, '#c0cbdc');
       api.rect(12, 8, 20, 14, '#8b9bb4');
@@ -320,7 +309,6 @@ PF.RPG.world = (() => {
     };
     const shrooms = (glow) => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 9);
       const cap = glow ? '#2ce8f5' : '#0099db', stem = '#c0cbdc';
       [[10, 22, 3], [16, 20, 4], [23, 23, 3]].forEach(([x, y, r]) => {
         api.rect(x - 1, y - 3, x + 1, y, stem);
@@ -333,7 +321,6 @@ PF.RPG.world = (() => {
     };
     const throne = (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 9);
       api.rect(9, 4, 23, 22, '#733e39'); api.rect(9, 4, 11, 22, '#b86f50');
       api.rect(9, 4, 23, 6, '#b86f50');
       api.rect(12, 8, 20, 16, '#a22633'); api.rect(12, 8, 20, 9, '#e43b44');
@@ -361,7 +348,6 @@ PF.RPG.world = (() => {
   function savepointSuite() {
     const frame = (i, active) => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 8);
       // ground ring
       api.ellipse(8, 24, 24, 29, '#3a4466', false);
       if (active) { const r = 3 + i * 2; api.ellipse(16 - r, 26 - 1, 16 + r, 28 + 0, '#2ce8f5', false); }

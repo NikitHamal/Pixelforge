@@ -13,7 +13,6 @@ PF.Monsters = (() => {
   function slimeFrame(w, h, squash, blink, hurt) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), cx = 16, gy = 26;
-      PF.Pixel.shadowFlat(api, cx, 28, 6);
       // body ellipse: volume-preserving squash
       const bw = Math.round(w * (squash ? 1.18 : 1)), bh = Math.round(h * (squash ? 0.82 : 1));
       const x0 = cx - bw / 2, x1 = cx + bw / 2, y1 = gy, y0 = gy - bh;
@@ -34,8 +33,8 @@ PF.Monsters = (() => {
   }
   function slimeSuite() {
     return { width: 32, height: 32, name: 'slime', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [Fr(ms(6), slimeFrame(16, 12, false)), Fr(ms(6), slimeFrame(16, 12, true)), Fr(ms(6), slimeFrame(16, 11, false, true)), Fr(ms(6), slimeFrame(16, 12, true))]),
-      D('walk', 8, true, [Fr(ms(8), slimeFrame(15, 12, false)), Fr(ms(8), slimeFrame(17, 10, true)), Fr(ms(8), slimeFrame(15, 13, false)), Fr(ms(8), slimeFrame(17, 10, true))]),
+      D('idle', 5, true, [Fr(ms(5), slimeFrame(16, 12, false)), Fr(ms(5), slimeFrame(16, 12, true)), Fr(ms(5), slimeFrame(16, 11, false, true)), Fr(ms(5), slimeFrame(16, 12, true))]),
+      D('walk', 6, true, [Fr(ms(6), slimeFrame(15, 12, false)), Fr(ms(6), slimeFrame(17, 10, true)), Fr(ms(6), slimeFrame(15, 13, false)), Fr(ms(6), slimeFrame(17, 10, true))]),
       D('jump', 10, true, [Fr(ms(10), slimeFrame(14, 12, false)), Fr(ms(10), slimeFrame(13, 15, false)), Fr(ms(10), slimeFrame(14, 12, false)), Fr(ms(10), slimeFrame(17, 10, true))]),
       D('hurt', 8, true, [Fr(ms(8), slimeFrame(16, 12, false, false, true)), Fr(ms(8), slimeFrame(16, 11, true))]),
       D('death', 8, false, [Fr(ms(8), slimeFrame(16, 12, false, false, true)), Fr(ms(8), slimeFrame(18, 8, true)), Fr(ms(8), slimeFrame(20, 5, true)), Fr(ms(8), slimeFrame(22, 3, true))])
@@ -46,7 +45,6 @@ PF.Monsters = (() => {
   function batFrame(flap, hurt) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), cx = 16, cy = 14 + (flap === 1 ? -2 : 0);
-      PF.Pixel.shadowFlat(api, cx, 28, 4);
       const B = hurt ? '#ffffff' : '#5a6988', Wd = hurt ? '#e8e8e8' : '#3a4466';
       // wings: flap 0 = up, 1 = mid, 2 = down
       const wy = flap === 0 ? cy - 5 : flap === 2 ? cy + 1 : cy - 2;
@@ -71,9 +69,9 @@ PF.Monsters = (() => {
   }
   function batSuite() {
     return { width: 32, height: 32, name: 'bat', layers: [{ name: 'Body' }], states: [
-      D('fly', 12, true, [Fr(ms(12), batFrame(0)), Fr(ms(12), batFrame(1)), Fr(ms(12), batFrame(2)), Fr(ms(12), batFrame(1))]),
+      D('fly', 10, true, [Fr(ms(10), batFrame(0)), Fr(ms(10), batFrame(1)), Fr(ms(10), batFrame(2)), Fr(ms(10), batFrame(1))]),
       D('hurt', 8, true, [Fr(ms(8), batFrame(1, true)), Fr(ms(8), batFrame(2))]),
-      D('death', 8, false, [Fr(ms(8), batFrame(1, true)), Fr(ms(8), batFrame(2, true)), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); PF.Pixel.shadowFlat(api, 16, 28, 4); api.ellipse(12, 22, 20, 27, '#3a4466', true); finish(buf, W, H); })])
+      D('death', 8, false, [Fr(ms(8), batFrame(1, true)), Fr(ms(8), batFrame(2, true)), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.ellipse(12, 22, 20, 27, '#3a4466', true); finish(buf, W, H); })])
     ] };
   }
 
@@ -113,7 +111,7 @@ PF.Monsters = (() => {
   }
   function ghostSuite() {
     return { width: 32, height: 32, name: 'ghost', layers: [{ name: 'Body' }], states: [
-      D('float', 6, true, [0, 1, 2, 3].map(i => Fr(ms(6), ghostFrame(i / 4)))),
+      D('float', 5, true, [0, 1, 2, 3].map(i => Fr(ms(5), ghostFrame(i / 4)))),
       D('hurt', 8, true, [Fr(ms(8), ghostFrame(0, true)), Fr(ms(8), ghostFrame(0.25))]),
       D('vanish', 8, false, [0.2, 0.45, 0.7, 0.95].map(v => Fr(ms(8), ghostFrame(0, false, v))))
     ] };
@@ -123,7 +121,6 @@ PF.Monsters = (() => {
   function mushroomFrame(squash, step, hurt) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), cx = 16 + (step || 0), gy = 26;
-      PF.Pixel.shadowFlat(api, cx, 28, 6);
       const Cap = hurt ? '#ffffff' : '#e43b44', CapD = hurt ? '#ddd' : '#a22633', Spot = '#ffffff', Stem = '#ead4aa', StemD = '#c8b28a';
       const ch = squash ? 7 : 8;
       // stem
@@ -147,10 +144,10 @@ PF.Monsters = (() => {
   }
   function mushroomSuite() {
     return { width: 32, height: 32, name: 'mushroom', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [Fr(ms(6), mushroomFrame(false)), Fr(ms(6), mushroomFrame(true)), Fr(ms(6), mushroomFrame(false)), Fr(ms(6), mushroomFrame(true))]),
-      D('walk', 8, true, [Fr(ms(8), mushroomFrame(false, -1)), Fr(ms(8), mushroomFrame(true, 0)), Fr(ms(8), mushroomFrame(false, 1)), Fr(ms(8), mushroomFrame(true, 0))]),
+      D('idle', 4, true, [Fr(ms(4), mushroomFrame(false)), Fr(ms(4), mushroomFrame(true)), Fr(ms(4), mushroomFrame(false)), Fr(ms(4), mushroomFrame(true))]),
+      D('walk', 6, true, [Fr(ms(6), mushroomFrame(false, -1)), Fr(ms(6), mushroomFrame(true, 0)), Fr(ms(6), mushroomFrame(false, 1)), Fr(ms(6), mushroomFrame(true, 0))]),
       D('hurt', 8, true, [Fr(ms(8), mushroomFrame(false, 0, true)), Fr(ms(8), mushroomFrame(true))]),
-      D('death', 8, false, [Fr(ms(8), mushroomFrame(false, 0, true)), Fr(ms(8), mushroomFrame(true, 0, true)), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); PF.Pixel.shadowFlat(api, 16, 28, 6); api.ellipse(10, 22, 22, 26, '#a22633', true); finish(buf, W, H); })])
+      D('death', 8, false, [Fr(ms(8), mushroomFrame(false, 0, true)), Fr(ms(8), mushroomFrame(true, 0, true)), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.ellipse(10, 22, 22, 26, '#a22633', true); finish(buf, W, H); })])
     ] };
   }
 
@@ -159,7 +156,6 @@ PF.Monsters = (() => {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), cx = 16;
       const R1 = hurt ? '#ffffff' : '#8b9bb4', R2 = hurt ? '#e8e8e8' : '#5a6988', R3 = '#3a4466', Eye = '#2ce8f5';
-      PF.Pixel.shadowFlat(api, cx, 29, 8);
       const bob = pose.bob || 0, Y = y => y + bob;
       // legs: heavy blocks
       api.rect(10, Y(22 + (pose.legDy || 0)), 14, Y(27), R2); api.rect(17, Y(22 - (pose.legDy || 0)), 21, Y(27), R2);
@@ -189,13 +185,13 @@ PF.Monsters = (() => {
     };
   }
   function golemSuite() {
-    const walk = [0, 1, 2, 3].map(i => { const s = Math.sin((i / 4) * Math.PI * 2); return Fr(ms(8), golemFrame({ bob: Math.round(-Math.abs(s)), legDy: Math.round(s * 2), armDy: Math.round(-s * 2) })); });
+    const walk = [0, 1, 2, 3].map(i => { const s = Math.sin((i / 4) * Math.PI * 2); return Fr(ms(6), golemFrame({ bob: Math.round(-Math.abs(s)), legDy: Math.round(s * 2), armDy: Math.round(-s * 2) })); });
     return { width: 32, height: 32, name: 'golem', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [Fr(ms(6), golemFrame({})), Fr(ms(6), golemFrame({ bob: -1 })), Fr(ms(6), golemFrame({})), Fr(ms(6), golemFrame({ bob: -1 }))]),
-      D('walk', 8, true, walk),
-      D('attack', 10, true, [Fr(ms(10), golemFrame({ armDy: -4, armDx: -1 })), Fr(ms(10), golemFrame({ armDy: -1 })), Fr(ms(10), golemFrame({ armDy: 3, armDx: 2 })), Fr(ms(10), golemFrame({})), Fr(ms(10), golemFrame({ bob: -1 }))]),
+      D('idle', 4, true, [Fr(ms(4), golemFrame({})), Fr(ms(4), golemFrame({ bob: -1 })), Fr(ms(4), golemFrame({})), Fr(ms(4), golemFrame({ bob: -1 }))]),
+      D('walk', 6, true, walk),
+      D('attack', 8, true, [Fr(ms(8), golemFrame({ armDy: -4, armDx: -1 })), Fr(ms(8), golemFrame({ armDy: -1 })), Fr(ms(8), golemFrame({ armDy: 3, armDx: 2 })), Fr(ms(8), golemFrame({})), Fr(ms(8), golemFrame({ bob: -1 }))]),
       D('hurt', 8, true, [Fr(ms(8), golemFrame({}, true)), Fr(ms(8), golemFrame({}))]),
-      D('death', 8, false, [Fr(ms(8), golemFrame({}, true)), Fr(ms(8), golemFrame({ bob: 3 })), Fr(ms(8), golemFrame({ bob: 6 })), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); PF.Pixel.shadowFlat(api, 16, 28, 9); api.rect(6, 22, 12, 26, '#5a6988'); api.rect(14, 24, 20, 27, '#8b9bb4'); api.rect(22, 23, 27, 26, '#3a4466'); api.rect(15, 22, 17, 24, '#2ce8f5'); finish(buf, W, H); })])
+      D('death', 8, false, [Fr(ms(8), golemFrame({}, true)), Fr(ms(8), golemFrame({ bob: 3 })), Fr(ms(8), golemFrame({ bob: 6 })), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.rect(6, 22, 12, 26, '#5a6988'); api.rect(14, 24, 20, 27, '#8b9bb4'); api.rect(22, 23, 27, 26, '#3a4466'); api.rect(15, 22, 17, 24, '#2ce8f5'); finish(buf, W, H); })])
     ] };
   }
 
@@ -203,7 +199,6 @@ PF.Monsters = (() => {
   function chickenFrame(pose) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), cx = 16 + (pose.dx || 0);
-      PF.Pixel.shadowFlat(api, cx, 28, 4);
       const B = '#ffffff', Sh = '#c0cbdc', Comb = '#e43b44', Beak = '#feae34', Leg = '#feae34';
       const hop = pose.hop || 0, Y = y => y - hop;
       // legs
@@ -215,38 +210,39 @@ PF.Monsters = (() => {
       api.ellipse(cx - 5, Y(18 + (pose.wing || 0)), cx, Y(23 + (pose.wing || 0)), Sh, true);
       // tail
       api.line(cx - 6, Y(18), cx - 9, Y(15), B, 2);
-      // head
-      api.ellipse(cx + 1, Y(9), cx + 8, Y(17), B, true);
-      api.rect(cx + 3, Y(6), cx + 5, Y(9), Comb); api.px(cx + 6, Y(7), Comb);
-      api.px(cx + 5, Y(11), '#181425');
-      const peck = pose.peck ? 3 : 0;
+      // head — a peck drops the WHOLE head, not just the beak, otherwise the
+      // three peck frames are nearly identical
+      const peck = typeof pose.peck === 'number' ? pose.peck : (pose.peck ? 3 : 0);
+      api.ellipse(cx + 1, Y(9 + peck), cx + 8, Y(17 + peck), B, true);
+      api.rect(cx + 3, Y(6 + peck), cx + 5, Y(9 + peck), Comb); api.px(cx + 6, Y(7 + peck), Comb);
+      api.px(cx + 5, Y(11 + peck), '#181425');
       api.line(cx + 8, Y(13 + peck), cx + 11, Y(14 + peck), Beak, 2);
       finish(buf, W, H);
     };
   }
   function chickenSuite() {
     return { width: 32, height: 32, name: 'chicken', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [Fr(ms(6), chickenFrame({})), Fr(ms(6), chickenFrame({ wing: 1 }))]),
-      D('walk', 8, true, [Fr(ms(8), chickenFrame({ hop: 0 })), Fr(ms(8), chickenFrame({ hop: 1, lift: 2 })), Fr(ms(8), chickenFrame({ hop: 0 })), Fr(ms(8), chickenFrame({ hop: 1, lift: 2, dx: 1 }))]),
-      D('peck', 8, true, [Fr(ms(8), chickenFrame({})), Fr(ms(8), chickenFrame({ peck: true })), Fr(ms(8), chickenFrame({ peck: true }))]),
-      D('death', 8, false, [Fr(ms(8), chickenFrame({ hop: 0 })), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); PF.Pixel.shadowFlat(api, 16, 28, 5); api.ellipse(9, 21, 23, 27, '#c0cbdc', true); api.px(12, 23, '#181425'); finish(buf, W, H); })])
+      D('idle', 4, true, [Fr(ms(4), chickenFrame({})), Fr(ms(4), chickenFrame({ wing: 1 }))]),
+      D('walk', 6, true, [Fr(ms(6), chickenFrame({ hop: 0 })), Fr(ms(6), chickenFrame({ hop: 1, lift: 2 })), Fr(ms(6), chickenFrame({ hop: 0 })), Fr(ms(6), chickenFrame({ hop: 1, lift: 2, dx: 1 }))]),
+      D('peck', 6, true, [Fr(ms(6), chickenFrame({})), Fr(ms(6), chickenFrame({ peck: true })), Fr(ms(6), chickenFrame({ peck: 4, lift: 2 })), Fr(ms(6), chickenFrame({ wing: 1 }))]),
+      D('death', 8, false, [Fr(ms(8), chickenFrame({ hop: 0 })), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.ellipse(9, 21, 23, 27, '#c0cbdc', true); api.px(12, 23, '#181425'); finish(buf, W, H); })])
     ] };
   }
 
   /* ---------- WOLF ---------- */
-  function wolfFrame(gallop, hurt, lying) {
+  function wolfFrame(gallop, hurt, lying, extraBob) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), cx = 16;
       if (lying) {
-        PF.Pixel.shadowFlat(api, cx, 28, 8);
         api.ellipse(6, 20, 26, 27, hurt === 'dead' ? '#5a6988' : '#8b9bb4', true);
         api.ellipse(18, 16, 26, 23, hurt === 'dead' ? '#5a6988' : '#8b9bb4', true);
         api.px(21, 19, '#181425');
         finish(buf, W, H); return;
       }
       const F = hurt ? '#ffffff' : '#8b9bb4', Dk = hurt ? '#e8e8e8' : '#5a6988', belly = '#c0cbdc';
-      PF.Pixel.shadowFlat(api, cx, 28, 8);
-      const bY = gallop !== undefined ? Math.round(Math.sin(gallop * Math.PI * 2) * -1.5) : 0;
+      // extraBob carries the quarter-phase cosine that keeps a 6-frame gallop
+      // from repeating its magnitude on frames 1/2 and 4/5
+      const bY = (gallop !== undefined ? Math.round(Math.sin(gallop * Math.PI * 2) * -1.5) : 0) + (extraBob || 0);
       const legSwing = gallop !== undefined ? Math.sin(gallop * Math.PI * 2) : 0;
       const Y = y => y + bY;
       // legs (4)
@@ -274,9 +270,12 @@ PF.Monsters = (() => {
   }
   function wolfSuite() {
     return { width: 32, height: 32, name: 'wolf', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [0, 1, 2, 1].map(i => Fr(ms(6), wolfFrame(i / 4 === 0 ? 0 : undefined)))),
-      D('run', 12, true, [0, 1, 2, 3, 4, 5].map(i => Fr(ms(12), wolfFrame(i / 6)))),
-      D('attack', 12, true, [Fr(ms(12), wolfFrame(0.1)), Fr(ms(12), wolfFrame(0.3)), Fr(ms(12), wolfFrame(0.5))]),
+      D('idle', 4, true, [0, 0.06, 0, -0.06].map(g => Fr(ms(4), wolfFrame(g)))),
+      D('run', 10, true, [0, 1, 2, 3, 4, 5].map(i => {
+        const a = (i / 6) * Math.PI * 2;
+        return Fr(ms(10), wolfFrame(i / 6, false, false, Math.round(-Math.cos(a))));
+      })),
+      D('attack', 10, true, [Fr(ms(10), wolfFrame(0.1)), Fr(ms(12), wolfFrame(0.3)), Fr(ms(12), wolfFrame(0.5))]),
       D('hurt', 8, true, [Fr(ms(8), wolfFrame(undefined, true)), Fr(ms(8), wolfFrame(0))]),
       D('death', 8, false, [Fr(ms(8), wolfFrame(undefined, true)), Fr(ms(8), wolfFrame(undefined, false, true)), Fr(ms(8), wolfFrame(undefined, 'dead', true))])
     ] };
@@ -287,13 +286,11 @@ PF.Monsters = (() => {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), cx = 16;
       if (lying) {
-        PF.Pixel.shadowFlat(api, cx, 28, 8);
         api.ellipse(8, 20, 24, 27, '#733e39', true);
         api.px(22, 19, '#181425');
         api.px(24, 21, '#ffffff');
         finish(buf, W, H); return;
       }
-      PF.Pixel.shadowFlat(api, cx, 28, 8);
       const bY = step !== undefined ? Math.round(Math.sin(step * Math.PI * 2) * -1.5) : 0;
       const s = step !== undefined ? Math.sin(step * Math.PI * 2) : 0;
       const Y = y => y + bY;
@@ -321,28 +318,28 @@ PF.Monsters = (() => {
   }
   function boarSuite() {
     return { width: 32, height: 32, name: 'boar', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [0, 1, 2, 1].map(i => Fr(ms(6), boarFrame(i / 4 === 0 ? 0 : undefined)))),
-      D('trot', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), boarFrame(i / 4)))),
-      D('charge', 12, true, [0, 1, 2, 3].map(i => Fr(ms(12), boarFrame(i / 4, false, true)))),
+      D('idle', 4, true, [0, 0.06, 0, -0.06].map(g => Fr(ms(4), boarFrame(g)))),
+      D('trot', 6, true, [0, 1, 2, 3].map(i => Fr(ms(6), boarFrame(i / 4)))),
+      D('charge', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), boarFrame(i / 4, false, true)))),
       D('hurt', 8, true, [Fr(ms(8), boarFrame(undefined, true)), Fr(ms(8), boarFrame(0))]),
       D('death', 8, false, [Fr(ms(8), boarFrame(undefined, true)), Fr(ms(8), boarFrame(undefined, false, false, true))])
     ] };
   }
 
   /* ---------- DRAKE / BABY DRAGON ---------- */
-  function drakeFrame(flap, breath, hurt, sleep) {
+  function drakeFrame(flap, breath, hurt, sleep, zzIn) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), cx = 16;
       if (sleep) {
-        PF.Pixel.shadowFlat(api, cx, 28, 7);
-        api.ellipse(8, 18, 24, 27, '#a22633', true);
-        api.ellipse(10, 20, 22, 26, '#ffd34e', true);
+        // zz rises the Z so the sleep loop actually animates
+        const zz = zzIn || 0;
+        api.ellipse(8, 18 + (zz === 2 ? 1 : 0), 24, 27, '#a22633', true);
+        api.ellipse(10, 20 + (zz === 2 ? 1 : 0), 22, 26, '#ffd34e', true);
         api.px(21, 20, '#181425');
-        api.px(24, 14, '#f77622');
+        api.px(24, 14 - zz, '#f77622'); api.px(25, 14 - zz, '#f77622'); api.px(24, 15 - zz, '#f77622');
         finish(buf, W, H); return;
       }
       const cy = 15 + (flap === 1 ? -2 : 0);
-      PF.Pixel.shadowFlat(api, cx, 28, 5);
       const R = hurt ? '#ffffff' : '#e43b44', Dk = hurt ? '#e8e8e8' : '#a22633', belly = '#ffd34e', wing = '#f77622';
       api.ellipse(cx - 5, cy - 4, cx + 5, cy + 6, R, true);
       api.ellipse(cx - 2, cy - 1, cx + 4, cy + 5, belly, true);
@@ -369,11 +366,11 @@ PF.Monsters = (() => {
   }
   function drakeSuite() {
     return { width: 32, height: 32, name: 'drake', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [Fr(ms(6), drakeFrame(0)), Fr(ms(6), drakeFrame(1)), Fr(ms(6), drakeFrame(2)), Fr(ms(6), drakeFrame(1))]),
-      D('fly', 10, true, [Fr(ms(10), drakeFrame(0)), Fr(ms(10), drakeFrame(1)), Fr(ms(10), drakeFrame(2)), Fr(ms(10), drakeFrame(1))]),
-      D('fire_breath', 8, true, [Fr(ms(8), drakeFrame(1)), Fr(ms(8), drakeFrame(1, true)), Fr(ms(8), drakeFrame(1, true)), Fr(ms(8), drakeFrame(1))]),
+      D('idle', 5, true, [Fr(ms(5), drakeFrame(0)), Fr(ms(6), drakeFrame(1)), Fr(ms(6), drakeFrame(2)), Fr(ms(6), drakeFrame(1))]),
+      D('fly', 8, true, [Fr(ms(8), drakeFrame(0)), Fr(ms(10), drakeFrame(1)), Fr(ms(10), drakeFrame(2)), Fr(ms(10), drakeFrame(1))]),
+      D('fire_breath', 7, true, [Fr(ms(7), drakeFrame(1)), Fr(ms(7), drakeFrame(1, true)), Fr(ms(7), drakeFrame(2, true)), Fr(ms(7), drakeFrame(0))]),
       D('hurt', 8, true, [Fr(ms(8), drakeFrame(1, false, true)), Fr(ms(8), drakeFrame(1))]),
-      D('sleep', 4, true, [Fr(ms(4), drakeFrame(0, false, false, true)), Fr(ms(4), drakeFrame(0, false, false, true))])
+      D('sleep', 4, true, [0, 1, 2, 3].map(z => Fr(ms(4), drakeFrame(0, false, false, true, z))))
     ] };
   }
 

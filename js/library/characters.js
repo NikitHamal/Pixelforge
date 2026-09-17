@@ -37,7 +37,6 @@ PF.Chars = (() => {
   function drawHumanoid(api, buf, W, H, cfg) {
     const pal = cfg.pal, bob = cfg.bob || 0;
     if (cfg.lying) { drawLying(api, buf, W, H, cfg); return finish(buf, W, H, pal); }
-    P().shadowFlat(api, 16 + (cfg.kb || 0), 29, 7);
     const kb = cfg.kb || 0; // knockback x offset
     if ((cfg.facing || 'down') === 'side') drawSide(api, buf, W, H, { ...cfg, kb, bob });
     else drawFrontBack(api, buf, W, H, { ...cfg, kb, bob });
@@ -90,9 +89,11 @@ PF.Chars = (() => {
       api.rect(x + (left ? 2 : 0), y + 3, x + (left ? 2 : 0), y + 6, pal.skinSh);
       api.rect(x, y + 2, x + 2, y + 3, pal.shirtSh);
     }
-    // head
-    if (back) drawHeadBack(api, tx, Y(4), pal, cfg);
-    else drawHeadFront(api, tx, Y(4), pal, cfg);
+    // head — cfg.headDy sinks the head into the shoulders for a breathing
+    // idle without moving the feet (a whole-body bob reads as a hop)
+    const hy = Y(4) + (cfg.headDy || 0);
+    if (back) drawHeadBack(api, tx, hy, pal, cfg);
+    else drawHeadFront(api, tx, hy, pal, cfg);
   }
   function drawHeadFront(api, tx, hy, pal, cfg) {
     // tx = torso left (10+kb); head x = tx..tx+11
@@ -254,8 +255,9 @@ PF.Chars = (() => {
     api.rect(15 + kb + lF.dx, Y(22 + lF.dy), 17 + kb + lF.dx, Y(27 + lF.dy), pal.pants);
     api.rect(15 + kb + lF.dx, Y(26 + lF.dy), 17 + kb + lF.dx, Y(27 + lF.dy), pal.boots);
 
-    // 5. Head profile (positioned at tx - 1 = 11 + kb)
-    drawHeadSide(api, tx - 1, Y(4), pal, cfg);
+    // 5. Head profile (positioned at tx - 1 = 11 + kb). headDy sinks it for
+    //    the breathing idle without lifting the feet off the ground.
+    drawHeadSide(api, tx - 1, Y(4) + (cfg.headDy || 0), pal, cfg);
 
     // 6. Front arm (attached at front shoulder tx + 4)
     const adx = Math.max(-1, Math.min(3, aF.dx || 0)), ady = aF.dy || 0;
@@ -355,6 +357,9 @@ PF.Chars = (() => {
         api.px(hx + 8, hy - 6, '#fee761'); api.px(hx + 7, hy - 7, '#fee761');
       }
       else if (t.kind === 'box') { api.rect(hx - 2, hy - 1, hx + 2, hy + 3, '#b86f50'); api.rect(hx - 2, hy - 1, hx + 2, hy, '#733e39'); }
+      // glow was only wired into the front branch, so every side-view cast
+      // (hero cast, wizard cast_arcane) rendered four identical frames
+      if (t.glow !== undefined) P.particles(api, hx + 3, hy - 9, 7, t.glow, ['#fee761', '#ffffff', '#2ce8f5']);
       if (t.slash) P.slash(api, hx + 2, hy - 4, 9, t.slash[0], t.slash[1], '#ffffff', 2);
       if (t.sparks) P.sparks(api, t.sparks[0], t.sparks[1], t.seed || 0, '#fee761');
       if (t.dust) dust(api, t.dust);
@@ -391,7 +396,6 @@ PF.Chars = (() => {
   /* Lying pose for sleep / death */
   function drawLying(api, buf, W, H, cfg) {
     const pal = cfg.pal, dead = cfg.eye === 'dead';
-    P().shadowFlat(api, 16, 29, 9);
     const y = 21;
     // head (left)
     api.rect(3, y, 10, y + 7, dead && pal.skin ? '#c0cbdc' : pal.skin);
@@ -458,34 +462,46 @@ PF.Chars = (() => {
   function heroSuite(pal, label) {
     const states = [];
     // idle ×3 directions
+    // Idle: a slow breath. The head settles into the shoulders and the arms
+    // follow half a beat later; the feet never leave the ground. The old form
+    // (`bob = -(i % 2)` at 6fps) was two poses bouncing the whole body three
+    // times a second, which reads as hopping rather than breathing.
+    const IDLE_HEAD = [0, 1, 1, 0], IDLE_ARM = [0, 0, 1, 1];
     for (const [sname, facing] of [['idle_down', 'down'], ['idle_side', 'side'], ['idle_up', 'up']]) {
       const frames = [];
       for (let i = 0; i < 4; i++) {
-        const blink = i === 3, bob = -(i % 2);
+        const blink = i === 3, hd = IDLE_HEAD[i], ad = IDLE_ARM[i];
         const cfg = facing === 'side'
-          ? { pal, facing, bob, legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 }, eye: blink ? 'closed' : 'open' }
-          : { pal, facing, bob, legA: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armL: { dx: 0, dy: 0 }, armR: { dx: 0, dy: 0 }, eye: blink ? 'closed' : 'open' };
-        frames.push(Fr(ms(6), paintHero(cfg)));
+          ? { pal, facing, bob: 0, headDy: hd, legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: ad }, armB: { dx: 0, dy: ad }, eye: blink ? 'closed' : 'open' }
+          : { pal, facing, bob: 0, headDy: hd, legA: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armL: { dx: 0, dy: ad }, armR: { dx: 0, dy: ad }, eye: blink ? 'closed' : 'open' };
+        frames.push(Fr(ms(4), paintHero(cfg)));
       }
-      states.push(D(sname, 6, true, frames));
+      states.push(D(sname, 4, true, frames));
     }
     // walk ×3
     for (const [sname, facing] of [['walk_down', 'down'], ['walk_side', 'side'], ['walk_up', 'up']]) {
       const frames = [];
       for (let i = 0; i < 4; i++) {
         const cfg = facing === 'side' ? sidePose(i, 4, 2, pal) : frontPose(i, 4, 2, pal, facing);
-        frames.push(Fr(ms(8), paintHero(cfg)));
+        frames.push(Fr(ms(6), paintHero(cfg)));
       }
-      states.push(D(sname, 8, true, frames));
+      states.push(D(sname, 6, true, frames));
     }
     // run (side, 6f bigger swing + dust)
     {
       const frames = [];
       for (let i = 0; i < 6; i++) {
-        const cfg = sidePose(i, 6, 3, pal, { dust: i % 2 === 0 ? [[8, 28, '#c0cbdc'], [6, 27, '#8b9bb4']] : [] });
-        frames.push(Fr(ms(12), paintHero(cfg)));
+        // quarter-phase cosine on the bob: a plain 6-sample sine repeats its
+        // magnitude on frames 1/2 and 4/5, giving two static frames. The dust
+        // must also ride inside `tool` — drawTool returns early without one.
+        const a = (i / 6) * Math.PI * 2;
+        const cfg = sidePose(i, 6, 3, pal, {
+          bob: Math.round(-Math.abs(Math.sin(a)) * 2 - Math.cos(a)),
+          tool: { kind: 'none', dust: i % 3 === 0 ? [[8, 28, '#c0cbdc'], [6, 27, '#8b9bb4']] : null }
+        });
+        frames.push(Fr(ms(10), paintHero(cfg)));
       }
-      states.push(D('run_side', 12, true, frames));
+      states.push(D('run_side', 10, true, frames));
     }
     // sword attacks: side sweep + down sweep
     {
@@ -494,9 +510,9 @@ PF.Chars = (() => {
       for (let i = 0; i < 5; i++) {
         const cfg = sidePose(i, 5, 1, pal, { bob: i === 2 ? -1 : 0, tool: { kind: 'sword', angle: angles[i], slash: i === 2 ? [-0.6, 0.9] : null } });
         cfg.armF = { dx: 2, dy: -3 + i };
-        frames.push(Fr(ms(12), paintHero(cfg)));
+        frames.push(Fr(ms(10), paintHero(cfg)));
       }
-      states.push(D('attack_sword_side', 12, true, frames));
+      states.push(D('attack_sword_side', 10, true, frames));
     }
     {
       const frames = [];
@@ -504,9 +520,9 @@ PF.Chars = (() => {
       for (let i = 0; i < 5; i++) {
         const cfg = frontPose(i, 5, 1, pal, 'down', { tool: { kind: 'sword', angle: angles[i], slash: i === 2 ? [0.4, 2.6] : null } });
         cfg.armR = { dx: 1, dy: -2 + Math.round(i * 0.8) };
-        frames.push(Fr(ms(12), paintHero(cfg)));
+        frames.push(Fr(ms(10), paintHero(cfg)));
       }
-      states.push(D('attack_sword_down', 12, true, frames));
+      states.push(D('attack_sword_down', 10, true, frames));
     }
     // bow (side, 4f draw + release)
     {
@@ -515,9 +531,9 @@ PF.Chars = (() => {
       for (let i = 0; i < 4; i++) {
         const cfg = sidePose(0, 4, 0, pal, { bob: 0, tool: { kind: 'bow', pull: pulls[i], arrow: i !== 3 }, sparks: i === 3 ? [28, 14] : null, seed: 1 });
         cfg.armF = { dx: 2, dy: -1 };
-        frames.push(Fr(ms(10), paintHero(cfg)));
+        frames.push(Fr(ms(8), paintHero(cfg)));
       }
-      states.push(D('bow_side', 10, true, frames));
+      states.push(D('bow_side', 8, true, frames));
     }
     // pickaxe mining (side, 5f overhead → impact + sparks)
     {
@@ -526,9 +542,9 @@ PF.Chars = (() => {
       for (let i = 0; i < 5; i++) {
         const cfg = sidePose(i, 5, 1, pal, { tool: { kind: 'pickaxe', angle: angles[i], sparks: i === 3 ? [26, 27] : null, seed: i, dust: i === 3 ? [[24, 28, '#c28569'], [28, 28, '#8b9bb4'], [26, 26, '#fee761']] : [] } });
         cfg.armF = { dx: 1, dy: i < 2 ? -4 : (i === 3 ? 1 : -1) };
-        frames.push(Fr(ms(10), paintHero(cfg)));
+        frames.push(Fr(ms(8), paintHero(cfg)));
       }
-      states.push(D('mine_pickaxe', 10, true, frames));
+      states.push(D('mine_pickaxe', 8, true, frames));
     }
     // axe chop (front, 4f)
     {
@@ -537,9 +553,9 @@ PF.Chars = (() => {
       for (let i = 0; i < 4; i++) {
         const cfg = frontPose(i, 4, 1, pal, 'down', { tool: { kind: 'axe', angle: angles[i], sparks: i === 2 ? [16, 24] : null, seed: 2 } });
         cfg.armR = { dx: 0, dy: i < 2 ? -3 : 1 };
-        frames.push(Fr(ms(10), paintHero(cfg)));
+        frames.push(Fr(ms(8), paintHero(cfg)));
       }
-      states.push(D('chop_axe', 10, true, frames));
+      states.push(D('chop_axe', 8, true, frames));
     }
     // hurt (2f: white flash + knockback)
     states.push(D('hurt', 8, true, [
@@ -588,9 +604,9 @@ PF.Chars = (() => {
       for (let i = 0; i < 4; i++) {
         const cfg = sidePose(0, 4, 0, pal, { bob: i === 2 ? -1 : 0, tool: { kind: 'staff', glow: i / 4 }, eye: i === 2 ? 'closed' : 'open' });
         cfg.armF = { dx: 1, dy: -4 };
-        frames.push(Fr(ms(10), paintHero(cfg)));
+        frames.push(Fr(ms(8), paintHero(cfg)));
       }
-      states.push(D('cast', 10, true, frames));
+      states.push(D('cast', 8, true, frames));
     }
     // jump_side (4f: anticipatory crouch, spring upward, apex tuck, landing squash)
     {
@@ -609,16 +625,18 @@ PF.Chars = (() => {
         const dustPts = i < 2 ? [[8, 28, '#c0cbdc'], [6, 27, '#8b9bb4'], [10, 26, '#fee761']] : [];
         const cfg = sidePose(i, 4, 4, pal, { bob: 1, dust: dustPts });
         cfg.armF = { dx: 3, dy: -1 }; cfg.armB = { dx: -3, dy: -1 };
-        frames.push(Fr(ms(12), paintHero(cfg)));
+        frames.push(Fr(ms(10), paintHero(cfg)));
       }
       states.push(D('dash_side', 12, true, frames));
     }
     // shield_block (3f: side guard + impact sparks)
     {
+      // amp 0 makes all three sidePose calls identical, so the third frame
+      // must differ by the guard height or the loop visibly hitches
       const frames = [
         Fr(ms(8), paintHero(sidePose(0, 3, 0, pal, { tool: { kind: 'shield' }, armF: { dx: 2, dy: -1 } }))),
         Fr(ms(8), paintHero(sidePose(1, 3, 0, pal, { kb: -1, tool: { kind: 'shield', sparks: [24, 18], seed: 1 }, armF: { dx: 2, dy: -1 } }))),
-        Fr(ms(8), paintHero(sidePose(2, 3, 0, pal, { tool: { kind: 'shield' }, armF: { dx: 2, dy: -1 } })))
+        Fr(ms(8), paintHero(sidePose(2, 3, 0, pal, { tool: { kind: 'shield' }, armF: { dx: 2, dy: 0 } })))
       ];
       states.push(D('shield_block', 8, true, frames));
     }
@@ -640,10 +658,13 @@ PF.Chars = (() => {
     const N = c => (buf, W, H) => { const api = PF.Pixel.makeApi(buf, W, H); drawHumanoid(api, buf, W, H, c); };
     for (const [sname, facing] of [['idle_down', 'down'], ['idle_side', 'side'], ['walk_down', 'down'], ['walk_side', 'side']]) {
       const frames = [];
-      const n = 4, fps = sname.startsWith('idle') ? 6 : 8;
+      const n = 4, fps = sname.startsWith('idle') ? 4 : 6;
       for (let i = 0; i < n; i++) {
         const cfg = facing === 'side' ? sidePose(i, n, 2, pal) : frontPose(i, n, 2, pal, facing === 'walk_down' ? 'down' : facing);
-        if (sname.startsWith('idle')) { cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.bob = -(i % 2); cfg.eye = i === 3 ? 'closed' : 'open'; }
+        if (sname.startsWith('idle')) {
+          cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.legF = { dx: 0, dy: 0 };
+          cfg.headDy = [0, 1, 1, 0][i]; cfg.bob = 0; cfg.eye = i === 3 ? 'closed' : 'open';
+        }
         cfg.tool = { kind: 'staff' };
         frames.push(Fr(ms(fps), N(cfg)));
       }
@@ -699,16 +720,18 @@ PF.Chars = (() => {
     const N = c => (buf, W, H) => { const api = PF.Pixel.makeApi(buf, W, H); drawHumanoid(api, buf, W, H, c); };
     // All six facings: top-down games drive `walk_<facing>` for any direction,
     // and a missing up-facing used to silently fall back to idle_down.
-    for (const [sname, facing, n, fps] of [['idle_down', 'down', 4, 6], ['idle_side', 'side', 4, 6], ['idle_up', 'up', 4, 6],
-                                           ['walk_down', 'down', 4, 8], ['walk_side', 'side', 4, 8], ['walk_up', 'up', 4, 8]]) {
+    const IDLE_HEAD = [0, 1, 1, 0], IDLE_ARM = [0, 0, 1, 1];
+    for (const [sname, facing, n, fps] of [['idle_down', 'down', 4, 4], ['idle_side', 'side', 4, 4], ['idle_up', 'up', 4, 4],
+                                           ['walk_down', 'down', 4, 6], ['walk_side', 'side', 4, 6], ['walk_up', 'up', 4, 6]]) {
       const frames = [];
       for (let i = 0; i < n; i++) {
         const cfg = facing === 'side' ? sidePose(i, n, 2, pal) : frontPose(i, n, 2, pal, facing);
         if (sname.startsWith('idle')) {
           // zero every limb pair (front uses legA/armL/armR, side uses legF/armF/armB)
-          cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.armL = { dx: 0, dy: 0 }; cfg.armR = { dx: 0, dy: 0 };
-          cfg.legF = { dx: 0, dy: 0 }; cfg.armF = { dx: 0, dy: 0 }; cfg.armB = { dx: 0, dy: 0 };
-          cfg.bob = -(i % 2); cfg.eye = i === 3 ? 'closed' : 'open';
+          cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.legF = { dx: 0, dy: 0 };
+          cfg.armL = { dx: 0, dy: IDLE_ARM[i] }; cfg.armR = { dx: 0, dy: IDLE_ARM[i] };
+          cfg.armF = { dx: 0, dy: IDLE_ARM[i] }; cfg.armB = { dx: 0, dy: IDLE_ARM[i] };
+          cfg.headDy = IDLE_HEAD[i]; cfg.bob = 0; cfg.eye = i === 3 ? 'closed' : 'open';
         }
         frames.push(Fr(ms(fps), N(cfg)));
       }
@@ -720,7 +743,7 @@ PF.Chars = (() => {
       for (let i = 0; i < 5; i++) {
         const cfg = sidePose(i, 5, 1, pal, { tool: kind === 'archer' ? { kind: 'bow', pull: [0, 0.5, 1, 0.5, 0][i] } : { kind: 'sword', angle: angles[i], slash: i === 2 ? [-0.6, 0.9] : null } });
         cfg.armF = { dx: 2, dy: -2 };
-        frames.push(Fr(ms(12), N(cfg)));
+        frames.push(Fr(ms(10), N(cfg)));
       }
       states.push(D(kind === 'archer' ? 'bow_side' : 'attack_side', 12, true, frames));
     }

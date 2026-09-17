@@ -13,7 +13,7 @@ PF.RPG.expand = (() => {
   const apiFor = (buf, W, H) => P().makeApi(buf, W, H);
   const OUT32 = PF.Color.hexToU32('#181425'); // cached: one lookup, not one per frame
   const finish = (buf, W, H) => buf.set(PF.Raster.outline(buf, W, H, OUT32));
-  const item = painter => (buf, W, H) => { const api = apiFor(buf, W, H); P().shadowFlat(api, 16, 28, 7); painter(api); finish(buf, W, H); };
+  const item = painter => (buf, W, H) => { const api = apiFor(buf, W, H); painter(api); finish(buf, W, H); };
   const prop = painter => (buf, W, H) => { painter(apiFor(buf, W, H)); finish(buf, W, H); };
   const S1 = (name, painter, fps = 6) => D(name, fps, true, [Fr(ms(fps), painter)]);
 
@@ -64,7 +64,6 @@ PF.RPG.expand = (() => {
   /* ================= CAMPSITE ================= */
   function campsiteSuite() {
     const tent = i => prop((api) => {
-      P().shadowFlat(api, 16, 29, 12);
       const flap = i % 2 ? 1 : -1; // door flap swings
       api.line(16, 6, 5, 26, '#e4a672', 4); api.line(16, 6, 27, 26, '#c28569', 4);
       api.line(16, 6, 5, 26, '#fff6c9', 1);
@@ -78,7 +77,6 @@ PF.RPG.expand = (() => {
       api.px(8, 27, '#3e8948'); api.px(24, 27, '#3e8948');
     });
     const banner = i => prop((api) => {
-      P().shadowFlat(api, 16, 29, 4);
       const wv = i % 2 ? 1 : 0; // cloth wave
       api.rect(15, 3, 17, 28, '#5a6988'); api.rect(15, 3, 15, 28, '#8b9bb4');
       api.rect(15, 3, 26, 5, '#5a6988');
@@ -90,7 +88,6 @@ PF.RPG.expand = (() => {
       api.line(17, 20 + wv, 26, 20 + wv, '#5c1a1a', 1);
     });
     const anvil = prop((api) => {
-      P().shadowFlat(api, 16, 29, 8);
       api.rect(9, 22, 23, 28, '#733e39'); api.rect(9, 22, 10, 28, '#b86f50'); // stump
       api.ellipse(9, 21, 23, 23, '#b86f50', true);
       api.rect(8, 15, 22, 21, '#5a6988'); api.rect(8, 15, 22, 16, '#8b9bb4'); // anvil face
@@ -100,7 +97,6 @@ PF.RPG.expand = (() => {
       api.line(25, 22, 29, 12, '#b86f50', 2); api.rect(24, 9, 29, 12, '#8b9bb4'); // leaning hammer
     });
     const bedroll = prop((api) => {
-      P().shadowFlat(api, 16, 28, 11);
       api.ellipse(5, 22, 27, 28, '#3e2731', true); // ground mat
       api.ellipse(6, 23, 26, 27, '#5a6988', true);
       api.rect(6, 20, 20, 25, '#265c42'); api.rect(6, 20, 20, 21, '#3e8948'); // blanket roll
@@ -109,7 +105,6 @@ PF.RPG.expand = (() => {
       api.px(8, 19, '#c9f27e'); api.px(12, 19, '#c9f27e');
     });
     const cookpot = i => prop((api) => {
-      P().shadowFlat(api, 16, 29, 8);
       const fl = i % 2; // flame flicker
       api.ellipse(11, 20, 21, 24, '#5c1a1a', true); // fire bed
       api.ellipse(12 + fl, 18, 18 + fl, 22, '#f77622', true);
@@ -125,7 +120,6 @@ PF.RPG.expand = (() => {
       api.px(16, 7 - Math.floor(bph / 2), '#8b9bb4'); // steam
     });
     const crate = prop((api) => {
-      P().shadowFlat(api, 16, 28, 9);
       api.rect(8, 14, 24, 27, '#b86f50'); api.rect(8, 14, 10, 27, '#e4a672'); api.rect(22, 14, 24, 27, '#733e39');
       api.line(8, 14, 24, 27, '#733e39', 1); api.line(24, 14, 8, 27, '#733e39', 1); // cross brace
       api.rect(8, 19, 24, 21, '#8b9bb4'); api.rect(15, 14, 17, 27, '#8b9bb4'); // iron bands
@@ -274,7 +268,6 @@ PF.RPG.expand = (() => {
     };
     const grasp = i => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      P().shadowFlat(api, 16, 29, 10);
       api.line(6, 28, 26, 28, '#3e2731', 2); // cracked earth
       api.line(12, 28, 14, 26, '#181425', 1); api.line(19, 28, 18, 26, '#181425', 1);
       const h = [0, 8, 14, 10][i]; // rise -> grab -> recede

@@ -35,7 +35,6 @@ PF.RPG.foes = (() => {
   function dragonFrame(o = {}) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), i = o.i || 0, dy = o.dy || 0;
-      P().shadowFlat(api, 16, 29, 10);
       const Y = y => y + dy;
       // tail (behind): segments + spade
       api.line(8, Y(21), 2, Y(25), DBASE, 3);
@@ -98,7 +97,7 @@ PF.RPG.foes = (() => {
   }
   function dragonSuite() {
     return { width: 32, height: 32, name: 'rpg-dragon', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [0, 1, 2, 3].map(i => Fr(ms(6), dragonFrame({ i, dy: i % 2 ? -1 : 0, fold: true, smoke: i === 3 })))),
+      D('idle', 5, true, [0, 1, 2, 3].map(i => Fr(ms(5), dragonFrame({ i, dy: i % 2 ? -1 : 0, fold: true, smoke: i === 3 })))),
       D('fly', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), dragonFrame({ i, dy: [0, -2, -3, -1][i], flap: [1, 0, 2, 0][i] })))),
       D('fireball', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), dragonFrame({ i, fire: i, fold: true })))),
       D('hurt', 8, true, [Fr(ms(8), dragonFrame({ flash: true, fold: true })), Fr(ms(8), dragonFrame({ dy: 1, fold: true }))]),
@@ -146,9 +145,10 @@ PF.RPG.foes = (() => {
       const g = o.geo || GEO.giant, p = o.pal || SPIDER_PAL;
       // slim contact shadow; feet never pass y25 so one clear row always
       // separates them and the outline pass can't fuse legs + shadow
-      P().shadowFlat(api, 16, 29, g.shadowW);
-      const li = o.calm ? 0 : i; // idle: legs planted, only the body breathes
-      const lift = rear ? -3 : (i % 2 ? -1 : 0);
+      // Calm idle: the legs shuffle in place (li still follows i) but the body
+      // never lifts — a whole-body bob on a standing spider reads as hopping.
+      const li = i;
+      const lift = rear ? -3 : (o.calm ? 0 : (i % 2 ? -1 : 0));
       const Y = y => y + lift;
       // one leg: hip under the body -> knee bowing out -> foot planted below.
       // far legs first (dark, 1px higher = depth), near legs over the body.
@@ -200,8 +200,8 @@ PF.RPG.foes = (() => {
   }
   function spiderSuite() {
     return { width: 32, height: 32, name: 'rpg-spider', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [0, 1, 2, 3].map(i => Fr(ms(6), spiderFrame({ i, calm: true })))),
-      D('crawl', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), spiderFrame({ i })))),
+      D('idle', 5, true, [0, 1, 2, 3].map(i => Fr(ms(5), spiderFrame({ i, calm: true })))),
+      D('crawl', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), spiderFrame({ i })))),
       D('lunge', 12, true, [Fr(ms(12), spiderFrame({ rear: 0 })), Fr(ms(12), spiderFrame({ rear: 1 })), Fr(ms(12), spiderFrame({ rear: 0, i: 1 })), Fr(ms(12), spiderFrame({ rear: 1, i: 1 }))]),
       D('spit', 10, true, [
         Fr(120, spiderFrame({ i: 0, rear: 1 })),
@@ -218,8 +218,8 @@ PF.RPG.foes = (() => {
   function spiderlingSuite() {
     const F = o => spiderFrame({ ...o, geo: GEO.ling, pal: LING_PAL });
     return { width: 32, height: 32, name: 'rpg-spiderling', layers: [{ name: 'Body' }], states: [
-      D('idle', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), F({ i, calm: true })))),
-      D('crawl', 14, true, [0, 1, 2, 3].map(i => Fr(ms(14), F({ i })))),
+      D('idle', 6, true, [0, 1, 2, 3].map(i => Fr(ms(6), F({ i, calm: true })))),
+      D('crawl', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), F({ i })))),
       D('lunge', 14, true, [Fr(ms(14), F({})), Fr(ms(14), F({ rear: 1 })), Fr(ms(14), F({ i: 1 })), Fr(ms(14), F({ rear: 1, i: 1 }))]),
       D('hurt', 10, true, [Fr(ms(10), F({ flash: true })), Fr(ms(10), F({ i: 1 }))]),
       D('death', 8, false, [Fr(ms(8), F({ flash: true })), Fr(ms(8), F({ rear: 1 })), Fr(ms(8), F({ rear: 1, fade: 0.5 })), Fr(ms(8), F({ rear: 1, fade: 0.85 }))])
@@ -229,8 +229,8 @@ PF.RPG.foes = (() => {
   function spiderQueenSuite() {
     const F = o => spiderFrame({ ...o, geo: GEO.queen, pal: QUEEN_PAL });
     return { width: 32, height: 32, name: 'rpg-spider-queen', layers: [{ name: 'Body' }], states: [
-      D('idle', 5, true, [0, 1, 2, 3].map(i => Fr(ms(5), F({ i, calm: true })))),
-      D('crawl', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), F({ i })))),
+      D('idle', 4, true, [0, 1, 2, 3].map(i => Fr(ms(4), F({ i, calm: true })))),
+      D('crawl', 6, true, [0, 1, 2, 3].map(i => Fr(ms(6), F({ i })))),
       D('lunge', 10, true, [Fr(ms(10), F({})), Fr(ms(10), F({ rear: 1 })), Fr(ms(10), F({ i: 1 })), Fr(ms(10), F({ rear: 1, i: 1 }))]),
       D('spit', 8, true, [
         Fr(130, F({ i: 0, rear: 1 })),
@@ -253,7 +253,6 @@ PF.RPG.foes = (() => {
   function mimicFrame(o = {}) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), open = o.open || 0; // 0..3 lid lift
-      P().shadowFlat(api, 16, 29, 8);
       const wood = '#b86f50', woodD = '#733e39', woodL = '#e4a672', gold = '#fee761';
       const squash = o.squash || 0;
       const yB = 18 + squash; // body top
@@ -293,7 +292,7 @@ PF.RPG.foes = (() => {
   }
   function mimicSuite() {
     return { width: 32, height: 32, name: 'rpg-mimic', layers: [{ name: 'Body' }], states: [
-      D('idle', 5, true, [Fr(ms(5), mimicFrame({})), Fr(ms(5), mimicFrame({ open: 1 })), Fr(ms(5), mimicFrame({})), Fr(ms(5), mimicFrame({ open: 1, glint: true }))]),
+      D('idle', 4, true, [Fr(ms(4), mimicFrame({})), Fr(ms(4), mimicFrame({ open: 1 })), Fr(ms(4), mimicFrame({})), Fr(ms(4), mimicFrame({ open: 1, glint: true }))]),
       D('snap', 12, true, [Fr(130, mimicFrame({ open: 1 })), Fr(70, mimicFrame({ open: 2 })), Fr(70, mimicFrame({ open: 3 })), Fr(150, mimicFrame({ open: 0, squash: 1 }))]),
       D('hurt', 8, true, [Fr(ms(8), mimicFrame({ flash: true, open: 1 })), Fr(ms(8), mimicFrame({ open: 1 }))]),
       D('death', 6, false, [Fr(ms(6), mimicFrame({ flash: true })), Fr(ms(6), mimicFrame({ squash: 3, coins: true })), Fr(ms(6), mimicFrame({ squash: 3, coins: true, fade: 0.6 }))])
@@ -337,7 +336,7 @@ PF.RPG.foes = (() => {
       wispFrame({ i: 2, dx, stretch: true })(buf, W, H);
     };
     return { width: 32, height: 32, name: 'rpg-wisp', layers: [{ name: 'Body' }], states: [
-      D('idle', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), wispFrame({ i })))),
+      D('idle', 6, true, [0, 1, 2, 3].map(i => Fr(ms(6), wispFrame({ i })))),
       D('dash', 12, true, [Fr(ms(12), trail(-4)), Fr(ms(12), trail(0)), Fr(ms(12), trail(4)), Fr(ms(12), wispFrame({ i: 1, angry: true }))]),
       D('burst', 10, true, [Fr(ms(10), wispFrame({ angry: true })), Fr(ms(10), wispFrame({ flash: true, sparks: true })), Fr(ms(10), wispFrame({ i: 2, sparks: true })), Fr(ms(10), wispFrame({ i: 0 }))]),
       D('vanish', 8, false, [Fr(ms(8), wispFrame({})), Fr(ms(8), wispFrame({ i: 1, fade: 0.45 })), Fr(ms(8), wispFrame({ i: 2, fade: 0.8 }))])
@@ -351,7 +350,6 @@ PF.RPG.foes = (() => {
       const squash = o.squash || 0, air = o.air || 0;
       const cx = 16, baseY = 27 + air;
       const w = 11 + squash * 2, h = 9 - squash;
-      P().shadowFlat(api, cx, 29, 9 - air);
       const body = o.flash ? '#ffffff' : '#63c74d', dark = o.flash ? '#e8e8e8' : '#3e8948', lite = '#c9f27e';
       api.ellipse(cx - w, baseY - h * 2, cx + w, baseY, body, true);
       api.ellipse(cx - w, baseY - 4, cx + w, baseY, dark, true);
@@ -377,7 +375,7 @@ PF.RPG.foes = (() => {
   }
   function slimeKingSuite() {
     return { width: 32, height: 32, name: 'rpg-slime-king', layers: [{ name: 'Body' }], states: [
-      D('idle', 6, true, [Fr(ms(6), slimeKingFrame({})), Fr(ms(6), slimeKingFrame({ squash: 1 })), Fr(ms(6), slimeKingFrame({})), Fr(ms(6), slimeKingFrame({ squash: -1 }))]),
+      D('idle', 4, true, [Fr(ms(4), slimeKingFrame({})), Fr(ms(4), slimeKingFrame({ squash: 1 })), Fr(ms(4), slimeKingFrame({})), Fr(ms(4), slimeKingFrame({ squash: -1 }))]),
       D('hop', 10, true, [Fr(ms(10), slimeKingFrame({ squash: 1 })), Fr(ms(10), slimeKingFrame({ squash: -2, air: -4 })), Fr(ms(10), slimeKingFrame({ squash: -1, air: -2 })), Fr(ms(10), slimeKingFrame({}))]),
       D('slam', 10, true, [
         Fr(ms(10), slimeKingFrame({ squash: 1 })),
@@ -401,7 +399,6 @@ PF.RPG.foes = (() => {
       const api = apiFor(buf, W, H), i = o.i || 0;
       const sway = o.armsUp ? 0 : (i % 2 ? 1 : -1);
       const bob = o.bob || 0;
-      P().shadowFlat(api, 16, 29, 8);
       const bark = o.flash ? '#ffffff' : '#733e39', barkD = o.flash ? '#e8e8e8' : '#3e2731', moss = '#3e8948', leaf = o.flash ? '#ffffff' : '#3e8948', leafD = '#265c42';
       const Y = y => y + bob;
       // roots / feet
@@ -442,7 +439,7 @@ PF.RPG.foes = (() => {
   }
   function entSuite() {
     return { width: 32, height: 32, name: 'rpg-ent', layers: [{ name: 'Body' }], states: [
-      D('idle', 5, true, [0, 1, 2, 3].map(i => Fr(ms(5), entFrame({ i })))),
+      D('idle', 3, true, [0, 1, 2, 3].map(i => Fr(ms(3), entFrame({ i })))),
       D('stomp', 8, true, [Fr(ms(8), entFrame({ step: 0, bob: -1 })), Fr(ms(8), entFrame({ step: 1 })), Fr(ms(8), entFrame({ step: 1, bob: -1 })), Fr(ms(8), entFrame({ step: 0 }))]),
       D('slam', 10, true, [
         Fr(ms(10), entFrame({})),

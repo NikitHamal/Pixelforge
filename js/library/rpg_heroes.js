@@ -74,17 +74,17 @@ PF.RPG = (() => {
         api.rect(X(7), Y(13), X(8), Y(18), sh); // neck shade
         api.line(X(10), Y(14), X(6 - sw), Y(23 + kick), sh, 1); // fold
       } else {
-        // big triangle: narrow at the neck, wide pointed hem near the ground.
-        // shoulder caps peek over the torso; wrap edges (post) fold forward.
-        api.rect(X(8), Y(11), X(12), Y(14), c); api.rect(X(19), Y(11), X(23), Y(14), c);
-        api.rect(X(7), Y(13), X(10), Y(18), c); api.rect(X(21), Y(13), X(24), Y(18), c);
-        api.rect(X(5), Y(18), X(10), Y(23), c); api.rect(X(21), Y(18), X(26), Y(23), c);
-        api.rect(X(3 - sw), Y(23), X(10), Y(25), c); api.rect(X(21), Y(23), X(28 + sw), Y(25), c);
-        api.rect(X(3 - sw), Y(25), X(5 - sw), Y(27), c); api.rect(X(26 + sw), Y(25), X(28 + sw), Y(27), c);
-        // outer shade + fold lines + hem weight
-        api.rect(X(3 - sw), Y(18), X(4 - sw), Y(27), sh); api.rect(X(27 + sw), Y(18), X(28 + sw), Y(27), sh);
-        api.line(X(9), Y(14), X(6 - sw), Y(24), sh, 1); api.line(X(22), Y(14), X(25 + sw), Y(24), sh, 1);
-        api.rect(X(5 - sw), Y(25), X(10), Y(26), sh); api.rect(X(21), Y(25), X(26 + sw), Y(26), sh);
+        // FRONT view: the cape hangs BEHIND the body. All you may see is the
+        // shoulder line beside the head, the outer edges past the arms, and
+        // the hem below the legs. It must never flank the torso — a wide
+        // flanking shape reads as a skirt or a pair of wings, not a cloak.
+        api.rect(X(8), Y(11), X(23), Y(13), c);        // shoulder line
+        api.rect(X(8), Y(13), X(23), Y(25), c);        // body (hidden by torso/arms)
+        api.rect(X(9), Y(25), X(22), Y(27), c);        // hem
+        api.rect(X(8), Y(13), X(8), Y(24), sh);        // outer shade
+        api.rect(X(23), Y(13), X(23), Y(24), sh);
+        api.rect(X(9), Y(26), X(22), Y(27), sh);       // hem underside
+        api.rect(X(9), Y(11), X(10), Y(12), sh); api.rect(X(21), Y(11), X(22), Y(12), sh);
       }
     }
     if (o.wings) {
@@ -108,22 +108,36 @@ PF.RPG = (() => {
     }
   }
 
-  /* Cloak wrap edges: post-body strips folding forward over the torso sides,
-     so front views read as a wrapped cloak, not a backdrop slab. */
-  function wrap(api, cfg, o) {
-    if (!o.cape || cfg.facing === 'side' || cfg.lying) return;
+  /* Cloak seen from BEHIND. Facing away, the cape hangs between the viewer and
+     the body, so it is drawn in `post` — over the torso — and covers the back
+     from the collar to just above the boots. This is what makes the up-facing
+     read as a caped character rather than a bare back. */
+  function capeBack(api, cfg, o) {
+    if (!o.cape || cfg.facing !== 'up' || cfg.lying) return;
     const bob = cfg.bob || 0, kb = cfg.kb || 0;
     const Y = y => y + bob, X = x => x + kb;
     const c = o.cape, sh = o.capeSh || '#262b44';
-    api.rect(X(10), Y(14), X(11), Y(22), c); api.rect(X(20), Y(14), X(21), Y(22), c);
-    api.rect(X(10), Y(14), X(10), Y(22), sh); api.rect(X(21), Y(14), X(21), Y(22), sh);
+    api.rect(X(9), Y(11), X(22), Y(12), c);          // collar
+    api.rect(X(8), Y(12), X(23), Y(24), c);          // back panel
+    api.rect(X(9), Y(24), X(22), Y(25), c);          // taper to the hem
+    api.rect(X(8), Y(12), X(9), Y(25), sh);          // outer shade
+    api.rect(X(22), Y(12), X(23), Y(25), sh);
+    api.line(X(15), Y(13), X(15), Y(24), sh, 1);     // centre folds
+    api.line(X(16), Y(13), X(16), Y(24), sh, 1);
+    api.rect(X(9), Y(25), X(22), Y(25), sh);         // hem underside
+    api.px(X(12), Y(11), o.capeClasp || '#feae34');  // clasp
+    api.px(X(19), Y(11), o.capeClasp || '#feae34');
   }
 
   /* Headgear overlays: crown / hood / helm / beard / skull / circlet / ears / horns. */
   function headgear(api, cfg, o) {
     if (!o) return;
-    const bob = cfg.bob || 0, kb = cfg.kb || 0, side = cfg.facing === 'side';
-    const Y = y => y + bob, X = x => x + kb;
+    const bob = cfg.bob || 0, kb = cfg.kb || 0, hd = cfg.headDy || 0, side = cfg.facing === 'side';
+    // Everything here is worn ON the head, so it rides headDy. Without this the
+    // head slides out from under a static hood/helm during the breathing idle,
+    // which both looks wrong and makes the idle change almost no pixels.
+    // Shoulder pads are the one exception — they follow the body (BY).
+    const Y = y => y + bob + hd, BY = y => y + bob, X = x => x + kb;
     if (o.hood) {
       const c = o.hood, sh = o.hoodSh || '#193c3e';
       if (side) {
@@ -218,11 +232,11 @@ PF.RPG = (() => {
     }
     if (o.pads) {
       const c = o.pads, sh = o.padsSh || '#5a6988';
-      if (side) { api.rect(X(11), Y(13), X(15), Y(15), c); api.rect(X(11), Y(15), X(15), Y(15), sh); }
+      if (side) { api.rect(X(11), BY(13), X(15), BY(15), c); api.rect(X(11), BY(15), X(15), BY(15), sh); }
       else {
-        api.rect(X(9), Y(13), X(12), Y(15), c); api.rect(X(19), Y(13), X(22), Y(15), c);
-        api.rect(X(9), Y(15), X(12), Y(15), sh); api.rect(X(19), Y(15), X(22), Y(15), sh);
-        api.px(X(10), Y(13), '#ffffff'); api.px(X(20), Y(13), '#ffffff');
+        api.rect(X(9), BY(13), X(12), BY(15), c); api.rect(X(19), BY(13), X(22), BY(15), c);
+        api.rect(X(9), BY(15), X(12), BY(15), sh); api.rect(X(19), BY(15), X(22), BY(15), sh);
+        api.px(X(10), BY(13), '#ffffff'); api.px(X(20), BY(13), '#ffffff');
       }
     }
   }
@@ -233,17 +247,25 @@ PF.RPG = (() => {
     const FP = PF.Chars.frontPose, SP = PF.Chars.sidePose;
     // garb runs BEFORE the body (behind it); headgear runs after the outline.
     const pre = (o.garb && (o.garb.cape || o.garb.wings || o.garb.tail)) ? (api, cfg, fi) => garb(api, cfg, o.garb, fi || 0) : null;
-    const post = (api, cfg, fi) => { if (o.garb) wrap(api, cfg, o.garb); if (o.head) headgear(api, cfg, o.head); if (o.post) o.post(api, cfg, fi); };
+    const post = (api, cfg, fi) => { if (o.garb) capeBack(api, cfg, o.garb); if (o.head) headgear(api, cfg, o.head); if (o.post) o.post(api, cfg, fi); };
+    // Idle: four DISTINCT frames of a slow breath. The head settles into the
+    // shoulders and the arms follow half a beat later; nothing leaves the
+    // ground. The old form was `bob = -(i % 2)` at 6fps, i.e. two poses
+    // bouncing the whole body (feet included) three times a second - which
+    // reads as hopping, not breathing.
+    const IDLE_HEAD = [0, 1, 1, 0], IDLE_ARM = [0, 0, 1, 1];
     for (const [sname, facing] of [['idle_down', 'down'], ['idle_side', 'side'], ['idle_up', 'up']]) {
       const frames = [];
       for (let i = 0; i < 4; i++) {
         const cfg = facing === 'side' ? SP(i, 4, 0, pal) : FP(i, 4, 0, pal, facing);
-        cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.armL = { dx: 0, dy: 0 }; cfg.armR = { dx: 0, dy: 0 };
-        cfg.legF = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.armF = { dx: 0, dy: 0 }; cfg.armB = { dx: 0, dy: 0 };
-        cfg.bob = -(i % 2); cfg.eye = i === 3 ? 'closed' : 'open';
-        frames.push(Fr(ms(6), N(cfg, { pre, post }, i)));
+        const hd = IDLE_HEAD[i], ad = IDLE_ARM[i];
+        cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.legF = { dx: 0, dy: 0 };
+        cfg.armL = { dx: 0, dy: ad }; cfg.armR = { dx: 0, dy: ad };
+        cfg.armF = { dx: 0, dy: ad }; cfg.armB = { dx: 0, dy: ad };
+        cfg.headDy = hd; cfg.bob = 0; cfg.eye = i === 3 ? 'closed' : 'open';
+        frames.push(Fr(ms(4), N(cfg, { pre, post }, i)));
       }
-      states.push(D(sname, 6, true, frames));
+      states.push(D(sname, 4, true, frames));
     }
     const amp = o.sneak ? 3 : 2;
     for (const [sname, facing] of [['walk_down', 'down'], ['walk_side', 'side'], ['walk_up', 'up']]) {
@@ -251,9 +273,9 @@ PF.RPG = (() => {
       for (let i = 0; i < 4; i++) {
         const cfg = facing === 'side' ? SP(i, 4, amp, pal) : FP(i, 4, amp, pal, facing);
         if (o.sneak) cfg.bob = -1;
-        frames.push(Fr(ms(8), N(cfg, { pre, post }, i)));
+        frames.push(Fr(ms(6), N(cfg, { pre, post }, i)));
       }
-      states.push(D(sname, 8, true, frames));
+      states.push(D(sname, 6, true, frames));
     }
     // run x3 — six-frame cycle at a wider stride than the walk, so a sprint
     // reads as a distinct gear. Side view kicks up dust at the footfalls.
@@ -270,32 +292,32 @@ PF.RPG = (() => {
           ? SP(i, 6, 3, pal, { bob, tool: { kind: 'none', dust: i % 3 === 0 ? [[6, 28, '#c0cbdc'], [9, 27, '#8b9bb4']] : null } })
           : FP(i, 6, 3, pal, facing, { bob });
         if (o.sneak) cfg.bob -= 1; // crouched sprint, keeps the per-frame delta
-        frames.push(Fr(ms(12), N(cfg, { pre, post }, i)));
+        frames.push(Fr(ms(10), N(cfg, { pre, post }, i)));
       }
-      states.push(D(sname, 12, true, frames));
+      states.push(D(sname, 10, true, frames));
     }
     // attack (side)
     {
       const frames = [];
       if (o.weapon === 'bow') {
         // draw-hold-release: smooth pull ramp, arrow gone + string snapped on the loose frame
-        const pulls = [0, 0.45, 0.85, 1, 0.1], bowDur = [110, 90, 90, 80, 130];
+        const pulls = [0, 0.45, 0.85, 1, 0.1], bowDur = [145, 120, 120, 105, 170];
         for (let i = 0; i < 5; i++) {
           const cfg = SP(i, 5, 1, pal, { tool: { kind: 'bow', pull: pulls[i], arrow: i < 4 } });
           cfg.armF = { dx: 2, dy: -2 };
           frames.push(Fr(bowDur[i], N(cfg, { pre, post }, i)));
         }
-        states.push(D('bow_side', 12, true, frames));
+        states.push(D('bow_side', 10, true, frames));
       } else {
         // windup hold -> fast cut with slash arc + follow-through -> recover
-        const angles = [-2.2, -1.5, 0.1, 0.8, 0.3], atkDur = [150, 70, 70, 90, 120];
+        const angles = [-2.2, -1.5, 0.1, 0.8, 0.3], atkDur = [195, 95, 95, 120, 155];
         for (let i = 0; i < 5; i++) {
           const cfg = SP(i, 5, 1, pal, { tool: { kind: o.weapon || 'sword', angle: angles[i],
             slash: i === 2 ? [-0.6, 0.9] : (i === 3 ? [-0.2, 0.6] : null) } });
           cfg.armF = { dx: 2, dy: -2 };
           frames.push(Fr(atkDur[i], N(cfg, { pre, post }, i)));
         }
-        states.push(D('attack_side', 12, true, frames));
+        states.push(D('attack_side', 10, true, frames));
       }
     }
     // Omni attacks: the same windup / cut / recover beat, but played on the
@@ -303,7 +325,7 @@ PF.RPG = (() => {
     for (const [sname, facing] of [['attack_down', 'down'], ['attack_up', 'up']]) {
       const frames = [];
       if (o.weapon === 'bow') {
-        const pulls = [0, 0.45, 0.85, 1, 0.1], dur = [110, 90, 90, 80, 130];
+        const pulls = [0, 0.45, 0.85, 1, 0.1], dur = [145, 120, 120, 105, 170];
         const arms = [{ dx: 0, dy: -2 }, { dx: 1, dy: -3 }, { dx: 2, dy: -4 }, { dx: 0, dy: -1 }, { dx: 0, dy: -2 }];
         for (let i = 0; i < 5; i++) {
           const cfg = FP(i, 5, 1, pal, facing, { tool: { kind: 'bow', pull: pulls[i], arrow: i < 4 } });
@@ -311,7 +333,7 @@ PF.RPG = (() => {
           frames.push(Fr(dur[i], N(cfg, { pre, post }, i)));
         }
       } else {
-        const angles = [-2.2, -1.5, 0.1, 0.8, 0.3], dur = [150, 70, 70, 90, 120];
+        const angles = [-2.2, -1.5, 0.1, 0.8, 0.3], dur = [195, 95, 95, 120, 155];
         for (let i = 0; i < 5; i++) {
           const cfg = FP(i, 5, 1, pal, facing, { tool: { kind: o.weapon || 'sword', angle: angles[i],
             slash: i === 2 ? [0.5, 2.7] : (i === 3 ? [-0.2, 0.6] : null) } });
@@ -319,7 +341,7 @@ PF.RPG = (() => {
           frames.push(Fr(dur[i], N(cfg, { pre, post }, i)));
         }
       }
-      states.push(D(sname, 12, true, frames));
+      states.push(D(sname, 10, true, frames));
     }
     if (o.shield) {
       const frames = [];
@@ -327,44 +349,44 @@ PF.RPG = (() => {
       for (let i = 0; i < 4; i++) {
         const cfg = FP(i, 4, 0, pal, 'down', { tool: { kind: 'shield' }, bob: bobs[i], eye: 'open' });
         cfg.armL = { dx: 1, dy: -2 };
-        frames.push(Fr(ms(10), N(cfg, { pre, post }, i)));
+        frames.push(Fr(ms(8), N(cfg, { pre, post }, i)));
       }
-      states.push(D('block', 10, true, frames));
+      states.push(D('block', 8, true, frames));
     }
     if (o.cast) {
       const frames = [];
       for (let i = 0; i < 4; i++) {
         const cfg = FP(i, 4, 0, pal, 'down', { tool: { kind: 'staff' }, bob: i === 2 ? -1 : 0, eye: i === 3 ? 'closed' : 'open' });
         cfg.armR = { dx: 1, dy: -4 };
-        frames.push(Fr(ms(8), N(cfg, { pre, post: (api, c, fi) => {
+        frames.push(Fr(ms(7), N(cfg, { pre, post: (api, c, fi) => {
           post(api, c, fi);
           P().particles(api, 16 + (c.kb || 0), 11 + (c.bob || 0), 7, fi / 4, o.castColors || ['#fee761', '#ffffff', '#2ce8f5']);
         } }, i)));
       }
-      states.push(D('cast', 8, true, frames));
+      states.push(D('cast', 7, true, frames));
       // side-view cast: same radiant beat, for side-scrolling casters
       const sideFrames = [];
       for (let i = 0; i < 4; i++) {
         const cfg = SP(i, 4, 0, pal, { bob: i === 2 ? -1 : 0, eye: i === 3 ? 'closed' : 'open' });
         cfg.armF = { dx: 2, dy: -4 };
         cfg.tool = { kind: 'staff' };
-        sideFrames.push(Fr(ms(8), N(cfg, { pre, post: (api, c, fi) => {
+        sideFrames.push(Fr(ms(7), N(cfg, { pre, post: (api, c, fi) => {
           post(api, c, fi);
           P().particles(api, 24 + (c.kb || 0), 10 + (c.bob || 0), 7, fi / 4, o.castColors || ['#fee761', '#ffffff', '#2ce8f5']);
         } }, i)));
       }
-      states.push(D('cast_side', 8, true, sideFrames));
+      states.push(D('cast_side', 7, true, sideFrames));
     }
     // hurt (2f) + death (4f, lying + dither fade)
-    states.push(D('hurt', 8, true, [
-      Fr(ms(8), N({ pal, facing: 'side', bob: 0, kb: 2, eye: 'hurt', mouth: 'open', flash: true, legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post })),
-      Fr(ms(8), N({ pal, facing: 'side', bob: 0, kb: 1, eye: 'hurt', legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post }))
+    states.push(D('hurt', 7, true, [
+      Fr(ms(7), N({ pal, facing: 'side', bob: 0, kb: 2, eye: 'hurt', mouth: 'open', flash: true, legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post })),
+      Fr(ms(7), N({ pal, facing: 'side', bob: 0, kb: 1, eye: 'hurt', legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post }))
     ]));
-    states.push(D('death', 8, false, [
-      Fr(ms(8), N({ pal, facing: 'side', bob: 0, kb: 1, eye: 'dead', legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post })),
-      Fr(ms(8), N({ pal, lying: true, eye: 'dead' }, { fade: 0 })),
-      Fr(ms(8), N({ pal, lying: true, eye: 'dead' }, { fade: 0.45, seed: 3 })),
-      Fr(ms(8), N({ pal, lying: true, eye: 'dead' }, { fade: 0.8, seed: 7 }))
+    states.push(D('death', 6, false, [
+      Fr(ms(6), N({ pal, facing: 'side', bob: 0, kb: 1, eye: 'dead', legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post })),
+      Fr(ms(6), N({ pal, lying: true, eye: 'dead' }, { fade: 0 })),
+      Fr(ms(6), N({ pal, lying: true, eye: 'dead' }, { fade: 0.45, seed: 3 })),
+      Fr(ms(6), N({ pal, lying: true, eye: 'dead' }, { fade: 0.8, seed: 7 }))
     ]));
     return { width: 32, height: 32, name: label, layers: [{ name: 'Body' }], states };
   }
@@ -402,24 +424,26 @@ PF.RPG = (() => {
     const mk = (pal, head, tool, garbCfg) => {
       const frames = [];
       const pre = garbCfg ? (api, c, fi) => garb(api, c, garbCfg, fi || 0) : null;
+      const HEAD = [0, 1, 1, 0], ARM = [0, 0, 1, 1];
       for (let i = 0; i < 4; i++) {
         const cfg = FP(i, 4, 0, pal, 'down', tool ? { tool } : {});
-        cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.armL = { dx: 0, dy: 0 }; cfg.armR = { dx: 0, dy: 0 };
-        cfg.bob = -(i % 2); cfg.eye = i === 3 ? 'closed' : 'open';
-        frames.push(Fr(ms(6), N(cfg, { pre, post: (api, c) => { if (garbCfg) wrap(api, c, garbCfg); headgear(api, c, head); } }, i)));
+        cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 };
+        cfg.armL = { dx: 0, dy: ARM[i] }; cfg.armR = { dx: 0, dy: ARM[i] };
+        cfg.headDy = HEAD[i]; cfg.bob = 0; cfg.eye = i === 3 ? 'closed' : 'open';
+        frames.push(Fr(ms(4), N(cfg, { pre, post: (api, c) => { if (garbCfg) capeBack(api, c, garbCfg); headgear(api, c, head); } }, i)));
       }
       return frames;
     };
     return { width: 32, height: 32, name: 'rpg-townsfolk', layers: [{ name: 'Body' }], states: [
-      D('king', 6, true, mk(KING, { crown: '#fee761', crownSh: '#feae34', gem: '#ff0044', beard: '#c0cbdc', beardSh: '#8b9bb4' }, null, { cape: '#a22633', capeSh: '#5c1a1a' })),
-      D('guard', 6, true, mk(GUARD, { helm: '#8b9bb4', helmSh: '#5a6988', helmHi: '#e6ebf7' })),
-      D('blacksmith', 6, true, mk(SMITH, null)),
-      D('elder', 6, true, mk(ELDER, { beard: '#e8ecf5', beardSh: '#8b9bb4', beardLong: true }, { kind: 'staff' })),
-      D('peasant', 6, true, mk(PEASANT, null, { kind: 'box' })),
-      D('peasant_cook', 6, true, mk({ ...PEASANT, shirt: '#a22633', shirtSh: '#5c1a1a', shirtHi: '#f6757a' }, null, { kind: 'food' }))
+      D('king', 4, true, mk(KING, { crown: '#fee761', crownSh: '#feae34', gem: '#ff0044', beard: '#c0cbdc', beardSh: '#8b9bb4' }, null, { cape: '#a22633', capeSh: '#5c1a1a', capeClasp: '#fee761' })),
+      D('guard', 4, true, mk(GUARD, { helm: '#8b9bb4', helmSh: '#5a6988', helmHi: '#e6ebf7' })),
+      D('blacksmith', 4, true, mk(SMITH, null)),
+      D('elder', 4, true, mk(ELDER, { beard: '#e8ecf5', beardSh: '#8b9bb4', beardLong: true }, { kind: 'staff' })),
+      D('peasant', 4, true, mk(PEASANT, null, { kind: 'box' })),
+      D('peasant_cook', 4, true, mk({ ...PEASANT, shirt: '#a22633', shirtSh: '#5c1a1a', shirtHi: '#f6757a' }, null, { kind: 'food' }))
     ] };
   }
 
   return { humanoidSuite, knightSuite, rangerSuite, clericSuite, rogueSuite, townsfolkSuite,
-    N, garb, headgear, fadeOut, PAL: { KNIGHT, RANGER, CLERIC, ROGUE, KING, GUARD, SMITH, ELDER, PEASANT, GOBLIN, NECRO, DEMON } };
+    N, garb, capeBack, headgear, fadeOut, PAL: { KNIGHT, RANGER, CLERIC, ROGUE, KING, GUARD, SMITH, ELDER, PEASANT, GOBLIN, NECRO, DEMON } };
 })();

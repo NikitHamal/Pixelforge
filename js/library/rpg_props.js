@@ -15,7 +15,7 @@ PF.RPG.props = (() => {
   const S1 = (name, painter, fps = 6) => D(name, fps, true, [Fr(ms(fps), painter)]);
   // props sit on the floor: shadow at groundY=29, feet never past y27
   const prop = painter => (buf, W, H) => { painter(apiFor(buf, W, H)); finish(buf, W, H); };
-  const grounded = painter => (buf, W, H) => { const api = apiFor(buf, W, H); P().shadowFlat(api, 16, 29, 7); painter(api); finish(buf, W, H); };
+  const grounded = painter => (buf, W, H) => { const api = apiFor(buf, W, H); painter(api); finish(buf, W, H); };
 
   /* ================= TRAPS ================= */
   function trapsSuite() {
@@ -167,7 +167,6 @@ PF.RPG.props = (() => {
       api.rect(9, 26, 11, 27, woodD); api.rect(20, 26, 22, 27, woodD);
     });
     const bed = prop(api => {
-      P().shadowFlat(api, 16, 29, 12);
       api.rect(2, 8, 7, 27, wood); api.rect(2, 8, 7, 9, woodL); // headboard
       api.rect(3, 10, 6, 12, woodD);
       api.rect(8, 14, 29, 24, '#e8ecf5'); // mattress
