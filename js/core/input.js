@@ -1,7 +1,7 @@
 /* PixelForge Studio — Pointer input & interactive tools (mouse, touch, pen; pinch-zoom; symmetry) */
 window.PF = window.PF || {};
 PF.Input = (() => {
-  const TOOLS = ['pencil', 'eraser', 'fill', 'line', 'rect', 'ellipse', 'picker', 'move', 'pan', 'shade'];
+  const TOOLS = ['pencil', 'eraser', 'fill', 'line', 'rect', 'ellipse', 'picker', 'move', 'pan', 'shade', 'select'];
   const opt = { tool: 'pencil', size: 1, shapeFill: false, mirrorX: false, mirrorY: false, contiguous: true, spaceHeld: false };
   const pointers = new Map();
   let active = null, panning = null, pinch = null, canvas;
@@ -11,16 +11,19 @@ PF.Input = (() => {
     el.addEventListener('pointerdown', down);
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
+    el.addEventListener('pointercancel', cancel);
     el.addEventListener('pointerleave', () => { if (!active) PF.Renderer.setHover(null); });
     el.addEventListener('wheel', wheel, { passive: false });
     el.addEventListener('contextmenu', e => e.preventDefault());
     window.addEventListener('keydown', e => { if (e.code === 'Space' && !isTyping(e)) { opt.spaceHeld = true; e.preventDefault(); } });
     window.addEventListener('keyup', e => { if (e.code === 'Space') opt.spaceHeld = false; });
+    window.addEventListener('blur', cancel);
   }
-  const isTyping = e => /INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.isContentEditable;
+  const isTyping = e => /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(e.target.tagName) || e.target.isContentEditable || !!e.target.closest?.('dialog[open]');
 
   function down(e) {
+    if (opt.tool === 'select' && !opt.spaceHeld) return;
+    PF.Anim.pause();
     canvas.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) { // second finger → pinch, cancel current stroke
@@ -57,7 +60,8 @@ PF.Input = (() => {
     PF.Renderer.setHover(pt, ['pencil', 'eraser', 'line', 'rect', 'ellipse'].includes(opt.tool) ? opt.size : 1);
     if (active && e.pointerId === active.id) {
       // coalesce events for smooth fast strokes
-      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+      const coalesced = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+      const evs = coalesced.length ? coalesced : [e];
       for (const ce of evs) apply(PF.Renderer.toPixel(ce.clientX, ce.clientY), false);
     }
   }
@@ -105,9 +109,10 @@ PF.Input = (() => {
   }
 
   /* Public API */
-  const setTool = t => { if (!TOOLS.includes(t)) return false; opt.tool = t; PF.Store.emit('tool', opt); return true; };
+  function cancel() { if (active) PF.Store.cancelStroke(); active = null; panning = null; pinch = null; pointers.clear(); opt.spaceHeld = false; }
+  const setTool = t => { if (!TOOLS.includes(t)) return false; cancel(); opt.tool = t; PF.Store.emit('tool', opt); return true; };
   const setOption = (k, v) => { opt[k] = v; PF.Store.emit('tool', opt); };
   const setSize = n => setOption('size', Math.max(1, Math.min(32, Math.round(n))));
   const get = () => opt;
-  return { init, setTool, setOption, setSize, get, TOOLS };
+  return { init, setTool, setOption, setSize, get, cancel, TOOLS };
 })();

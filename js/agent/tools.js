@@ -3,7 +3,7 @@
 window.PF = window.PF || {};
 PF.Tools = (() => {
   const registry = new Map();
-  const num = (d, extra = {}) => ({ type: 'integer', description: d, ...extra });
+  const num = (d, extra = {}) => ({ type: 'integer', description: d, minimum: -1024, maximum: 1024, ...extra });
   const str = (d, extra = {}) => ({ type: 'string', description: d, ...extra });
   const bool = d => ({ type: 'boolean', description: d });
   const color = d => str(d || 'Hex color like #ff0044, #ff004480 (alpha) or "transparent"', { pattern: '^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|transparent)$' });
@@ -15,7 +15,9 @@ PF.Tools = (() => {
   const doc = () => S().get();
   const layerIdx = i => { const d = doc(); const idx = i === undefined ? d.activeLayer : i; if (!d.layers[idx]) throw new Error(`Layer ${idx} not found`); return idx; };
   const withLayer = (args, fn) => { const d = doc(); const li = layerIdx(args.layer); if (d.layers[li].locked) throw new Error('Layer is locked');
-    if (args.frame !== undefined) S().setActive({ frame: args.frame }); const arr = S().beginStroke(d.layers[li].id); const r = fn(arr, d.width, d.height); S().endStroke(); return r ?? { ok: true }; };
+    if (args.frame !== undefined) S().setActive({ frame: args.frame }); const arr = S().beginStroke(d.layers[li].id);
+    try { const result = fn(arr, d.width, d.height); S().endStroke(); return result ?? { ok: true }; }
+    catch (error) { S().cancelStroke(); throw error; } };
   const cur = args => args.color === undefined ? C().hexToU32(doc().color) : C().hexToU32(args.color);
   const shape = { fill: bool('Fill the shape'), size: num('Stroke size in px (default 1)', { minimum: 1, maximum: 32 }), layer: num('Layer index (default active)'), frame: num('Frame index (default active)'), mirror_x: bool('Mirror horizontally'), mirror_y: bool('Mirror vertically') };
 
@@ -86,7 +88,7 @@ PF.Tools = (() => {
   register('add_frame', 'Add a frame after the active one (duplicate by default).', obj({ duplicate: bool('Copy current frame pixels (default true)'), at: num('Insert after this index') }), a => ({ frame: S().addFrame({ duplicate: a.duplicate !== false, at: a.at }) }), ['anim']);
   register('remove_frame', 'Remove a frame.', obj({ index: num('Frame index') }, ['index']), a => ({ removed: S().removeFrame(a.index) }), ['anim']);
   register('move_frame', 'Move a frame left (-1) or right (+1).', obj({ index: num('Frame index'), direction: num('-1 or 1') }, ['index', 'direction']), a => { S().moveFrame(a.index, a.direction); return { frame: doc().activeFrame }; }, ['anim']);
-  register('set_frame_duration', 'Set a frame duration in ms.', obj({ index: num('Frame index'), ms: num('Duration in ms') }, ['index', 'ms']), a => { S().setFrameDuration(a.index, a.ms); return { ok: true }; }, ['anim']);
+  register('set_frame_duration', 'Set a frame duration in ms.', obj({ index: num('Frame index'), ms: num('Duration in ms', {minimum:10,maximum:60000}) }, ['index', 'ms']), a => { S().setFrameDuration(a.index, a.ms); return { ok: true }; }, ['anim']);
   register('play', 'Play the active (or given) state.', obj({ state: num('State index') }), a => { if (a.state !== undefined) S().setActive({ state: a.state }); PF.Anim.play(); return { playing: true }; }, ['anim']);
   register('pause', 'Pause playback.', obj({}), () => { PF.Anim.pause(); return { playing: false }; }, ['anim']);
 
@@ -110,18 +112,36 @@ PF.Tools = (() => {
 
   /* ---------- Dispatcher ---------- */
   const list = () => [...registry.values()].map(({ name, description, schema, tags }) => ({ name, description, inputSchema: schema, tags }));
-  function validate(t, args) {
-    for (const k of t.schema.required || []) if (args[k] === undefined) throw new Error(`Missing required argument "${k}"`);
-    for (const k in args) { const p = t.schema.properties[k]; if (!p) throw new Error(`Unknown argument "${k}". Allowed: ${Object.keys(t.schema.properties).join(', ')}`);
-      if (p.type === 'integer' && typeof args[k] !== 'number') { const n = Number(args[k]); if (Number.isNaN(n)) throw new Error(`"${k}" must be a number`); args[k] = Math.round(n); }
-      if (p.type === 'boolean' && typeof args[k] !== 'boolean') args[k] = args[k] === 'true' || args[k] === true || args[k] === 1;
-      if (p.enum && !p.enum.includes(args[k])) throw new Error(`"${k}" must be one of ${p.enum.join(', ')}`); }
+  function validateValue(schema, value, path = 'arguments', depth = 0) {
+    if (depth > 12) throw new Error('Arguments are nested too deeply.');
+    if (schema.type === 'object') {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${path} must be an object.`);
+      for (const name of schema.required || []) if (value[name] === undefined) throw new Error(`Missing ${path}.${name}`);
+      for (const [name, child] of Object.entries(value)) {
+        if (['__proto__','constructor','prototype'].includes(name)) throw new Error('Unsafe argument key.');
+        const property = schema.properties?.[name];
+        if (property) validateValue(property, child, `${path}.${name}`, depth + 1);
+        else if (schema.additionalProperties === false) throw new Error(`Unknown argument ${path}.${name}`);
+        else if (typeof schema.additionalProperties === 'object') validateValue(schema.additionalProperties, child, `${path}.${name}`, depth + 1);
+      }
+    } else if (schema.type === 'array') {
+      if (!Array.isArray(value) || value.length > (schema.maxItems || 65536)) throw new Error(`${path} must be an array within the size limit.`);
+      if (schema.items) value.forEach((child, index) => validateValue(schema.items, child, `${path}[${index}]`, depth + 1));
+    } else if (schema.type === 'integer' || schema.type === 'number') {
+      if (typeof value !== 'number' || !Number.isFinite(value) || (schema.type === 'integer' && !Number.isInteger(value))) throw new Error(`${path} must be a finite ${schema.type}.`);
+      if ((schema.minimum !== undefined && value < schema.minimum) || (schema.maximum !== undefined && value > schema.maximum)) throw new Error(`${path} is outside its allowed range.`);
+    } else if (schema.type === 'string') {
+      if (typeof value !== 'string' || value.length > (schema.maxLength || 96 * 1024 * 1024)) throw new Error(`${path} must be a string within the size limit.`);
+      if (schema.pattern && !new RegExp(schema.pattern).test(value)) throw new Error(`${path} has an invalid format.`);
+    } else if (schema.type === 'boolean' && typeof value !== 'boolean') throw new Error(`${path} must be a boolean.`);
+    if (schema.enum && !schema.enum.includes(value)) throw new Error(`${path} must be one of ${schema.enum.join(', ')}.`);
   }
+  function validate(tool, args) { validateValue(tool.schema, args); }
   async function call(name, args = {}) {
     const t = registry.get(name), t0 = performance.now();
     if (!t) { const r = { ok: false, error: `Unknown tool "${name}"`, tool: name }; PF.Store.emit('tool:result', r); return r; }
-    try { validate(t, args); const result = await t.handler(args); const r = { ok: true, tool: name, args, result, ms: Math.round(performance.now() - t0) }; PF.Store.emit('tool:result', r); return r; }
+    try { if (PF.Workspace && !PF.Workspace.isReady()) throw new Error('Workspace is busy or not ready.'); validate(t, args); const result = await t.handler(args); const r = { ok: true, tool: name, args, result, ms: Math.round(performance.now() - t0) }; PF.Store.emit('tool:result', r); return r; }
     catch (e) { const r = { ok: false, tool: name, args, error: e.message }; PF.Store.emit('tool:result', r); return r; }
   }
-  return { register, call, list, has: n => registry.has(n), get: n => registry.get(n) };
+  return { register, call, list, validate: (name, args) => { const tool = registry.get(name); if (!tool) throw new Error('Unknown tool.'); validate(tool, args); return true; }, has: n => registry.has(n), get: n => registry.get(n) };
 })();

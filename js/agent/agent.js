@@ -12,8 +12,7 @@ PF.Agent = (() => {
     input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } });
     chips.addEventListener('click', e => { const b = e.target.closest('[data-prompt]'); if (b) { input.value = b.dataset.prompt; submit(); } });
     PF.Store.on('tool:result', r => logTool(r));
-    say('agent', 'Hi! I\'m the PixelForge agent. Ask me to draw ("make a slime idle animation"), run a tool ("/draw_rect x=2 y=2 width=10 height=6 fill=true color=#ff0044"), or paste JSON tool calls. Type /help for everything.');
-    window.addEventListener('message', onMessage);
+    say('agent', 'Local command workbench ready. Run /get_document to inspect this sprite, /list_asset_templates to browse the library, or paste a JSON plan. This console uses deterministic tools and a few built-in recipes, not a connected language model. Asset recipes add new sprites without replacing your other work.');
   }
   function say(role, text) {
     if (!logEl) return; const el = document.createElement('div'); el.className = `msg msg--${role}`; el.textContent = text; logEl.appendChild(el); trim(); logEl.scrollTop = logEl.scrollHeight; return el;
@@ -53,7 +52,7 @@ PF.Agent = (() => {
   const coerce = v => { if (/^".*"$|^'.*'$/.test(v)) return v.slice(1, -1); if (v === 'true') return true; if (v === 'false') return false;
     if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v); if (/^[\[{]/.test(v)) { try { return JSON.parse(v); } catch { return v; } } return v; };
   function help() {
-    say('agent', `Ways to drive PixelForge:\n• Natural language: "make a slime idle animation", "spinning coin", "hero walk cycle", "add outline", "flip x", "export gif", "add walk state", "new 64x64 canvas", "play", "undo", "clear".\n• Slash tools: /draw_rect x=0 y=0 width=8 height=8 fill=true color=#ff0044   (/tools lists ${PF.Tools.list().length} tools, /schema <tool> shows arguments)\n• JSON: {"tool":"paint_rows","args":{"rows":["GG","GG"],"legend":{"G":"#63c74d"}}} or an array of calls.\n• From code: window.PixelForge.call("fill",{x:0,y:0,color:"#000"}) or postMessage({type:"pf:call",id,tool,args}).\n• MCP: see the MCP section for the manifest & bridge.`);
+    say('agent', `Ways to drive PixelForge:\n• Local recipes: "make a slime", "spinning coin", "hero walk cycle", "heart pickup". These add library assets to the project.\n• Slash tools: /draw_rect x=0 y=0 width=8 height=8 fill=true color=#ff0044\n• /tools lists ${PF.Tools.list().length} tools. /schema <tool> shows its arguments.\n• JSON: {"tool":"paint_rows","args":{"rows":["GG","GG"],"legend":{"G":"#63c74d"}}} or an array of calls.\n• Browser automation: window.PixelForge.call("get_document", {}).\n• Atomic plans: PixelForge.plan(steps, {dry_run:true}) validates; omit dry_run to apply one undoable edit.\n• External postMessage requires explicitly enabling the trusted-origin, token-protected bridge in this dialog. This is a browser API, not a standalone MCP server.`);
   }
 
   /* Execute a plan step by step (visible in the log) */
@@ -73,6 +72,13 @@ PF.Agent = (() => {
     const size = t.match(/(\d{1,3})\s*[x×]\s*(\d{1,3})/);
     if (/new|create|blank|canvas/.test(t) && size && !/slime|coin|hero|heart|character|player/.test(t)) { plan.push({ tool: 'new_document', args: { width: +size[1], height: +size[2], name: 'sprite' } }); }
     const recipe = Object.keys(RECIPES).find(k => RECIPES[k].match.test(t));
+    if (recipe && PF.Workspace) {
+      const templateId = { slime: 'slime', coin: 'coin', hero: /female|woman/.test(t) ? 'ranger-female' : 'ranger-male', heart: 'heart' }[recipe];
+      const steps = [{ tool: 'add_library_asset', args: { template_id: templateId } }];
+      if (recipe === 'hero' && /walk|run/.test(t)) steps.push({ tool: 'select_animation', args: { action: /run/.test(t) ? 'run' : 'walk', direction: 'south' } });
+      say('agent', 'Adding a complete library sprite to your project. Your existing assets are preserved.');
+      return run(steps);
+    }
     if (recipe) { say('agent', `${RECIPES[recipe].intro} I'll build it step by step so you can watch each tool call.`); plan.push(...RECIPES[recipe].plan(t)); }
     if (/outline|border/.test(t)) plan.push({ tool: 'outline', args: { all_frames: true, color: pickColor(t) || '#181425' } });
     if (/flip/.test(t)) plan.push({ tool: 'flip', args: { axis: /vertical|\by\b/.test(t) ? 'y' : 'x', all_frames: /all/.test(t) } });
@@ -130,20 +136,15 @@ PF.Agent = (() => {
   };
 
   /* ---------- External agents: postMessage bridge + global API ---------- */
-  async function onMessage(e) {
-    const m = e.data; if (!m || m.type !== 'pf:call') return;
-    const r = await PF.Tools.call(m.tool, m.args || {});
-    (e.source || window).postMessage({ type: 'pf:result', id: m.id, ...r }, '*');
-  }
   window.PixelForge = {
-    version: '1.0.0',
+    version: '2.0.0',
     call: (tool, args) => PF.Tools.call(tool, args),
     tools: () => PF.Tools.list(),
     describeUI: f => PF.UI.describe(f),
     clickUI: (id, v) => PF.UI.click(id, v),
     run: plan => run(plan, { delay: 0 }),
     prompt: text => handle(text),
-    manifest: () => PF.MCP.manifest(),
+    manifest: () => ({name:'pixelforge-workspace',version:'2.0.0',tools:PF.Tools.list()}),
     on: (ev, fn) => PF.Store.on(ev, fn),
     document: () => PF.Store.summary()
   };

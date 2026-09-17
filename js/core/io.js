@@ -7,12 +7,12 @@ PF.IO = (() => {
     a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
-  const toBlob = cv => new Promise(res => cv.toBlob(res, 'image/png'));
+  const toBlob = cv => new Promise((resolve, reject) => cv.toBlob(blob => blob ? resolve(blob) : reject(new Error('The browser could not encode this image. Reduce the export size.')), 'image/png'));
   const safe = s => (s || 'sprite').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
 
   /* All frames as flat list with state info */
-  function allFrames(stateIdx) {
-    const d = PF.Store.get(), out = [];
+  function allFrames(stateIdx, d = PF.Store.get()) {
+    const out = [];
     d.states.forEach((s, si) => { if (stateIdx !== undefined && stateIdx !== 'all' && si !== +stateIdx) return;
       s.frames.forEach((f, fi) => out.push({ state: s, si, frame: f, fi })); });
     return out;
@@ -25,26 +25,32 @@ PF.IO = (() => {
   }
 
   /* Sprite sheet: layout 'rows' (one row per state) | 'grid' (square-ish) | 'strip' (single row) */
-  function buildSheet({ scale = 1, layout = 'rows', padding = 0, state = 'all' } = {}) {
-    const d = PF.Store.get(), frames = allFrames(state), fw = d.width * scale, fh = d.height * scale, p = padding;
+  function buildSheet({ scale = 1, layout = 'rows', padding = 0, state = 'all' } = {}, d = PF.Store.get()) {
+    if (!Number.isInteger(scale) || scale < 1 || scale > 16 || !Number.isInteger(padding) || padding < 0 || padding > 16) throw new Error('Use an integer scale 1–16 and padding 0–16.');
+    if (!['rows', 'grid', 'strip'].includes(layout)) throw new Error('Unknown sprite sheet layout.');
+    const frames = allFrames(state, d), fw = d.width * scale, fh = d.height * scale, p = padding;
+    if (!frames.length) throw new Error('No animation frames match the requested export.');
     let cols, rows, place;
     if (layout === 'rows') {
       const states = [...new Set(frames.map(f => f.si))]; cols = Math.max(...states.map(si => d.states[si].frames.length)); rows = states.length;
       place = f => ({ col: f.fi, row: states.indexOf(f.si) });
     } else if (layout === 'strip') { cols = frames.length; rows = 1; place = (f, i) => ({ col: i, row: 0 }); }
     else { cols = Math.ceil(Math.sqrt(frames.length)); rows = Math.ceil(frames.length / cols); place = (f, i) => ({ col: i % cols, row: Math.floor(i / cols) }); }
-    const cv = document.createElement('canvas'); cv.width = cols * (fw + p) - p + 0; cv.height = rows * (fh + p) - p;
+    const sheetWidth = cols * (fw + p) - p, sheetHeight = rows * (fh + p) - p;
+    if (sheetWidth > 8192 || sheetHeight > 8192 || sheetWidth * sheetHeight > 32 * 1024 * 1024) throw new Error('Sheet is too large. Use native 1×, a grid layout, or export one state.');
+    const cv = document.createElement('canvas'); cv.width = sheetWidth; cv.height = sheetHeight;
     const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
     const atlas = { frames: {}, meta: { app: 'PixelForge Studio', version: '1.0', image: `${safe(d.name)}.png`, format: 'RGBA8888', size: { w: cv.width, h: cv.height }, scale: String(scale), frameTags: [], layers: d.layers.map(l => ({ name: l.name, opacity: Math.round(l.opacity * 255), blendMode: 'normal' })) } };
-    const tags = {};
+    const tags = Object.create(null);
     frames.forEach((f, i) => {
       const { col, row } = place(f, i), x = col * (fw + p), y = row * (fh + p);
-      ctx.drawImage(PF.Renderer.frameToCanvas(f.frame, scale), x, y);
+      ctx.drawImage(PF.Renderer.documentFrameToCanvas(d, f.frame, scale), x, y);
       const key = `${f.state.name}_${f.fi}`;
       atlas.frames[key] = { frame: { x, y, w: fw, h: fh }, rotated: false, trimmed: false, spriteSourceSize: { x: 0, y: 0, w: fw, h: fh }, sourceSize: { w: fw, h: fh }, duration: f.frame.duration };
       (tags[f.state.name] ||= { name: f.state.name, from: i, to: i, direction: 'forward', fps: f.state.fps, loop: f.state.loop }).to = i;
     });
     atlas.meta.frameTags = Object.values(tags);
+    atlas.meta.pixelForge = { version: 2, pivot: d.metadata?.pivot || { x: .5, y: .5 }, templateId: d.metadata?.templateId || null, states: d.states.filter((value, index) => frames.some(frame => frame.si === index)).map(value => ({ name: value.name, action: value.action || value.name, direction: value.direction || null, loop: value.loop })) };
     return { canvas: cv, atlas, cols, rows, frameWidth: fw, frameHeight: fh };
   }
   async function exportSpriteSheet(o = {}) {
@@ -53,7 +59,7 @@ PF.IO = (() => {
     if (o.json !== false) download(JSON.stringify(atlas, null, 2), `${safe(d.name)}.json`, 'application/json');
     return { file: 'spritesheet', width: canvas.width, height: canvas.height, cols, rows, frames: Object.keys(atlas.frames).length };
   }
-  const exportJSON = () => { const d = PF.Store.get(), { atlas } = buildSheet({}); download(JSON.stringify(atlas, null, 2), `${safe(d.name)}.json`, 'application/json'); return { file: 'json', frames: Object.keys(atlas.frames).length }; };
+  const exportJSON = (options = {}) => { const d = PF.Store.get(), { atlas } = buildSheet(options); download(JSON.stringify(atlas, null, 2), `${safe(d.name)}.json`, 'application/json'); return { file: 'json', frames: Object.keys(atlas.frames).length }; };
 
   /* ---------- GIF encoder ---------- */
   function lzw(indices, minCodeSize) {
@@ -144,6 +150,28 @@ PF.IO = (() => {
     return { imported: count, width: fw, height: fh, state: idx };
   }
   const importProject = async file => { PF.Store.load(await file.text()); return { ok: true, name: PF.Store.get().name }; };
+  async function readPNG(file, { frameWidth, frameHeight } = {}) {
+    if (file.size > 20 * 1024 * 1024) throw new Error('Image import is limited to 20 MB.');
+    const url = URL.createObjectURL(file);
+    try {
+      const image = await new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('The browser could not decode this image.')); image.src = url; });
+      const width = frameWidth || image.naturalWidth, height = frameHeight || image.naturalHeight;
+      if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width > 256 || height > 256) throw new Error('Choose frame dimensions from 1 to 256 pixels.');
+      if (image.naturalWidth % width || image.naturalHeight % height) throw new Error('Image dimensions must divide evenly into the chosen frame size.');
+      const columns = image.naturalWidth / width, rows = image.naturalHeight / height, count = columns * rows;
+      if (count > 256 || image.naturalWidth * image.naturalHeight > 16 * 1024 * 1024) throw new Error('Import up to 256 frames at a time. Use sprite JSON to restore larger suites.');
+      const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
+      const source = new Uint32Array(context.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+      const document = PF.Projects.blank(file.name.replace(/\.[^.]+$/, ''), width, height);
+      document.states[0].frames = Array.from({ length: count }, (_, index) => {
+        const pixels = new Uint32Array(width * height), originX = index % columns * width, originY = Math.floor(index / columns) * height;
+        for (let row = 0; row < height; row++) pixels.set(source.subarray((originY + row) * canvas.width + originX, (originY + row) * canvas.width + originX + width), row * width);
+        return { id: `import-${index}`, duration: 125, pixels: { Body: pixels } };
+      });
+      return document;
+    } finally { URL.revokeObjectURL(url); }
+  }
 
   const FORMATS = [
     { id: 'png', name: 'PNG frame', desc: 'Current frame, any scale', icon: 'image', run: exportPNG },
@@ -155,5 +183,5 @@ PF.IO = (() => {
     { id: 'project', name: 'Project file', desc: 'Lossless .pixelforge.json', icon: 'save', run: exportProject }
   ];
   const run = (id, opts) => { const f = FORMATS.find(x => x.id === id); if (!f) throw new Error(`Unknown format "${id}". Use: ${FORMATS.map(x => x.id).join(', ')}`); return f.run(opts || {}); };
-  return { FORMATS, run, download, exportPNG, exportSpriteSheet, exportGIF, exportJSON, exportSVG, exportCSS, exportProject, importPNG, importProject, buildSheet, dataURL, encodeGIF };
+  return { FORMATS, run, download, exportPNG, exportSpriteSheet, exportGIF, exportJSON, exportSVG, exportCSS, exportProject, importPNG, importProject, readPNG, buildSheet, dataURL, encodeGIF };
 })();

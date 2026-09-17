@@ -84,7 +84,13 @@ PF.Renderer = (() => {
       ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.strokeRect(hx, hy, s * z, s * z);
       ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.strokeRect(hx - 1.5, hy - 1.5, s * z + 3, s * z + 3);
     }
-    ctx.strokeStyle = 'rgba(90,56,240,.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(ox - 1, oy - 1, pw + 2, ph + 2);
+    ctx.strokeStyle = 'rgba(184,222,145,.5)'; ctx.lineWidth = 1; ctx.strokeRect(ox - 1, oy - 1, pw + 2, ph + 2);
+    const selection = PF.Selection?.get();
+    if (selection) {
+      ctx.save(); ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+      ctx.strokeStyle = '#fff'; ctx.strokeRect(ox + selection.x * z, oy + selection.y * z, selection.width * z, selection.height * z);
+      ctx.restore();
+    }
   }
 
   /* Coordinate helpers */
@@ -105,14 +111,19 @@ PF.Renderer = (() => {
   const getView = () => view;
   /* Composite any frame to a canvas at scale (thumbnails, exports) */
   function frameToCanvas(frame, scale = 1, target) {
-    const d = PF.Store.get(), tmp = document.createElement('canvas'); tmp.width = d.width; tmp.height = d.height;
+    return documentFrameToCanvas(PF.Store.get(), frame, scale, target);
+  }
+  function documentFrameToCanvas(d, frame, scale = 1, target) {
+    if (!Number.isInteger(scale) || scale < 1 || scale > 16) throw new Error('Export scale must be an integer from 1 to 16.');
+    const tmp = document.createElement('canvas'); tmp.width = d.width; tmp.height = d.height;
     const tctx = tmp.getContext('2d'), id = tctx.createImageData(d.width, d.height);
-    compositeFrame(frame, new Uint32Array(id.data.buffer)); tctx.putImageData(id, 0, 0);
+    PF.Raster.composite(new Uint32Array(id.data.buffer), d.layers.map(layer => ({ pixels: frame.pixels[layer.id], visible: layer.visible, opacity: layer.opacity })));
+    tctx.putImageData(id, 0, 0);
     if (scale === 1 && !target) return tmp;
     const out = target || document.createElement('canvas'); out.width = d.width * scale; out.height = d.height * scale;
     const octx = out.getContext('2d'); octx.imageSmoothingEnabled = false; octx.clearRect(0, 0, out.width, out.height);
     octx.drawImage(tmp, 0, 0, out.width, out.height); return out;
   }
   const canvasEl = () => canvas;
-  return { init, fit, center, invalidate, toPixel, setZoom, zoomBy, pan, setHover, setOption, getView, frameToCanvas, canvasEl, compositeFrame };
+  return { init, fit, center, invalidate, toPixel, setZoom, zoomBy, pan, setHover, setOption, getView, frameToCanvas, documentFrameToCanvas, canvasEl, compositeFrame };
 })();
