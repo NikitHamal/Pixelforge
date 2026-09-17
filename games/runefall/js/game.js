@@ -24,6 +24,7 @@ RF.Game = (() => {
     mushroom: { spr: 'mushroom', mv: 'walk', hp: 44, spd: 24, dmg: 10, r: 11, xp: 2 },
     goblin: { spr: 'rpg_goblin', mv: null, hp: 28, spd: 54, dmg: 10, r: 11, xp: 2, humanoid: true },
     spider: { spr: 'rpg_spider', mv: 'crawl', hp: 32, spd: 60, dmg: 11, r: 12, xp: 3 },
+    spiderling: { spr: 'rpg_spiderling', mv: 'crawl', hp: 12, spd: 78, dmg: 6, r: 8, xp: 1 },
     boar: { spr: 'boar', mv: 'trot', charge: 'charge', hp: 48, spd: 50, dmg: 14, r: 12, xp: 3, charger: true },
     wolf: { spr: 'wolf', mv: 'run', atk: 'attack', hp: 36, spd: 74, dmg: 12, r: 11, xp: 3 },
     skeleton: { spr: 'skeleton', mv: null, hp: 58, spd: 42, dmg: 14, r: 11, xp: 4, humanoid: true },
@@ -33,10 +34,12 @@ RF.Game = (() => {
     demon: { spr: 'rpg_demon', mv: null, hp: 950, spd: 44, dmg: 24, r: 20, xp: 40, humanoid: true, boss: true, scale: 2.5 },
     slimeking: { spr: 'rpg_slime_king', mv: 'hop', slam: 'slam', hp: 650, spd: 40, dmg: 20, r: 20, xp: 35, boss: true, hopper: true, scale: 2.5 },
     dragon: { spr: 'rpg_dragon', mv: 'fly', atk: 'fireball', hp: 1500, spd: 52, dmg: 22, r: 22, xp: 60, boss: true, flyer: true, shooter: true, scale: 3 },
-    ent: { spr: 'rpg_ent', mv: 'stomp', slam: 'slam', hp: 1300, spd: 30, dmg: 26, r: 22, xp: 55, boss: true, scale: 3 }
+    ent: { spr: 'rpg_ent', mv: 'stomp', slam: 'slam', hp: 1300, spd: 30, dmg: 26, r: 22, xp: 55, boss: true, scale: 3 },
+    spiderqueen: { spr: 'rpg_spider_queen', mv: 'crawl', atk: 'lunge', hp: 1150, spd: 46, dmg: 23, r: 18, xp: 45, boss: true, scale: 2.6 }
   };
-  const BOSS_ORDER = ['slimeking', 'demon', 'dragon', 'ent'];
-  const BOSS_TIMES = [90, 200, 320, 450];
+  const BOSS_ORDER = ['slimeking', 'demon', 'dragon', 'ent', 'spiderqueen'];
+  const BOSS_TIMES = [90, 200, 320, 450, 560];
+  const BOSS_LINES = { slimeking: 'It hungers for heroes', demon: 'The pit opens', dragon: 'Death from above', ent: 'The forest wakes', spiderqueen: 'Something skitters below' };
   const CARDS = [
     { id: 'might', name: 'Sharp Blade', desc: '+25% damage', icon: ['rpg_arsenal', 'greatsword'], apply: p => p.dmg *= 1.25 },
     { id: 'haste', name: 'Quick Hands', desc: '+15% attack speed', icon: ['rpg_status', 'haste'], apply: p => p.cd *= 0.87 },
@@ -121,6 +124,7 @@ RF.Game = (() => {
     if (t > 25) pool.push(['bat', 8]);
     if (t > 50) pool.push(['goblin', 8], ['mushroom', 5]);
     if (t > 80) pool.push(['spider', 7]);
+    if (t > 95) pool.push(['spiderling', 6]);
     if (t > 110) pool.push(['wolf', 6], ['boar', 4]);
     if (t > 150) pool.push(['skeleton', 6]);
     if (t > 190) pool.push(['orc', 5], ['ghost', 4]);
@@ -157,7 +161,7 @@ RF.Game = (() => {
       const key = BOSS_ORDER[G.bossIdx];
       const p = spawnPos();
       G.boss = spawnFoe(key, p.x, p.y);
-      banner('⚠ ' + bossName(key) + ' ⚠', key === 'slimeking' ? 'It hungers for heroes' : key === 'demon' ? 'The pit opens' : key === 'dragon' ? 'Death from above' : 'The forest wakes');
+      banner('⚠ ' + bossName(key) + ' ⚠', BOSS_LINES[key] || '');
       AU.boss(); G.shake = 8;
       $('bossbar').classList.remove('hidden');
     }
@@ -181,7 +185,7 @@ RF.Game = (() => {
     }
   }
   function bossName(key) {
-    return { slimeking: 'GLOOP, THE SLIME KING', demon: 'MALACHAR THE DEMON', dragon: 'PYRAX THE RED', ent: 'OLD THORNBEARD' }[key] || key;
+    return { slimeking: 'GLOOP, THE SLIME KING', demon: 'MALACHAR THE DEMON', dragon: 'PYRAX THE RED', ent: 'OLD THORNBEARD', spiderqueen: 'ARACHNE, THE BROOD MOTHER' }[key] || key;
   }
 
   /* ================= combat ================= */
@@ -602,6 +606,25 @@ RF.Game = (() => {
       }
       if (e.atkAnim <= 0) e.state = 'stomp';
       e.flip = e.face.flip;
+    } else if (e.key === 'spiderqueen') {
+      // skitters in, pounces at close range, falls back on a web volley
+      e.x += nx * e.spd * dt; e.y += ny * e.spd * dt;
+      e.face = faceOf(nx, ny); e.flip = e.face.flip;
+      e.slamT -= dt; e.shootT -= dt;
+      if (e.slamT <= 0 && d < 150) {
+        e.slamT = 4; e.state = 'lunge'; e.t = 0; e.atkAnim = 0.7;
+        setTimeout(() => {
+          if (dist2(e, p) < 80 * 80) hurtPlayer(e.dmg * 1.3, e.x, e.y);
+          burst(e.x, e.y, 'fx', 'dust', 3); AU.swing();
+        }, 380);
+      } else if (e.shootT <= 0 && d > 130 && d < 430) {
+        e.shootT = 3; e.state = 'spit'; e.t = 0; e.atkAnim = 0.6; AU.cast();
+        const base = Math.atan2(ny, nx);
+        [-0.22, 0.22].forEach(off => {
+          G.eprojs.push({ x: e.x, y: e.y - 6, vx: Math.cos(base + off) * 170, vy: Math.sin(base + off) * 170, dmg: e.dmg * 0.6, r: 5, color: '#e8ecf5', life: 2.6 });
+        });
+      }
+      if (e.atkAnim <= 0) e.state = 'crawl';
     }
   }
 

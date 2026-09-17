@@ -361,6 +361,9 @@ PF.Chars = (() => {
       else if (t.kind === 'food') { const f = t.at || [hx - 2, hy - 4]; api.rect(f[0] - 1, f[1] - 1, f[0] + 1, f[1] + 1, '#e43b44'); api.px(f[0], f[1] - 2, '#63c74d'); api.px(f[0] - 1, f[1] - 1, '#f6757a'); }
       else if (t.kind === 'box') { api.rect(hlx - 1, hly, hx + 1, hly + 4, '#b86f50'); api.rect(hlx - 1, hly, hx + 1, hly + 1, '#733e39'); }
       else if (t.kind === 'staff') { api.line(hlx, hly - 10, hlx, hly + 4, '#b86f50', 2); api.rect(hlx - 1, hly - 12, hlx + 1, hly - 10, '#b55088'); }
+      // head-on bow: lets archers attack on the down/up facings too. Held out
+      // to the side of the torso so the limbs never sink into the tunic.
+      else if (t.kind === 'bow') P.bowFront(api, hlx - 3, hly - 1, t.pull || 0, cfg.facing === 'up' ? -1 : 1, BOW_PAL, t.arrow === false ? 0 : 1);
       if (t.slash) P.slash(api, 16 + (cfg.kb || 0), 16 + (cfg.bob || 0), 11, t.slash[0], t.slash[1], '#ffffff', 2);
       if (t.sparks) P.sparks(api, t.sparks[0], t.sparks[1], t.seed || 0, '#fee761');
       if (t.dust) dust(api, t.dust);
@@ -680,11 +683,19 @@ PF.Chars = (() => {
     // Slimmed suite for non-hero humanoids: idle, walk, attack, hurt, death
     const states = [];
     const N = c => (buf, W, H) => { const api = PF.Pixel.makeApi(buf, W, H); drawHumanoid(api, buf, W, H, c); };
-    for (const [sname, facing, n, fps] of [['idle_down', 'down', 4, 6], ['walk_down', 'down', 4, 8], ['walk_side', 'side', 4, 8]]) {
+    // All six facings: top-down games drive `walk_<facing>` for any direction,
+    // and a missing up-facing used to silently fall back to idle_down.
+    for (const [sname, facing, n, fps] of [['idle_down', 'down', 4, 6], ['idle_side', 'side', 4, 6], ['idle_up', 'up', 4, 6],
+                                           ['walk_down', 'down', 4, 8], ['walk_side', 'side', 4, 8], ['walk_up', 'up', 4, 8]]) {
       const frames = [];
       for (let i = 0; i < n; i++) {
-        const cfg = facing === 'side' ? sidePose(i, n, 2, pal) : frontPose(i, n, 2, pal, facing === 'walk_down' ? 'down' : facing);
-        if (sname.startsWith('idle')) { cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.armL = { dx: 0, dy: 0 }; cfg.armR = { dx: 0, dy: 0 }; cfg.bob = -(i % 2); cfg.eye = i === 3 ? 'closed' : 'open'; }
+        const cfg = facing === 'side' ? sidePose(i, n, 2, pal) : frontPose(i, n, 2, pal, facing);
+        if (sname.startsWith('idle')) {
+          // zero every limb pair (front uses legA/armL/armR, side uses legF/armF/armB)
+          cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.armL = { dx: 0, dy: 0 }; cfg.armR = { dx: 0, dy: 0 };
+          cfg.legF = { dx: 0, dy: 0 }; cfg.armF = { dx: 0, dy: 0 }; cfg.armB = { dx: 0, dy: 0 };
+          cfg.bob = -(i % 2); cfg.eye = i === 3 ? 'closed' : 'open';
+        }
         frames.push(Fr(ms(fps), N(cfg)));
       }
       states.push(D(sname, fps, true, frames));

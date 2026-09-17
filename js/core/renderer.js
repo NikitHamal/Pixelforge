@@ -4,6 +4,11 @@ PF.Renderer = (() => {
   let canvas, ctx, off, offCtx, img, buf, onion, onionCtx, onionImg, onionBuf, checker;
   const view = { zoom: 12, panX: 0, panY: 0, grid: true, onion: false, hover: null, hoverSize: 1, sel: null };
   let dirty = true, dpr = 1, bgColor = '#d9d5e0';
+  /* Cached per-frame costs: the checker pattern and the artboard tag metrics
+     were being rebuilt from scratch on every single draw() call. */
+  let checkerPattern = null, tagKey = '', tagWidth = 0;
+  let scratch = null, scratchCtx = null, scratchImg = null, scratchBuf = null;
+  const layerDesc = [];
 
   function init(el) {
     canvas = el; ctx = canvas.getContext('2d', { alpha: false });
@@ -28,7 +33,13 @@ PF.Renderer = (() => {
     bgColor = cs.getPropertyValue('--canvas-bg').trim() || '#d9d5e0';
     x.fillStyle = cs.getPropertyValue('--checker-a').trim() || '#fff'; x.fillRect(0, 0, 16, 16);
     x.fillStyle = cs.getPropertyValue('--checker-b').trim() || '#ddd'; x.fillRect(0, 0, 8, 8); x.fillRect(8, 8, 8, 8);
+    checkerPattern = null; // invalidate: pattern is rebuilt lazily on next draw
     return c;
+  }
+  const patternFor = () => (checkerPattern ||= ctx.createPattern(checker, 'repeat'));
+  function tagMetrics(text) {
+    if (tagKey !== text) { ctx.font = '600 11px Poppins, system-ui, sans-serif'; tagWidth = ctx.measureText(text).width; tagKey = text; }
+    return tagWidth;
   }
   function fit() {
     const p = canvas.parentElement, W = p.clientWidth, H = p.clientHeight; if (!W || !H) return;
@@ -104,8 +115,8 @@ PF.Renderer = (() => {
     roundRect(ctx, ox, oy, pw, ph, 4);
     ctx.clip();
 
-    // Checkerboard background
-    ctx.fillStyle = ctx.createPattern(checker, 'repeat');
+    // Checkerboard background (pattern cached; createPattern is expensive per frame)
+    ctx.fillStyle = patternFor();
     ctx.fillRect(ox, oy, pw, ph);
 
     // Onion skin
@@ -195,11 +206,23 @@ PF.Renderer = (() => {
   const setHover = (pt, size) => { view.hover = pt; view.hoverSize = size || 1; invalidate(); PF.Store.emit('hover', pt); };
   const setOption = (k, v) => { view[k] = v; invalidate(); PF.Store.emit('view', view); };
   const getView = () => view;
-  /* Composite any frame to a canvas at scale (thumbnails, exports) */
+  /* Composite any frame to a canvas at scale (thumbnails, exports).
+     The scratch canvas + ImageData are reused across calls: the live preview
+     calls this on every animation tick, so allocating a canvas per frame was
+     pure garbage.
+     NOTE: with scale===1 and no target the shared scratch canvas is returned.
+     Every caller consumes it synchronously (drawImage / toDataURL /
+     getImageData), so nothing retains it — do the same in new call sites. */
   function frameToCanvas(frame, scale = 1, target) {
-    const d = PF.Store.get(), tmp = document.createElement('canvas'); tmp.width = d.width; tmp.height = d.height;
-    const tctx = tmp.getContext('2d'), id = tctx.createImageData(d.width, d.height);
-    compositeFrame(frame, new Uint32Array(id.data.buffer)); tctx.putImageData(id, 0, 0);
+    const d = PF.Store.get();
+    if (!scratch || scratch.width !== d.width || scratch.height !== d.height) {
+      scratch = document.createElement('canvas'); scratch.width = d.width; scratch.height = d.height;
+      scratchCtx = scratch.getContext('2d');
+      scratchImg = scratchCtx.createImageData(d.width, d.height);
+      scratchBuf = new Uint32Array(scratchImg.data.buffer);
+    }
+    const tmp = scratch, tctx = scratchCtx, id = scratchImg;
+    compositeFrame(frame, scratchBuf); tctx.putImageData(id, 0, 0);
     if (scale === 1 && !target) return tmp;
     const out = target || document.createElement('canvas'); out.width = d.width * scale; out.height = d.height * scale;
     const octx = out.getContext('2d'); octx.imageSmoothingEnabled = false; octx.clearRect(0, 0, out.width, out.height);

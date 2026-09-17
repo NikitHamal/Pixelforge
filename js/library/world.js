@@ -59,10 +59,7 @@ PF.World = (() => {
       // 0,0 grass | 1,0 grass flowers | 0,1 dirt | 1,1 stone | 2,x dungeon brick | 3,x wood
       const tile = (tx, ty, fn) => {
         const ox = tx * 16, oy = ty * 16;
-        const sub = { ...api, px: (x, y, c) => api.px(ox + x, oy + y, c),
-          rect: (x0, y0, x1, y1, c) => api.rect(ox + x0, oy + y0, ox + x1, oy + y1, c),
-          line: (x0, y0, x1, y1, c, s) => api.line(ox + x0, oy + y0, ox + x1, oy + y1, c, s),
-          hash: (x, y, s) => api.hash(x + ox, y + oy, s) };
+        const sub = PF.Pixel.offsetApi(api, ox, oy);
         fn(sub, 16, 16);
       };
       tile(0, 0, (a) => grassBase(a, 16, 16, 0));

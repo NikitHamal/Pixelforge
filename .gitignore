@@ -1,0 +1,26 @@
+# Generated sprite sheets / contact sheets from scripts/sheet.js
+scripts/out/
+
+# Agent-local workspace state (memory logs, absolute machine paths)
+.workbuddy-ai/
+
+# Dependencies — this project has none; keep it that way
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs / scratch
+*.log
+npm-debug.log*

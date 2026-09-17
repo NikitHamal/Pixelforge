@@ -238,6 +238,25 @@ PF.RPG = (() => {
       }
       states.push(D(sname, 8, true, frames));
     }
+    // run x3 — six-frame cycle at a wider stride than the walk, so a sprint
+    // reads as a distinct gear. Side view kicks up dust at the footfalls.
+    for (const [sname, facing] of [['run_down', 'down'], ['run_side', 'side'], ['run_up', 'up']]) {
+      const frames = [];
+      for (let i = 0; i < 6; i++) {
+        // A 6-sample sine repeats its magnitude on frames 1/2 and 4/5, which
+        // would render two identical poses and visibly stall the cycle. Adding
+        // a quarter-phase cosine term to the body bob gives all six frames a
+        // distinct height (airborne at full stride, lowest at the absorb beat).
+        const a = (i / 6) * Math.PI * 2;
+        const bob = Math.round(-Math.abs(Math.sin(a)) * 2 - Math.cos(a));
+        const cfg = facing === 'side'
+          ? SP(i, 6, 3, pal, { bob, tool: { kind: 'none', dust: i % 3 === 0 ? [[6, 28, '#c0cbdc'], [9, 27, '#8b9bb4']] : null } })
+          : FP(i, 6, 3, pal, facing, { bob });
+        if (o.sneak) cfg.bob -= 1; // crouched sprint, keeps the per-frame delta
+        frames.push(Fr(ms(12), N(cfg, { pre, post }, i)));
+      }
+      states.push(D(sname, 12, true, frames));
+    }
     // attack (side)
     {
       const frames = [];
@@ -262,6 +281,29 @@ PF.RPG = (() => {
         states.push(D('attack_side', 12, true, frames));
       }
     }
+    // Omni attacks: the same windup / cut / recover beat, but played on the
+    // front and back facings so top-down games get four-directional combat.
+    for (const [sname, facing] of [['attack_down', 'down'], ['attack_up', 'up']]) {
+      const frames = [];
+      if (o.weapon === 'bow') {
+        const pulls = [0, 0.45, 0.85, 1, 0.1], dur = [110, 90, 90, 80, 130];
+        const arms = [{ dx: 0, dy: -2 }, { dx: 1, dy: -3 }, { dx: 2, dy: -4 }, { dx: 0, dy: -1 }, { dx: 0, dy: -2 }];
+        for (let i = 0; i < 5; i++) {
+          const cfg = FP(i, 5, 1, pal, facing, { tool: { kind: 'bow', pull: pulls[i], arrow: i < 4 } });
+          cfg.armL = arms[i]; // bow arm rises as the string comes back
+          frames.push(Fr(dur[i], N(cfg, { pre, post }, i)));
+        }
+      } else {
+        const angles = [-2.2, -1.5, 0.1, 0.8, 0.3], dur = [150, 70, 70, 90, 120];
+        for (let i = 0; i < 5; i++) {
+          const cfg = FP(i, 5, 1, pal, facing, { tool: { kind: o.weapon || 'sword', angle: angles[i],
+            slash: i === 2 ? [0.5, 2.7] : (i === 3 ? [-0.2, 0.6] : null) } });
+          cfg.armR = { dx: 1, dy: -2 };
+          frames.push(Fr(dur[i], N(cfg, { pre, post }, i)));
+        }
+      }
+      states.push(D(sname, 12, true, frames));
+    }
     if (o.shield) {
       const frames = [];
       const bobs = [0, -1, 0, -1]; // seamless sway loop, no hold hitch
@@ -283,6 +325,18 @@ PF.RPG = (() => {
         } }, i)));
       }
       states.push(D('cast', 8, true, frames));
+      // side-view cast: same radiant beat, for side-scrolling casters
+      const sideFrames = [];
+      for (let i = 0; i < 4; i++) {
+        const cfg = SP(i, 4, 0, pal, { bob: i === 2 ? -1 : 0, eye: i === 3 ? 'closed' : 'open' });
+        cfg.armF = { dx: 2, dy: -4 };
+        cfg.tool = { kind: 'staff' };
+        sideFrames.push(Fr(ms(8), N(cfg, { pre, post: (api, c, fi) => {
+          post(api, c, fi);
+          P().particles(api, 24 + (c.kb || 0), 10 + (c.bob || 0), 7, fi / 4, o.castColors || ['#fee761', '#ffffff', '#2ce8f5']);
+        } }, i)));
+      }
+      states.push(D('cast_side', 8, true, sideFrames));
     }
     // hurt (2f) + death (4f, lying + dither fade)
     states.push(D('hurt', 8, true, [

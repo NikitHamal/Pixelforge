@@ -111,53 +111,88 @@ PF.RPG.foes = (() => {
     ] };
   }
 
-  /* ============ GIANT SPIDER (side view, faces right) ============ */
+  /* ============ SPIDER FAMILY (side view, faces right) ============ */
   // Built like the classic cartoon reference: the BODY dominates (big abdomen
   // ball + thorax ball), legs are short + chunky and hang DOWN, eyes glossy.
-  const SBODY = '#3e2347', SSH = '#262b44', SHI = '#68386c';
-  const SLEG = '#5b3a6e', SLEGHI = '#8f6fae', SEYE = '#ff0044';
+  // One parameterised rig drives the whole family — giant spider, the small
+  // swarm spiderling and the egg-laden queen boss — so they share a silhouette
+  // language and stay pixel-aligned to the same 32x32 grid.
   const SDIR = [-1.5, -0.5, 0.5, 1.5]; // back pair points back, front pair forward
+  const SPIDER_PAL = { body: '#3e2347', sh: '#262b44', hi: '#68386c', leg: '#5b3a6e', legHi: '#8f6fae', eye: '#ff0044' };
+  const LING_PAL = { body: '#265c42', sh: '#193c3e', hi: '#3e8948', leg: '#3e8948', legHi: '#63c74d', eye: '#fee761' };
+  const QUEEN_PAL = { body: '#3e2731', sh: '#262b44', hi: '#733e39', leg: '#733e39', legHi: '#b86f50', eye: '#ff0044' };
+  const GEO = {
+    giant: { shadowW: 6, hips: [9, 13, 17, 21], hipY: 20, footY: 25, wFar: 2, wNear: 3,
+      ab: [4, 8, 17, 22], abHi: [5, 9, 10, 14], spots: [[12, 11], [14, 13], [10, 15]],
+      waist: [17, 14, 17, 21], head: [19, 13, 26, 22], headHi: [20, 14, 23, 16],
+      eye: [23, 15, 24, 17], sat: [[22, 14], [25, 14], [26, 16]],
+      fangs: [[23, 21, 22, 24], [25, 21, 26, 24]], palp: [24, 21, 25, 23] },
+    ling: { shadowW: 4, hips: [10, 13, 16, 19], hipY: 22, footY: 26, wFar: 1, wNear: 2,
+      ab: [7, 13, 17, 22], abHi: [8, 14, 12, 17], spots: [[12, 16], [15, 18]],
+      waist: [17, 17, 17, 21], head: [18, 15, 23, 21], headHi: [19, 16, 21, 18],
+      eye: [19, 17, 20, 18], sat: [[18, 16], [21, 16]],
+      fangs: [[19, 21, 18, 23], [21, 21, 22, 23]], palp: [20, 21, 21, 22] },
+    queen: { shadowW: 8, hips: [8, 12, 16, 20], hipY: 19, footY: 25, wFar: 2, wNear: 4,
+      ab: [1, 7, 16, 22], abHi: [3, 9, 9, 15], spots: [[10, 10], [13, 12], [8, 16], [12, 19]],
+      waist: [16, 13, 16, 19], head: [18, 12, 27, 23], headHi: [19, 13, 23, 16],
+      eye: [24, 15, 25, 17], sat: [[23, 13], [26, 13], [27, 16], [22, 17]],
+      fangs: [[24, 21, 23, 24], [26, 21, 27, 24]], palp: [25, 21, 26, 23],
+      egg: [[5, 8], [8, 7], [11, 8], [6, 10], [9, 10], [12, 11], [7, 12]],
+      marks: [[9, 18], [11, 20], [6, 20]] }
+  };
   function spiderFrame(o = {}) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H), i = o.i || 0, rear = o.rear || 0;
+      const g = o.geo || GEO.giant, p = o.pal || SPIDER_PAL;
       // slim contact shadow; feet never pass y25 so one clear row always
       // separates them and the outline pass can't fuse legs + shadow
-      P().shadowFlat(api, 16, 29, 6);
+      P().shadowFlat(api, 16, 29, g.shadowW);
       const li = o.calm ? 0 : i; // idle: legs planted, only the body breathes
       const lift = rear ? -3 : (i % 2 ? -1 : 0);
       const Y = y => y + lift;
       // one leg: hip under the body -> knee bowing out -> foot planted below.
       // far legs first (dark, 1px higher = depth), near legs over the body.
       function leg(l, far) {
-        const hx = 9 + l * 4, hy = Y(20);
+        const hx = g.hips[l], hy = Y(g.hipY);
         const up = ((l + li) % 2 === 0) ? -2 : 0;
         const raised = rear && l >= 2 ? -5 : 0; // threat display lifts front legs
         const dir = SDIR[l];
         const kx = Math.round(hx + dir * 2.5), ky = hy - 2 + (up >> 1) + (raised ? -3 : 0);
-        const fx = Math.round(hx + dir * 4), fy = 25 + (up >> 1) + (far ? -1 : 0) + (raised ? -5 : 0);
-        const c = far ? SSH : SLEG, w = far ? 2 : 3;
+        const fx = Math.round(hx + dir * 4), fy = g.footY + (up >> 1) + (far ? -1 : 0) + (raised ? -5 : 0);
+        const c = far ? p.sh : p.leg, w = far ? g.wFar : g.wNear;
         api.line(hx, hy, kx, ky, c, w);
         api.line(kx, ky, fx, fy, c, w);
-        if (!far) api.line(hx, hy - 1, kx, ky - 1, SLEGHI, 1); // femur top light
+        if (!far) api.line(hx, hy - 1, kx, ky - 1, p.legHi, 1); // femur top light
         api.px(fx, fy, '#181425');
       }
       for (let l = 0; l < 4; l++) leg(l, true);
       // abdomen: big round ball with top sheen + spots + spinnerets
-      api.ellipse(4, Y(8), 17, Y(22), SBODY, true);
-      api.ellipse(5, Y(9), 10, Y(14), SHI, true);
-      api.px(12, Y(11), SHI); api.px(14, Y(13), SHI); api.px(10, Y(15), SHI);
-      api.line(4, Y(19), 3, Y(21), SSH, 2);
-      // waist seam, then cephalothorax ball
-      api.line(17, Y(9), 17, Y(21), SSH, 2);
-      api.ellipse(19, Y(13), 26, Y(22), SBODY, true);
-      api.ellipse(20, Y(14), 23, Y(16), SHI, true);
+      api.ellipse(g.ab[0], Y(g.ab[1]), g.ab[2], Y(g.ab[3]), p.body, true);
+      api.ellipse(g.abHi[0], Y(g.abHi[1]), g.abHi[2], Y(g.abHi[3]), p.hi, true);
+      g.spots.forEach(([sx, sy]) => api.px(sx, Y(sy), p.hi));
+      api.line(g.ab[0], Y(g.ab[3] - 3), g.ab[0] - 1, Y(g.ab[3] - 1), p.sh, 2);
+      // queen: pale egg cluster riding the abdomen, plus gold carapace marks
+      if (g.egg) { g.egg.forEach(([ex, ey], k) => api.px(ex, Y(ey), k % 3 === 0 ? '#fff6c9' : '#e8ecf5')); }
+      if (g.marks) { g.marks.forEach(([mx, my]) => api.px(mx, Y(my), '#fee761')); }
+      // waist seam (starts below the abdomen crown so it can never poke out
+      // of the silhouette as a floating fin), then the cephalothorax ball
+      api.line(g.waist[0], Y(g.waist[1]), g.waist[2], Y(g.waist[3]), p.sh, 2);
+      api.ellipse(g.head[0], Y(g.head[1]), g.head[2], Y(g.head[3]), p.body, true);
+      api.ellipse(g.headHi[0], Y(g.headHi[1]), g.headHi[2], Y(g.headHi[3]), p.hi, true);
       for (let l = 0; l < 4; l++) leg(l, false);
       // face: big glossy eye + satellite eyes, short fangs, one palp
-      const ec = o.flash ? '#ffffff' : SEYE;
-      api.rect(23, Y(15), 24, Y(17), ec); api.px(23, Y(15), '#ffffff');
-      api.px(22, Y(14), ec); api.px(25, Y(14), ec); api.px(26, Y(16), ec);
-      api.line(23, Y(21), 22, Y(24), '#e8ecf5', 1); api.line(25, Y(21), 26, Y(24), '#e8ecf5', 1);
-      api.line(24, Y(21), 25, Y(23), SLEG, 2);
+      const ec = o.flash ? '#ffffff' : p.eye;
+      api.rect(g.eye[0], Y(g.eye[1]), g.eye[2], Y(g.eye[3]), ec); api.px(g.eye[0], Y(g.eye[1]), '#ffffff');
+      g.sat.forEach(([sx, sy]) => api.px(sx, Y(sy), ec));
+      g.fangs.forEach(([x0, y0, x1, y1]) => api.line(x0, Y(y0), x1, Y(y1), '#e8ecf5', 1));
+      api.line(g.palp[0], Y(g.palp[1]), g.palp[2], Y(g.palp[3]), p.leg, 2);
+      // web spit: strand reeling out from the chelicerae, then a sticky glob
+      if (o.web) {
+        const wx = 26 + o.web * 2, wy = Y(15 - o.web);
+        api.line(25, Y(18), wx, wy, '#8b9bb4', 1);
+        api.ellipse(wx - 1, wy - 1, wx + 1, wy + 1, '#e8ecf5', true);
+        api.px(wx, wy - 1, '#ffffff');
+      }
       if (o.flash) P().flashWhite(api, W, H, buf);
       finish(buf, W, H);
       if (o.fade) R.fadeOut(buf, W, H, o.fade, 9);
@@ -168,8 +203,49 @@ PF.RPG.foes = (() => {
       D('idle', 6, true, [0, 1, 2, 3].map(i => Fr(ms(6), spiderFrame({ i, calm: true })))),
       D('crawl', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), spiderFrame({ i })))),
       D('lunge', 12, true, [Fr(ms(12), spiderFrame({ rear: 0 })), Fr(ms(12), spiderFrame({ rear: 1 })), Fr(ms(12), spiderFrame({ rear: 0, i: 1 })), Fr(ms(12), spiderFrame({ rear: 1, i: 1 }))]),
+      D('spit', 10, true, [
+        Fr(120, spiderFrame({ i: 0, rear: 1 })),
+        Fr(80, spiderFrame({ i: 1, rear: 1 })),
+        Fr(80, spiderFrame({ i: 0, web: 1 })),
+        Fr(80, spiderFrame({ i: 1, web: 2 })),
+        Fr(120, spiderFrame({ i: 0 }))
+      ]),
       D('hurt', 8, true, [Fr(ms(8), spiderFrame({ flash: true })), Fr(ms(8), spiderFrame({ i: 1 }))]),
       D('death', 6, false, [Fr(ms(6), spiderFrame({ flash: true })), Fr(ms(6), spiderFrame({ rear: 1 })), Fr(ms(6), spiderFrame({ rear: 1, fade: 0.5 })), Fr(ms(6), spiderFrame({ rear: 1, fade: 0.85 }))])
+    ] };
+  }
+  /* Small swarm crawler: same rig, tighter silhouette, skittering gait. */
+  function spiderlingSuite() {
+    const F = o => spiderFrame({ ...o, geo: GEO.ling, pal: LING_PAL });
+    return { width: 32, height: 32, name: 'rpg-spiderling', layers: [{ name: 'Body' }], states: [
+      D('idle', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), F({ i, calm: true })))),
+      D('crawl', 14, true, [0, 1, 2, 3].map(i => Fr(ms(14), F({ i })))),
+      D('lunge', 14, true, [Fr(ms(14), F({})), Fr(ms(14), F({ rear: 1 })), Fr(ms(14), F({ i: 1 })), Fr(ms(14), F({ rear: 1, i: 1 }))]),
+      D('hurt', 10, true, [Fr(ms(10), F({ flash: true })), Fr(ms(10), F({ i: 1 }))]),
+      D('death', 8, false, [Fr(ms(8), F({ flash: true })), Fr(ms(8), F({ rear: 1 })), Fr(ms(8), F({ rear: 1, fade: 0.5 })), Fr(ms(8), F({ rear: 1, fade: 0.85 }))])
+    ] };
+  }
+  /* Brood mother: heavy abdomen, egg sac, extra eye ring, gold carapace. */
+  function spiderQueenSuite() {
+    const F = o => spiderFrame({ ...o, geo: GEO.queen, pal: QUEEN_PAL });
+    return { width: 32, height: 32, name: 'rpg-spider-queen', layers: [{ name: 'Body' }], states: [
+      D('idle', 5, true, [0, 1, 2, 3].map(i => Fr(ms(5), F({ i, calm: true })))),
+      D('crawl', 8, true, [0, 1, 2, 3].map(i => Fr(ms(8), F({ i })))),
+      D('lunge', 10, true, [Fr(ms(10), F({})), Fr(ms(10), F({ rear: 1 })), Fr(ms(10), F({ i: 1 })), Fr(ms(10), F({ rear: 1, i: 1 }))]),
+      D('spit', 8, true, [
+        Fr(130, F({ i: 0, rear: 1 })),
+        Fr(90, F({ i: 1, rear: 1 })),
+        Fr(90, F({ i: 0, web: 1 })),
+        Fr(90, F({ i: 1, web: 2 })),
+        Fr(130, F({ i: 0 }))
+      ]),
+      D('hurt', 8, true, [Fr(ms(8), F({ flash: true })), Fr(ms(8), F({ i: 1 }))]),
+      D('death', 5, false, [
+        Fr(ms(5), F({ flash: true })),
+        Fr(ms(5), F({ rear: 1 })),
+        Fr(ms(5), F({ rear: 1, fade: 0.45 })),
+        Fr(ms(5), F({ rear: 1, fade: 0.8 }))
+      ])
     ] };
   }
 
@@ -384,5 +460,6 @@ PF.RPG.foes = (() => {
     ] };
   }
 
-  return { goblinSuite, necromancerSuite, demonSuite, dragonSuite, spiderSuite, mimicSuite, wispSuite, slimeKingSuite, entSuite };
+  return { goblinSuite, necromancerSuite, demonSuite, dragonSuite, spiderSuite, spiderlingSuite, spiderQueenSuite,
+    mimicSuite, wispSuite, slimeKingSuite, entSuite };
 })();

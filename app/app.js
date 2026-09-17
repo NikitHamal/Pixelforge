@@ -177,12 +177,25 @@ PF.UI = (() => {
     if (!tplDocs.has(t.id)) { try { tplDocs.set(t.id, t.build()); } catch { return null; } }
     return tplDocs.get(t.id);
   }
+  /* Scratch buffers keyed by doc size. The template grid repaints every card
+     every 200ms, so allocating a canvas + ImageData + two Uint32Arrays per
+     paint was the hub's single biggest source of GC churn. */
+  const paintScratch = new Map();
+  function scratchFor(w, h) {
+    const k = w + 'x' + h;
+    let s = paintScratch.get(k);
+    if (!s) {
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const cx = cv.getContext('2d'), img = cx.createImageData(w, h);
+      s = { cv, cx, img, out: new Uint32Array(img.data.buffer), cell: new Uint32Array(w * h) };
+      paintScratch.set(k, s);
+    }
+    return s;
+  }
   function paintDocFrame(doc, si, fi, canvas) {
     const st = doc.states[si % doc.states.length], fr = st.frames[fi % st.frames.length];
-    const tmp = document.createElement('canvas'); tmp.width = doc.width; tmp.height = doc.height;
-    const tctx = tmp.getContext('2d'), img = tctx.createImageData(doc.width, doc.height);
-    const out = new Uint32Array(img.data.buffer); out.fill(0);
-    const cell = new Uint32Array(doc.width * doc.height);
+    const { cv: tmp, cx: tctx, img, out, cell } = scratchFor(doc.width, doc.height);
+    out.fill(0);
     doc.layers.forEach((l, li) => {
       cell.fill(0);
       const p = fr.layers ? fr.layers[li] : fr.paint;
@@ -243,11 +256,14 @@ PF.UI = (() => {
   }
   let tplLast = 0;
   function tplLoop(t) {
+    // Stop the loop as soon as the user leaves the view: it used to spin a rAF
+    // forever on every page, even on Projects/Agent/Docs.
+    if (currentView !== 'templates') { tplRaf = false; tplAnims.clear(); return; }
     if (t - tplLast > 200) {
       tplLast = t;
       tplAnims.forEach(a => {
         const r = a.el.getBoundingClientRect();
-        if (r.bottom > 0 && r.top < innerHeight && currentView === 'templates') {
+        if (r.bottom > 0 && r.top < innerHeight) {
           a.i++; paintDocFrame(a.doc, 0, a.i % a.doc.states[0].frames.length, a.el);
         }
       });

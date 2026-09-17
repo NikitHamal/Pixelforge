@@ -54,16 +54,18 @@ PF.Library = (() => {
     add('hud', 'HUD Hearts & Bars', 'UI', '5/3/1/0 HP heart rows plus stamina and XP bars.', ['ui', 'hud'], () => I().heartsSuite(), { w: 32, h: 32 });
     // ---- RPG pack: classes, foes, world, gear ----
     const RH = () => R(), RF = () => R().foes, RW = () => R().world, RI = () => R().items, RE = () => R().expand;
-    add('rpg_knight', 'Knight', 'Heroes', 'Plate-armored sword & shield fighter: idle/walk x3, sword slash, shield block, hurt, death.', ['player', 'knight', 'rpg', 'tank'], () => RH().knightSuite(), { w: 32, h: 32, featured: true });
-    add('rpg_ranger', 'Ranger', 'Heroes', 'Hooded archer: idle/walk x3, 5-frame bow draw & release, sneaky stride, hurt, death.', ['player', 'archer', 'rpg'], () => RH().rangerSuite(), { w: 32, h: 32 });
-    add('rpg_cleric', 'Cleric', 'Heroes', 'Holy healer with circlet and staff: idle/walk x3, radiant cast, hurt, death.', ['player', 'healer', 'magic', 'rpg'], () => RH().clericSuite(), { w: 32, h: 32 });
-    add('rpg_rogue', 'Rogue', 'Heroes', 'Shadowy hooded dagger fighter: idle/walk x3, quick slash, hurt, death.', ['player', 'assassin', 'rpg'], () => RH().rogueSuite(), { w: 32, h: 32 });
+    add('rpg_knight', 'Knight', 'Heroes', 'Plate-armored sword & shield fighter — 15 states / 67 frames: idle & walk x3, six-frame run x3, four-directional sword arcs, shield block, hurt, death.', ['player', 'knight', 'rpg', 'tank'], () => RH().knightSuite(), { w: 32, h: 32, featured: true });
+    add('rpg_ranger', 'Ranger', 'Heroes', 'Hooded archer — 14 states / 63 frames: idle & walk x3, run x3, five-frame bow draw & release on every facing, sneaky stride, hurt, death.', ['player', 'archer', 'rpg'], () => RH().rangerSuite(), { w: 32, h: 32 });
+    add('rpg_cleric', 'Cleric', 'Heroes', 'Holy healer with circlet and staff — 16 states / 71 frames: idle & walk x3, run x3, four-directional strikes, radiant cast front & side, hurt, death.', ['player', 'healer', 'magic', 'rpg'], () => RH().clericSuite(), { w: 32, h: 32 });
+    add('rpg_rogue', 'Rogue', 'Heroes', 'Shadowy hooded dagger fighter — 14 states / 63 frames: idle & walk x3, run x3, four-directional slashes, hurt, death.', ['player', 'assassin', 'rpg'], () => RH().rogueSuite(), { w: 32, h: 32 });
     add('rpg_townsfolk', 'Townsfolk Pack', 'NPCs', 'King, guard, blacksmith, elder, peasant and cook — blinking 4-frame idles, one state each.', ['npc', 'town', 'quest'], () => RH().townsfolkSuite(), { w: 32, h: 32 });
-    add('rpg_goblin', 'Goblin Sneak', 'Enemies', 'Big-eared green skirmisher: idle/walk x3, dagger slash, hurt, dither-fade death.', ['enemy', 'forest', 'dungeon'], () => RF().goblinSuite(), { w: 32, h: 32 });
-    add('rpg_necromancer', 'Necromancer', 'Enemies', 'Skull-faced dark caster: idle/walk x3, shadow cast, hurt, death.', ['enemy', 'boss', 'undead', 'magic'], () => RF().necromancerSuite(), { w: 32, h: 32 });
-    add('rpg_demon', 'Horned Demon', 'Enemies', 'Winged brute with horns and tail: idle/walk x3, heavy slash, hurt, death.', ['enemy', 'boss', 'fire'], () => RF().demonSuite(), { w: 32, h: 32, featured: true });
+    add('rpg_goblin', 'Goblin Sneak', 'Enemies', 'Big-eared green skirmisher — 14 states / 63 frames: idle & walk x3, run x3, four-directional dagger slashes, hurt, dither-fade death.', ['enemy', 'forest', 'dungeon'], () => RF().goblinSuite(), { w: 32, h: 32 });
+    add('rpg_necromancer', 'Necromancer', 'Enemies', 'Skull-faced dark caster — 16 states / 71 frames: idle & walk x3, run x3, four-directional strikes, shadow cast front & side, hurt, death.', ['enemy', 'boss', 'undead', 'magic'], () => RF().necromancerSuite(), { w: 32, h: 32 });
+    add('rpg_demon', 'Horned Demon', 'Enemies', 'Winged brute with horns and tail — 14 states / 63 frames: idle & walk x3, run x3, four-directional heavy slashes, hurt, death.', ['enemy', 'boss', 'fire'], () => RF().demonSuite(), { w: 32, h: 32, featured: true });
     add('rpg_dragon', 'Red Dragon', 'Enemies', 'Flying boss: idle with smoke, 4-frame wing flap flight, growing fireball spit, hurt, collapse death.', ['enemy', 'boss', 'dragon', 'flying', 'fire'], () => RF().dragonSuite(), { w: 32, h: 32, featured: true });
-    add('rpg_spider', 'Giant Spider', 'Enemies', 'Eight-legged crawler: breathing idle, alternating-gait crawl, rear-up lunge, hurt, death.', ['enemy', 'dungeon', 'cave'], () => RF().spiderSuite(), { w: 32, h: 32 });
+    add('rpg_spider', 'Giant Spider', 'Enemies', 'Eight-legged crawler: breathing idle, alternating-gait crawl, rear-up lunge, web spit, hurt, death.', ['enemy', 'dungeon', 'cave'], () => RF().spiderSuite(), { w: 32, h: 32 });
+    add('rpg_spiderling', 'Spiderling Swarm', 'Enemies', 'Pale-green hatchling on the same rig: fast skittering crawl, hop lunge, quick hurt and death. Spawn in packs.', ['enemy', 'dungeon', 'cave', 'swarm'], () => RF().spiderlingSuite(), { w: 32, h: 32 });
+    add('rpg_spider_queen', 'Spider Queen', 'Enemies', 'Brood-mother boss: egg-laden abdomen, gold carapace marks, ring of eyes, heavy crawl, lunge and web spit.', ['enemy', 'boss', 'dungeon', 'cave'], () => RF().spiderQueenSuite(), { w: 32, h: 32, featured: true });
     add('rpg_mimic', 'Mimic Chest', 'Enemies', 'Treacherous chest: breathing lid, 4-stage teeth snap with tongue lash, coin-spilling death.', ['enemy', 'trap', 'dungeon', 'loot'], () => RF().mimicSuite(), { w: 32, h: 32 });
     add('rpg_wisp', 'Will-o-Wisp', 'Enemies', 'Flickering flame spirit: idle, stretch dash with afterimage, spark burst, vanish fade.', ['enemy', 'spirit', 'forest', 'flying'], () => RF().wispSuite(), { w: 32, h: 32 });
     add('rpg_slime_king', 'Slime King', 'Enemies', 'Crowned royal blob: squash idle, hop, ground-slam shockwave, melting crown-drop death.', ['enemy', 'boss', 'cute'], () => RF().slimeKingSuite(), { w: 32, h: 32 });
@@ -80,10 +82,10 @@ PF.Library = (() => {
     add('rpg_status', 'Status Icons', 'UI', 'Twelve 16px RPG status icons: burn, poison, frozen, stun, sleep, regen, shield, attack/defense up, haste, curse, paralysis.', ['ui', 'icons', 'buffs'], () => RI().statusSuite(), { w: 32, h: 32 });
     add('rpg_magic2', 'Battle Magic 2', 'FX', 'Tornado, meteor impact, heal beam, summon circle, 5-frame explosion, frost shards, poison cloud.', ['magic', 'effects', 'particles'], () => RI().magic2Suite(), { w: 32, h: 32, featured: true });
     add('rpg_ui', 'RPG UI Chrome', 'UI', 'Dialog box, button x3 states, cursor, bouncing arrow, coin/lock/skull icons, twinkling star.', ['ui', 'menu', 'hud'], () => RI().uiSuite(), { w: 32, h: 32 });
-    add('rpg_paladin', 'Paladin', 'Heroes', 'Holy sword & shield champion with radiant cast: full 10-state suite, white cape, sun circlet.', ['player', 'knight', 'holy', 'rpg', 'tank'], () => RE().paladinSuite(), { w: 32, h: 32, featured: true });
-    add('rpg_druid', 'Druid', 'Heroes', 'Forest keeper with oak staff and thorn cast: full 9-state suite, leaf hood, moss cape.', ['player', 'mage', 'nature', 'rpg'], () => RE().druidSuite(), { w: 32, h: 32 });
-    add('rpg_lich', 'Lich Lord', 'Enemies', 'Undead skull-faced overlord: sneaky stride, shadow staff cast, dither-fade death.', ['enemy', 'boss', 'undead', 'magic'], () => RE().lichSuite(), { w: 32, h: 32 });
-    add('rpg_ogre', 'Ogre Mauler', 'Enemies', 'Horned heavy bruiser with iron pauldrons and a sweeping axe: full combat suite.', ['enemy', 'boss', 'brute'], () => RE().ogreSuite(), { w: 32, h: 32 });
+    add('rpg_paladin', 'Paladin', 'Heroes', 'Holy sword & shield champion — 17 states / 75 frames: idle & walk x3, run x3, four-directional strikes, shield block, radiant cast front & side, gold cape, sun circlet.', ['player', 'knight', 'holy', 'rpg', 'tank'], () => RE().paladinSuite(), { w: 32, h: 32, featured: true });
+    add('rpg_druid', 'Druid', 'Heroes', 'Forest keeper with oak staff and thorn cast — 16 states / 71 frames: idle & walk x3, run x3, four-directional strikes, cast front & side, leaf hood, moss cape.', ['player', 'mage', 'nature', 'rpg'], () => RE().druidSuite(), { w: 32, h: 32 });
+    add('rpg_lich', 'Lich Lord', 'Enemies', 'Undead skull-faced overlord — 16 states / 71 frames: crouched run x3, four-directional strikes, shadow staff cast front & side, dither-fade death.', ['enemy', 'boss', 'undead', 'magic'], () => RE().lichSuite(), { w: 32, h: 32 });
+    add('rpg_ogre', 'Ogre Mauler', 'Enemies', 'Horned heavy bruiser with iron pauldrons — 14 states / 63 frames: idle & walk x3, run x3, four-directional axe sweeps, hurt, death.', ['enemy', 'boss', 'brute'], () => RE().ogreSuite(), { w: 32, h: 32 });
     add('rpg_campsite', 'Campsite Props', 'World', 'Canvas tent with swinging flap, waving war banner, anvil, bedroll, 4-frame bubbling cookpot, supply crate.', ['camp', 'decoration', 'props', 'survival'], () => RE().campsiteSuite(), { w: 32, h: 32 });
     add('rpg_trinkets', 'Trinkets', 'Items', 'Gold ring, amulet, mana orb, war horn, lantern, drum, flute, spirit mask.', ['gear', 'loot', 'equipment'], () => RE().trinketsSuite(), { w: 32, h: 32 });
     add('rpg_magic3', 'Battle Magic 3', 'FX', 'Holy smite beam, travelling shadow orb with implode, forked storm strike, rising vine grasp.', ['magic', 'effects', 'particles'], () => RE().magic3Suite(), { w: 32, h: 32, featured: true });
@@ -151,13 +153,23 @@ PF.Library = (() => {
   }
 
   /* Animated preview: returns { canvases } — hub animates via rAF over state frames.
-     Simpler: hub uses thumbnail + frame count badge; studio preview on open. */
+     Simpler: hub uses thumbnail + frame count badge; studio preview on open.
+     Memoised: docStats() builds the whole sprite doc, and the hub calls it for
+     every visible template on every list render (and again next to tplDoc),
+     so the uncached form re-generated the entire library twice per paint. */
+  const statsCache = new Map();
   function docStats(id) {
+    const hit = statsCache.get(id); if (hit !== undefined) return hit;
     const t = get(id); if (!t) return null;
-    try { const doc = t.build(); return { states: doc.states.length, frames: countFrames(doc), width: doc.width, height: doc.height,
-      stateNames: doc.states.map(s => s.name) }; } catch { return null; }
+    let r = null;
+    try { const doc = t.build(); r = { states: doc.states.length, frames: countFrames(doc), width: doc.width, height: doc.height,
+      stateNames: doc.states.map(s => s.name) }; } catch { r = null; }
+    statsCache.set(id, r);
+    return r;
   }
 
   return { list, get, categories, thumbnail, instantiate, docStats, countFrames,
-    registerPack: fn => extraPacks.push(fn) };
+    /* registerPack runs at boot, before anything is cached — clear defensively
+       so a late-registered pack can never serve a stale stats entry. */
+    registerPack: fn => { extraPacks.push(fn); statsCache.clear(); thumbCache.clear(); } };
 })();

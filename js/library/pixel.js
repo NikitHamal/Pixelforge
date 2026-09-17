@@ -5,7 +5,6 @@
 window.PF = window.PF || {};
 PF.Pixel = (() => {
   const C = h => PF.Color.hexToU32(h);
-  const R = () => PF.Raster;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lerp = (a, b, t) => a + (b - a) * t;
   const easeOut = t => 1 - Math.pow(1 - t, 3);
@@ -19,20 +18,33 @@ PF.Pixel = (() => {
       fn(api, W, H);
     };
   }
-  function makeApi(buf, W, H) {
-    const r = R();
-    return {
-      buf, W, H,
-      px(x, y, c) { r.set(buf, W, H, Math.round(x), Math.round(y), typeof c === 'number' ? c : C(c)); },
-      rect(x0, y0, x1, y1, c) { r.rect(buf, W, H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), typeof c === 'number' ? c : C(c), { fill: true }); },
-      rectO(x0, y0, x1, y1, c, size = 1) { r.rect(buf, W, H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), typeof c === 'number' ? c : C(c), { fill: false, size }); },
-      line(x0, y0, x1, y1, c, size = 1) { r.line(buf, W, H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), typeof c === 'number' ? c : C(c), size); },
-      ellipse(x0, y0, x1, y1, c, fill = true) { r.ellipse(buf, W, H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), typeof c === 'number' ? c : C(c), { fill }); },
-      fill(x, y, c) { r.fill(buf, W, H, Math.round(x), Math.round(y), typeof c === 'number' ? c : C(c), true); },
-      /* deterministic pseudo-random from coords (stable speckles) */
-      hash(x, y, seed = 0) { let h = (x * 374761393 + y * 668265263 + seed * 974634211) | 0; h = (h ^ (h >> 13)) | 0; h = Math.imul(h, 1274126177); h = (h ^ (h >> 16)) >>> 0; return h / 4294967295; },
-      shadeRect(x0, y0, x1, y1, amt) { r.shadeRegion(buf, W, H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), amt); }
-    };
+  /* Prototype-based draw API. The previous form returned a fresh object of nine
+     closures per call — one allocation storm per rendered frame (and per live
+     preview tick). A plain constructor with prototype methods keeps the exact
+     same surface with zero per-call closure cost. */
+  const num = c => (typeof c === 'number' ? c : C(c));
+  function Api(buf, W, H) { this.buf = buf; this.W = W; this.H = H; }
+  Api.prototype.px = function (x, y, c) { PF.Raster.set(this.buf, this.W, this.H, Math.round(x), Math.round(y), num(c)); };
+  Api.prototype.rect = function (x0, y0, x1, y1, c) { PF.Raster.rect(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), { fill: true }); };
+  Api.prototype.rectO = function (x0, y0, x1, y1, c, size = 1) { PF.Raster.rect(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), { fill: false, size }); };
+  Api.prototype.line = function (x0, y0, x1, y1, c, size = 1) { PF.Raster.line(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), size); };
+  Api.prototype.ellipse = function (x0, y0, x1, y1, c, fill = true) { PF.Raster.ellipse(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), { fill }); };
+  Api.prototype.fill = function (x, y, c) { PF.Raster.fill(this.buf, this.W, this.H, Math.round(x), Math.round(y), num(c), true); };
+  /* deterministic pseudo-random from coords (stable speckles) */
+  Api.prototype.hash = function (x, y, seed = 0) { let h = (x * 374761393 + y * 668265263 + seed * 974634211) | 0; h = (h ^ (h >> 13)) | 0; h = Math.imul(h, 1274126177); h = (h ^ (h >> 16)) >>> 0; return h / 4294967295; };
+  Api.prototype.shadeRect = function (x0, y0, x1, y1, amt) { PF.Raster.shadeRegion(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), amt); };
+  const makeApi = (buf, W, H) => new Api(buf, W, H);
+  /* Offset view of a draw API: identical surface, coordinates translated by
+     (ox, oy). Tilesheet painters use this to draw 16px tiles onto a 64px sheet.
+     Built on the prototype chain so untranslated calls (ellipse, rectO, fill,
+     shadeRect, hash) are inherited instead of re-wrapped. */
+  function offsetApi(api, ox, oy) {
+    const a = Object.create(api);
+    a.px = (x, y, c) => api.px(ox + x, oy + y, c);
+    a.rect = (x0, y0, x1, y1, c) => api.rect(ox + x0, oy + y0, ox + x1, oy + y1, c);
+    a.line = (x0, y0, x1, y1, c, s) => api.line(ox + x0, oy + y0, ox + x1, oy + y1, c, s);
+    a.hash = (x, y, s) => api.hash(x + ox, y + oy, s);
+    return a;
   }
 
   /* Sword drawn from hand (hx,hy) at angle (radians) + length */
@@ -74,6 +86,24 @@ PF.Pixel = (() => {
       api.line(sx - 7, by, sx + 4, by, palette.arrow, 1);
       api.rect(sx + 3, by - 1, sx + 5, by + 1, palette.tip);
       api.rect(sx - 8, by - 1, sx - 6, by + 1, palette.fletch);
+    }
+  }
+  /* Bow seen head-on (top-down game): limbs vertical across the body, string
+     pulled to a V, arrow loosed along `dir` (-1 = away/up the screen,
+     +1 = toward the camera/down). Mirrors Pixel.bow's language for the
+     front and back facings. */
+  function bowFront(api, bx, by, pull, dir, palette, arrowT = 1) {
+    // limb: tall thin ellipse outline, wrapped grip at the middle
+    api.ellipse(bx - 3, by - 9, bx + 3, by + 9, palette.limb, false);
+    api.rect(bx - 1, by - 2, bx + 1, by + 2, palette.tip);
+    const sy = by + 6 - Math.round(pull * 5); // string apex travels back as it is drawn
+    api.line(bx, by - 9, bx, sy, palette.string, 1);
+    api.line(bx, sy, bx, by + 9, palette.string, 1);
+    if (arrowT > 0) {
+      const ty = by + 3 + dir * 7; // foreshortened: the shot runs into/out of the screen
+      api.line(bx, by + 3 + dir * 2, bx, ty, palette.arrow, 1);
+      api.rect(bx - 1, ty - 1, bx + 1, ty + 1, palette.tip);
+      api.rect(bx - 1, by + 2 + dir, bx + 1, by + 4 + dir, palette.fletch);
     }
   }
   /* Slash arc FX centered (cx,cy) radius r, sweep a0..a1, color */
@@ -130,6 +160,6 @@ PF.Pixel = (() => {
     api.px(sx, sy, '#ffffff');
   }
 
-  return { C, frame, makeApi, clamp, lerp, easeOut, easeInOut, TAU,
-    sword, pickaxe, axe, bow, shield, slash, sparks, particles, shadowFlat, flashWhite };
+  return { C, frame, makeApi, offsetApi, clamp, lerp, easeOut, easeInOut, TAU,
+    sword, pickaxe, axe, bow, bowFront, shield, slash, sparks, particles, shadowFlat, flashWhite };
 })();
