@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>PixelForge Studio — AI-agent-ready 2D pixel art game asset studio</title>
-  <meta name="description" content="Create animated 2D pixel art game assets with many states, export to any format, and let any AI agent drive the whole studio through typed tools and MCP.">
+  <title>PixelForge Studio — 2D pixel art game asset studio</title>
+  <meta name="description" content="A complete 2D pixel art studio: 32 animated templates, pro editor, projects and an agent-native tool surface with MCP.">
   <meta name="theme-color" content="#5a38f0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,29 +12,22 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&display=block" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/studio.css">
-  <style>
-    .studio.is-drop { outline: 3px dashed var(--primary); outline-offset: -3px; }
-    #mcp-status[data-kind="ok"] { color: var(--tertiary); } #mcp-status[data-kind="error"] { color: var(--error); }
-  </style>
 </head>
 <body>
-  <a class="skip" href="#studio">Skip to studio</a>
+  <a class="skip" href="#features">Skip to content</a>
 
   <!-- Top app bar -->
   <header class="topbar" data-agent-id="topbar">
     <div class="container topbar__inner">
       <a class="logo" href="#home" aria-label="PixelForge Studio home" data-agent-id="nav-home"><span class="logo__mark"><canvas id="logo-canvas" aria-hidden="true"></canvas></span>PixelForge</a>
       <nav aria-label="Primary">
+        <a href="#featured" data-agent-id="nav-featured">Featured</a>
         <a href="#features" data-agent-id="nav-features">Features</a>
-        <a href="#studio" data-agent-id="nav-studio">Studio</a>
-        <a href="#agents" data-agent-id="nav-agents">Agents</a>
-        <a href="#mcp" data-agent-id="nav-mcp">MCP</a>
         <a href="#formats" data-agent-id="nav-formats">Formats</a>
       </nav>
       <div class="topbar__actions">
         <button class="icon-btn" id="btn-theme" aria-label="Toggle theme" data-agent-id="theme-toggle"><span class="ms">dark_mode</span></button>
-        <a class="btn btn--filled" href="#studio" data-open-studio data-agent-id="open-studio"><span class="ms ms--sm">brush</span>Open Studio</a>
+        <a class="btn btn--filled" href="app/index.html" data-agent-id="open-app"><span class="ms ms--sm">brush</span>Open App</a>
       </div>
     </div>
   </header>
@@ -46,10 +39,10 @@
         <div class="hero__copy reveal">
           <span class="eyebrow"><span class="ms">smart_toy</span>Agent-native · MCP-ready · Open formats</span>
           <h1 class="display">Pixel art game assets, crafted by you <em style="font-style:normal;color:var(--primary)">or your AI agent.</em></h1>
-          <p class="body-lg">A complete 2D pixel art studio in the browser: layers, symmetry, animation states, onion skin and one-click export to sprite sheets, GIF, JSON atlases and more. Every single control is exposed as a typed tool, so agents can build production-ready assets end to end.</p>
+          <p class="body-lg">32 animated templates — heroes with full 23-state suites, monsters, tiles, weapons and FX — plus a pro editor, local projects and a typed agent tool surface. No install, no backend.</p>
           <div class="hero__actions">
-            <a class="btn btn--filled btn--lg" href="#studio" data-open-studio data-agent-id="hero-open-studio"><span class="ms">draw</span>Start drawing</a>
-            <button class="btn btn--tonal btn--lg" data-try="make a slime idle animation" data-agent-id="hero-try-agent"><span class="ms">auto_awesome</span>Watch the agent build a sprite</button>
+            <a class="btn btn--filled btn--lg" href="app/index.html" data-agent-id="hero-open-app"><span class="ms">draw</span>Launch the app</a>
+            <a class="btn btn--tonal btn--lg" href="app/index.html#/templates" data-agent-id="hero-browse"><span class="ms">widgets</span>Browse templates</a>
           </div>
           <div class="row wrap muted" style="font-size:.82rem;gap:14px">
             <span class="row"><span class="ms ms--sm">bolt</span>No install, no backend</span>
@@ -63,8 +56,8 @@
             <canvas id="hero-demo" aria-label="Animated slime and coin demo"></canvas>
           </div>
           <div class="hero__stats">
+            <div class="stat"><b data-count="templates">32</b><span>animated templates</span></div>
             <div class="stat"><b data-count="tools">40</b><span>agent tools</span></div>
-            <div class="stat"><b data-count="presets">20</b><span>state presets</span></div>
             <div class="stat"><b data-count="formats">7</b><span>export formats</span></div>
           </div>
         </div>
@@ -74,10 +67,25 @@
     <!-- Metrics band -->
     <section class="container reveal">
       <div class="band">
-        <div><b data-count="ui">150+</b><span>addressable UI elements</span></div>
+        <div><b data-count="frames">500+</b><span>generated animation frames</span></div>
         <div><b>256²</b><span>max canvas, Uint32 buffers</span></div>
         <div><b>60fps</b><span>dirty-flag rendering</span></div>
         <div><b>80</b><span>undo levels, all tools</span></div>
+      </div>
+    </section>
+
+    <!-- Featured assets -->
+    <section class="section" id="featured" style="padding-bottom:0">
+      <div class="container">
+        <div class="section__head reveal">
+          <span class="eyebrow"><span class="ms">star</span>Featured assets</span>
+          <h2 class="headline">Full animation suites, ready to open.</h2>
+          <p class="body-lg">Live previews rendered by the engine. One click opens any of them in the studio as its own project.</p>
+        </div>
+        <div class="feat-grid reveal" id="feat-grid"></div>
+        <div class="row wrap reveal" style="margin-top:18px">
+          <a class="btn btn--tonal" href="app/index.html#/templates">All 32 templates in the app<span class="ms ms--sm">arrow_forward</span></a>
+        </div>
       </div>
     </section>
 
@@ -87,246 +95,19 @@
         <div class="section__head reveal">
           <span class="eyebrow"><span class="ms">stars</span>Full studio</span>
           <h2 class="headline">Everything a game asset needs, nothing you have to configure.</h2>
-          <p class="body-lg">Built mobile-first with Material 3 Expressive shapes and motion. The same engine powers the canvas, the thumbnails, the exports and the agent.</p>
+          <p class="body-lg">A sidebar app with projects, templates, a canvas-first editor and an agent cockpit — Material 3 Expressive shapes and motion, mobile-first.</p>
         </div>
         <div class="grid grid--3">
-          <article class="card card--primary reveal"><div class="card__icon"><span class="ms">brush</span></div><h3 class="title">Pro pixel tools</h3><p>Pencil, eraser, bucket (contiguous/global), line, rect, ellipse, shading, move, eyedropper, X/Y symmetry, brush sizes and a 32-color starter palette you can extend.</p></article>
-          <article class="card reveal"><div class="card__icon"><span class="ms">animation</span></div><h3 class="title">Animation states</h3><p>Idle, walk, run, jump, attack, hurt, death and 13 more presets. Per-frame durations, loop control, onion skin and a live preview that keeps playing while you edit.</p></article>
+          <article class="card card--primary reveal"><div class="card__icon"><span class="ms">brush</span></div><h3 class="title">Pro pixel tools</h3><p>Pencil, eraser, bucket (contiguous/global), line, rect, ellipse, shading, move, eyedropper, X/Y symmetry, brush sizes and an extendable palette.</p></article>
+          <article class="card reveal"><div class="card__icon"><span class="ms">animation</span></div><h3 class="title">Animation states</h3><p>Idle, walk, run, sword, bow, pickaxe, hurt, death, sleep, eat and 30+ more presets. Per-frame durations, loop control, onion skin and live preview.</p></article>
           <article class="card reveal"><div class="card__icon"><span class="ms">layers</span></div><h3 class="title">Layers &amp; history</h3><p>Unlimited layers with opacity, visibility, lock and merge. Typed-array snapshots give you 80 levels of undo for pixels and structure alike.</p></article>
-          <article class="card card--tertiary reveal"><div class="card__icon"><span class="ms">smart_toy</span></div><h3 class="title">Agent-native</h3><p>Every action is a schema-described tool. Agents paint with ASCII rows, inspect their work as PNG, and click any control by id.</p></article>
-          <article class="card reveal"><div class="card__icon"><span class="ms">hub</span></div><h3 class="title">MCP server surface</h3><p>JSON-RPC handler for initialize, tools/list, tools/call and resources. Connect a stdio bridge and any MCP client can drive the studio.</p></article>
+          <article class="card card--tertiary reveal"><div class="card__icon"><span class="ms">smart_toy</span></div><h3 class="title">Agent-native</h3><p>Every action is a schema-described tool — including templates and projects. Agents open assets, append states and export sheets end to end.</p></article>
+          <article class="card reveal"><div class="card__icon"><span class="ms">hub</span></div><h3 class="title">MCP server surface</h3><p>JSON-RPC handler for initialize, tools/list, tools/call and resources. Connect a stdio bridge and any MCP client can drive the app.</p></article>
           <article class="card card--secondary reveal"><div class="card__icon"><span class="ms">ios_share</span></div><h3 class="title">Export anywhere</h3><p>PNG, sprite sheet + Aseprite-compatible JSON (Unity, Godot, Phaser, Unreal), animated GIF, SVG, CSS and a lossless project file. Import PNG sheets back.</p></article>
         </div>
-      </div>
-    </section>
-
-    <!-- ===================== STUDIO ===================== -->
-    <section class="container" style="padding-block:8px 24px">
-      <section class="studio" id="studio" data-view="canvas" aria-label="PixelForge Studio editor">
-        <div class="studio__bar" data-agent-id="studio-bar">
-          <button class="icon-btn" id="btn-new" aria-label="New document" title="New / resize" data-agent-id="new-document"><span class="ms">add_box</span></button>
-          <input class="doc-name" id="doc-name" value="hero-sprite" aria-label="Document name" data-agent-id="doc-name">
-          <span class="sep"></span>
-          <button class="icon-btn" id="btn-undo" aria-label="Undo" title="Undo (Ctrl+Z)" data-agent-id="undo"><span class="ms">undo</span></button>
-          <button class="icon-btn" id="btn-redo" aria-label="Redo" title="Redo (Ctrl+Y)" data-agent-id="redo"><span class="ms">redo</span></button>
-          <span class="sep"></span>
-          <button class="icon-btn" id="btn-zoom-out" aria-label="Zoom out" data-agent-id="zoom-out"><span class="ms">zoom_out</span></button>
-          <span class="zoom-val" id="zoom-val">12×</span>
-          <button class="icon-btn" id="btn-zoom-in" aria-label="Zoom in" data-agent-id="zoom-in"><span class="ms">zoom_in</span></button>
-          <button class="icon-btn" id="btn-fit" aria-label="Fit to screen" title="Fit (0)" data-agent-id="zoom-fit"><span class="ms">fit_screen</span></button>
-          <span class="sep"></span>
-          <button class="icon-btn is-on" id="tgl-grid" aria-label="Toggle grid" title="Grid (`)" data-agent-id="toggle-grid"><span class="ms">grid_4x4</span></button>
-          <button class="icon-btn" id="tgl-onion" aria-label="Toggle onion skin" title="Onion skin" data-agent-id="toggle-onion"><span class="ms">layers</span></button>
-          <button class="icon-btn" id="tgl-mirror" aria-label="Toggle horizontal symmetry" title="Symmetry X (X)" data-agent-id="toggle-mirror"><span class="ms">flip</span></button>
-          <span class="grow"></span>
-          <button class="icon-btn" id="btn-fullscreen" aria-label="Fullscreen" data-agent-id="fullscreen"><span class="ms">fullscreen</span></button>
-          <button class="btn btn--filled btn--sm" id="btn-export" data-agent-id="export-open"><span class="ms ms--sm">ios_share</span>Export</button>
-        </div>
-
-        <div class="studio__body">
-          <!-- Tools panel -->
-          <aside class="panel panel--tools" id="panel-tools" aria-label="Tools">
-            <div class="panel__section">
-              <div class="panel__head"><span class="label">Tools</span><span class="muted" style="font-size:.7rem">keys in tooltips</span></div>
-              <div class="tool-grid" role="toolbar" aria-label="Drawing tools">
-                <button class="tool-btn" data-tool="pencil" title="Pencil (B)" aria-label="Pencil" data-agent-id="tool-pencil"><span class="ms">edit</span>Pencil</button>
-                <button class="tool-btn" data-tool="eraser" title="Eraser (E)" aria-label="Eraser" data-agent-id="tool-eraser"><span class="ms">ink_eraser</span>Eraser</button>
-                <button class="tool-btn" data-tool="fill" title="Bucket (G)" aria-label="Bucket fill" data-agent-id="tool-fill"><span class="ms">format_color_fill</span>Fill</button>
-                <button class="tool-btn" data-tool="line" title="Line (L)" aria-label="Line" data-agent-id="tool-line"><span class="ms">timeline</span>Line</button>
-                <button class="tool-btn" data-tool="rect" title="Rectangle (R)" aria-label="Rectangle" data-agent-id="tool-rect"><span class="ms">crop_square</span>Rect</button>
-                <button class="tool-btn" data-tool="ellipse" title="Ellipse (O)" aria-label="Ellipse" data-agent-id="tool-ellipse"><span class="ms">circle</span>Ellipse</button>
-                <button class="tool-btn" data-tool="shade" title="Shade: lighten / right-click darken (U)" aria-label="Shade" data-agent-id="tool-shade"><span class="ms">tonality</span>Shade</button>
-                <button class="tool-btn" data-tool="picker" title="Eyedropper (I)" aria-label="Eyedropper" data-agent-id="tool-picker"><span class="ms">colorize</span>Pick</button>
-                <button class="tool-btn" data-tool="move" title="Move layer (M)" aria-label="Move" data-agent-id="tool-move"><span class="ms">open_with</span>Move</button>
-                <button class="tool-btn" data-tool="pan" title="Pan (H / Space)" aria-label="Pan" data-agent-id="tool-pan"><span class="ms">pan_tool</span>Pan</button>
-              </div>
-              <div class="tool-grid" role="group" aria-label="Tool options">
-                <button class="tool-btn tool-btn--toggle" data-tool-opt="shapeFill" title="Fill shapes (F)" aria-label="Fill shapes" data-agent-id="opt-fill"><span class="ms">format_paint</span>Filled</button>
-                <button class="tool-btn tool-btn--toggle" data-tool-opt="mirrorX" title="Symmetry X" aria-label="Symmetry X" data-agent-id="opt-mirror-x"><span class="ms">flip</span>Sym X</button>
-                <button class="tool-btn tool-btn--toggle" data-tool-opt="mirrorY" title="Symmetry Y" aria-label="Symmetry Y" data-agent-id="opt-mirror-y"><span class="ms" style="transform:rotate(90deg)">flip</span>Sym Y</button>
-                <button class="tool-btn tool-btn--toggle is-on" data-tool-opt="contiguous" title="Bucket: contiguous only" aria-label="Contiguous fill" data-agent-id="opt-contiguous"><span class="ms">select_all</span>Contig.</button>
-              </div>
-              <label class="range-row"><span class="ms ms--sm">line_weight</span><input type="range" id="brush-size" min="1" max="16" value="1" aria-label="Brush size" data-agent-id="brush-size"><output id="brush-size-val">1</output></label>
-            </div>
-            <div class="panel__section">
-              <div class="panel__head"><span class="label">Color</span><button class="icon-btn icon-btn--sm" id="btn-add-color" aria-label="Add current color to palette" data-agent-id="palette-add"><span class="ms">add</span></button></div>
-              <div class="color-current">
-                <div class="swatch-lg" id="swatch"><input type="color" id="color-input" value="#e43b44" aria-label="Pick color" data-agent-id="color-picker"></div>
-                <input class="input input--sm" id="color-hex" value="#e43b44" aria-label="Hex color" data-agent-id="color-hex" spellcheck="false">
-              </div>
-              <div class="palette" id="palette" role="listbox" aria-label="Palette"></div>
-              <p class="muted" style="font-size:.7rem">Right-click a swatch to remove it. Right-click on canvas erases.</p>
-            </div>
-          </aside>
-
-          <!-- Canvas -->
-          <div class="panel panel--canvas" id="panel-canvas">
-            <div class="canvas-stage"><canvas id="pixel-canvas" aria-label="Pixel canvas" data-agent-id="canvas"></canvas></div>
-            <div class="canvas-tools-inline">
-              <button class="color-dot" id="color-dot" aria-label="Open colors" data-agent-id="quick-color"></button>
-              <button class="tool-btn" data-tool="pencil" aria-label="Pencil" data-agent-id="quick-pencil"><span class="ms">edit</span></button>
-              <button class="tool-btn" data-tool="eraser" aria-label="Eraser" data-agent-id="quick-eraser"><span class="ms">ink_eraser</span></button>
-              <button class="tool-btn" data-tool="fill" aria-label="Fill" data-agent-id="quick-fill"><span class="ms">format_color_fill</span></button>
-              <button class="tool-btn" data-tool="line" aria-label="Line" data-agent-id="quick-line"><span class="ms">timeline</span></button>
-              <button class="tool-btn" data-tool="rect" aria-label="Rectangle" data-agent-id="quick-rect"><span class="ms">crop_square</span></button>
-              <button class="tool-btn" data-tool="ellipse" aria-label="Ellipse" data-agent-id="quick-ellipse"><span class="ms">circle</span></button>
-              <button class="tool-btn" data-tool="picker" aria-label="Eyedropper" data-agent-id="quick-picker"><span class="ms">colorize</span></button>
-              <button class="tool-btn" data-tool="pan" aria-label="Pan" data-agent-id="quick-pan"><span class="ms">pan_tool</span></button>
-            </div>
-            <div class="canvas-hud" aria-live="polite"><span id="hud-coords">32×32</span><span id="hud-zoom">12×</span></div>
-            <div class="canvas-fabs">
-              <button class="fab" id="fab-undo" aria-label="Undo" data-agent-id="fab-undo"><span class="ms">undo</span></button>
-              <button class="fab fab--primary" id="fab-play" aria-label="Play / pause" data-agent-id="fab-play"><span class="ms js-play-icon">play_arrow</span></button>
-            </div>
-          </div>
-
-          <!-- Animation panel -->
-          <aside class="panel panel--anim" id="panel-anim" aria-label="Animation and layers">
-            <div class="panel__section">
-              <div class="panel__head"><span class="label">Preview</span><span class="muted" id="frames-count" style="font-size:.72rem;font-weight:600">1 frame</span></div>
-              <div class="preview-box"><canvas id="preview-canvas" aria-label="Animation preview"></canvas></div>
-              <div class="playback">
-                <button class="icon-btn is-on" id="btn-play" aria-label="Play or pause" data-agent-id="play"><span class="ms js-play-icon">play_arrow</span></button>
-                <label class="row" style="gap:4px;font-size:.72rem;font-weight:600">FPS<input class="input input--sm" id="fps-input" type="number" min="1" max="60" value="8" aria-label="Frames per second" data-agent-id="fps"></label>
-                <label class="row" style="gap:4px;font-size:.72rem;font-weight:600">ms<input class="input input--sm" id="frame-duration" type="number" min="10" step="5" value="125" aria-label="Frame duration" data-agent-id="frame-duration"></label>
-                <button class="icon-btn icon-btn--sm is-on" id="tgl-loop" aria-label="Loop" data-agent-id="toggle-loop"><span class="ms">repeat</span></button>
-              </div>
-            </div>
-            <div class="panel__section">
-              <div class="panel__head"><span class="label">Frames</span>
-                <span class="row" style="gap:2px">
-                  <button class="icon-btn icon-btn--sm" id="btn-frame-left" aria-label="Move frame left" data-agent-id="frame-move-left"><span class="ms">chevron_left</span></button>
-                  <button class="icon-btn icon-btn--sm" id="btn-frame-right" aria-label="Move frame right" data-agent-id="frame-move-right"><span class="ms">chevron_right</span></button>
-                  <button class="icon-btn icon-btn--sm" id="btn-add-frame" aria-label="Add blank frame" data-agent-id="frame-add"><span class="ms">add</span></button>
-                  <button class="icon-btn icon-btn--sm" id="btn-dup-frame" aria-label="Duplicate frame" data-agent-id="frame-duplicate"><span class="ms">content_copy</span></button>
-                  <button class="icon-btn icon-btn--sm" id="btn-del-frame" aria-label="Delete frame" data-agent-id="frame-delete"><span class="ms">delete</span></button>
-                </span>
-              </div>
-              <div class="frames-strip" id="frames-strip" role="listbox" aria-label="Frames"></div>
-            </div>
-            <div class="panel__section">
-              <div class="panel__head"><span class="label">States</span></div>
-              <div class="list" id="states-list" role="listbox" aria-label="Animation states"></div>
-              <div class="row">
-                <select class="select input--sm" id="state-preset" aria-label="State preset" data-agent-id="state-preset"></select>
-                <button class="btn btn--soft btn--sm" id="btn-add-state" data-agent-id="state-add"><span class="ms ms--sm">add</span>Add</button>
-              </div>
-            </div>
-            <div class="panel__section" style="padding-bottom:16px">
-              <div class="panel__head"><span class="label">Layers</span><button class="icon-btn icon-btn--sm" id="btn-add-layer" aria-label="Add layer" data-agent-id="layer-add"><span class="ms">add</span></button></div>
-              <div class="list" id="layers-list" role="listbox" aria-label="Layers"></div>
-            </div>
-          </aside>
-
-          <!-- Agent panel -->
-          <aside class="panel panel--agent" id="panel-agent" aria-label="AI agent console">
-            <div class="agent-status"><span class="pulse" aria-hidden="true"></span>Agent console · <span data-count="tools">40</span> tools ready
-              <span class="grow"></span>
-              <button class="icon-btn icon-btn--sm" id="btn-agent-tools" aria-label="Show tool list" data-agent-id="agent-tools-toggle"><span class="ms">construction</span></button>
-            </div>
-            <div class="tools-mini hidden" id="agent-tools-mini"></div>
-            <div class="agent-log" id="agent-log" role="log" aria-live="polite" data-agent-id="agent-log"></div>
-            <div class="agent-chips" id="agent-chips">
-              <button class="chip" data-prompt="make a slime idle animation" data-agent-id="prompt-slime"><span class="ms">auto_awesome</span>Slime idle</button>
-              <button class="chip" data-prompt="spinning coin" data-agent-id="prompt-coin"><span class="ms">paid</span>Spinning coin</button>
-              <button class="chip" data-prompt="hero walk cycle" data-agent-id="prompt-hero"><span class="ms">directions_walk</span>Hero walk</button>
-              <button class="chip" data-prompt="heart pickup" data-agent-id="prompt-heart"><span class="ms">favorite</span>Heart</button>
-              <button class="chip" data-prompt="add a black outline" data-agent-id="prompt-outline"><span class="ms">border_style</span>Outline</button>
-              <button class="chip" data-prompt="export spritesheet" data-agent-id="prompt-export"><span class="ms">grid_view</span>Export sheet</button>
-              <button class="chip" data-prompt="/help" data-agent-id="prompt-help"><span class="ms">help</span>Help</button>
-            </div>
-            <div class="agent-compose">
-              <textarea id="agent-input" rows="1" placeholder="Ask the agent, or type /tool_name key=value…" aria-label="Agent prompt" data-agent-id="agent-input"></textarea>
-              <button class="fab fab--primary" id="agent-send" aria-label="Send" data-agent-id="agent-send" style="width:44px;height:44px"><span class="ms">arrow_upward</span></button>
-            </div>
-          </aside>
-        </div>
-
-        <!-- Mobile bottom navigation -->
-        <nav class="studio__nav" aria-label="Studio panels">
-          <button data-view="tools" aria-label="Tools panel" data-agent-id="nav-panel-tools"><span class="ms">brush</span>Tools</button>
-          <button data-view="canvas" class="is-on" aria-label="Canvas" data-agent-id="nav-panel-canvas"><span class="ms">grid_on</span>Canvas</button>
-          <button data-view="anim" aria-label="Animation panel" data-agent-id="nav-panel-anim"><span class="ms">animation</span>Animate</button>
-          <button data-view="agent" aria-label="Agent panel" data-agent-id="nav-panel-agent"><span class="ms">smart_toy</span>Agent</button>
-          <button data-view="export" aria-label="Export" data-agent-id="nav-panel-export"><span class="ms">ios_share</span>Export</button>
-        </nav>
-      </section>
-    </section>
-
-    <!-- Agents -->
-    <section class="section" id="agents">
-      <div class="container">
-        <div class="section__head reveal">
-          <span class="eyebrow"><span class="ms">smart_toy</span>Agent-ready by design</span>
-          <h2 class="headline">The whole studio is a tool surface. Pixel-perfect, deterministic, inspectable.</h2>
-          <p class="body-lg">Agents don't screenshot-and-guess. They call typed tools, read back pixels as text, render previews for vision models and click any control by its stable id.</p>
-        </div>
-        <div class="grid grid--3" style="margin-bottom:24px">
-          <article class="card reveal"><div class="card__icon"><span class="ms">text_fields</span></div><h3 class="title">Paint with text</h3><p><code>paint_rows</code> turns ASCII art + a color legend into pixels. LLMs are great at grids; this makes sprite generation reliable and cheap.</p></article>
-          <article class="card reveal"><div class="card__icon"><span class="ms">visibility</span></div><h3 class="title">See what you made</h3><p><code>get_pixels</code> returns hex rows and bounds; <code>render_preview</code> and <code>render_state</code> return PNG data URLs for multimodal review loops.</p></article>
-          <article class="card reveal"><div class="card__icon"><span class="ms">ads_click</span></div><h3 class="title">Navigate the UI</h3><p><code>describe_ui</code> lists every element with <code>data-agent-id</code>, label, state and rect. <code>click_ui</code> presses or sets it — pixel-perfect on any screen size.</p></article>
-        </div>
-        <div class="agent-demo">
-          <div class="stack reveal" style="gap:12px">
-            <span class="label">From JavaScript, an iframe, or a browser automation agent</span>
-<pre class="code">// Global API (same registry the console & MCP use)
-await PixelForge.call('new_document', { width: 16, height: 16, name: 'slime' });
-await PixelForge.call('paint_rows', {
-  rows: ['..GGGG..', '.GGLWGG.', 'GGGGGGGG', '.DDDDDD.'],
-  legend: { G: '#63c74d', L: '#a8f28a', W: '#fff', D: '#3e8948' }, y: 6, x: 4
-});
-await PixelForge.call('add_state', { name: 'walk', from_preset: true });
-await PixelForge.call('export', { format: 'spritesheet', scale: 2 });
-
-// Any window / iframe
-parent.postMessage({ type: 'pf:call', id: 1, tool: 'get_document', args: {} }, '*');
-// → { type: 'pf:result', id: 1, ok: true, result: {...} }
-
-// Discover the UI
-PixelForge.describeUI('frame')   // [{ id:'frame-add', label:'Add blank frame', rect:{…} }, …]
-PixelForge.clickUI('frame-add')</pre>
-            <div class="row wrap">
-              <button class="btn btn--soft btn--sm" data-try="spinning coin" data-agent-id="try-coin"><span class="ms ms--sm">play_arrow</span>Run "spinning coin"</button>
-              <button class="btn btn--soft btn--sm" data-try="/describe_ui filter=frame" data-agent-id="try-describe"><span class="ms ms--sm">play_arrow</span>Run describe_ui</button>
-              <button class="btn btn--soft btn--sm" data-try='{"tool":"draw_ellipse","args":{"x":4,"y":4,"width":24,"height":24,"fill":true,"color":"#0099db"}}' data-agent-id="try-json"><span class="ms ms--sm">play_arrow</span>Run JSON call</button>
-            </div>
-          </div>
-          <div class="stack reveal" style="gap:12px">
-            <span class="label">Live tool registry (generated from code)</span>
-            <div class="tools-scroll">
-              <table class="tools-table" id="tools-table"><thead><tr><th>Tool</th><th>Description</th><th>Arguments</th></tr></thead><tbody></tbody></table>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- MCP -->
-    <section class="section" id="mcp" style="padding-top:0">
-      <div class="container">
-        <div class="section__head reveal">
-          <span class="eyebrow"><span class="ms">hub</span>Model Context Protocol</span>
-          <h2 class="headline">One manifest. Every agent in the world can use it.</h2>
-          <p class="body-lg">PixelForge speaks MCP JSON-RPC in the browser: <code>initialize</code>, <code>tools/list</code>, <code>tools/call</code>, <code>resources/list</code>, <code>resources/read</code>. Run the tiny stdio⇄WebSocket bridge and point Claude Desktop, Cursor, or any MCP client at it.</p>
-        </div>
-        <div class="grid grid--2">
-          <div class="card card--high reveal stack" style="gap:12px">
-            <div class="row"><span class="title grow">Server manifest · <span id="mcp-count">40</span> tools</span><button class="btn btn--text btn--sm" data-copy="#mcp-manifest" data-agent-id="copy-manifest"><span class="ms ms--sm">content_copy</span>Copy</button></div>
-            <pre class="code code--sm" id="mcp-manifest"></pre>
-            <div class="row"><span class="title grow">Client config</span><button class="btn btn--text btn--sm" data-copy="#mcp-config" data-agent-id="copy-config"><span class="ms ms--sm">content_copy</span>Copy</button></div>
-            <pre class="code code--sm" id="mcp-config"></pre>
-          </div>
-          <div class="card card--high reveal stack" style="gap:12px">
-            <div class="row"><span class="title grow">Bridge (reference implementation)</span><button class="btn btn--text btn--sm" data-copy="#mcp-bridge" data-agent-id="copy-bridge"><span class="ms ms--sm">content_copy</span>Copy</button></div>
-            <pre class="code code--sm" id="mcp-bridge"></pre>
-            <span class="label">Connect this tab to a bridge</span>
-            <div class="row wrap">
-              <input class="input grow" id="mcp-url" value="ws://localhost:7331" aria-label="Bridge WebSocket URL" data-agent-id="mcp-url" spellcheck="false">
-              <button class="btn btn--filled" id="mcp-connect" data-agent-id="mcp-connect"><span class="ms ms--sm">link</span>Connect</button>
-              <button class="btn btn--outlined" id="mcp-disconnect" data-agent-id="mcp-disconnect">Disconnect</button>
-            </div>
-            <p class="muted" style="font-size:.82rem">Status: <b id="mcp-status" data-kind="idle">not connected</b>. You can also call <code>PixelForge.mcp.handle({jsonrpc:'2.0',id:1,method:'tools/list'})</code> directly.</p>
-          </div>
+        <div class="row wrap reveal" style="margin-top:24px">
+            <a class="btn btn--filled btn--lg" href="studio.html" data-agent-id="cta-open-studio"><span class="ms">arrow_forward</span>Open the editor</a>
+          <a class="btn btn--tonal btn--lg" href="app/index.html#/agent" data-agent-id="cta-agents"><span class="ms">smart_toy</span>Meet the agent</a>
         </div>
       </div>
     </section>
@@ -356,66 +137,103 @@ PixelForge.clickUI('frame-add')</pre>
     </div>
   </footer>
 
-  <!-- New / resize dialog -->
-  <dialog class="sheet" id="dlg-new" aria-label="New document">
-    <div class="sheet__inner">
-      <div class="sheet__handle"></div>
-      <div class="sheet__head"><h3 class="title">New or resize canvas</h3><button class="icon-btn" data-close aria-label="Close" data-agent-id="new-close"><span class="ms">close</span></button></div>
-      <div class="size-chips">
-        <button class="chip" data-w="8" data-h="8" data-agent-id="size-8">8×8</button><button class="chip" data-w="16" data-h="16" data-agent-id="size-16">16×16</button>
-        <button class="chip is-on" data-w="32" data-h="32" data-agent-id="size-32">32×32</button><button class="chip" data-w="48" data-h="48" data-agent-id="size-48">48×48</button>
-        <button class="chip" data-w="64" data-h="64" data-agent-id="size-64">64×64</button><button class="chip" data-w="128" data-h="128" data-agent-id="size-128">128×128</button>
-        <button class="chip" data-w="32" data-h="48" data-agent-id="size-32x48">32×48</button><button class="chip" data-w="64" data-h="32" data-agent-id="size-64x32">64×32</button>
-      </div>
-      <div class="row wrap">
-        <label class="field grow"><span>Width</span><input class="input" id="new-w" type="number" min="1" max="256" value="32" data-agent-id="new-width"></label>
-        <label class="field grow"><span>Height</span><input class="input" id="new-h" type="number" min="1" max="256" value="32" data-agent-id="new-height"></label>
-        <label class="field grow"><span>Name</span><input class="input" id="new-name" value="sprite" data-agent-id="new-name"></label>
-      </div>
-      <div class="row wrap">
-        <button class="btn btn--filled" id="new-create" data-agent-id="new-create"><span class="ms ms--sm">add</span>Create blank</button>
-        <button class="btn btn--tonal" id="new-resize" data-agent-id="new-resize"><span class="ms ms--sm">aspect_ratio</span>Resize current (centered)</button>
-      </div>
-    </div>
-  </dialog>
-
-  <!-- Export / import dialog -->
-  <dialog class="sheet" id="dlg-export" aria-label="Export and import">
-    <div class="sheet__inner">
-      <div class="sheet__handle"></div>
-      <div class="sheet__head"><h3 class="title">Export</h3><button class="icon-btn" data-close aria-label="Close" data-agent-id="export-close"><span class="ms">close</span></button></div>
-      <div class="row wrap">
-        <label class="field grow"><span>Scale</span><select class="select" id="export-scale" data-agent-id="export-scale"><option value="1">1× (native)</option><option value="2">2×</option><option value="4" selected>4×</option><option value="8">8×</option><option value="16">16×</option></select></label>
-        <label class="field grow"><span>Sheet layout</span><select class="select" id="export-layout" data-agent-id="export-layout"><option value="rows">One row per state</option><option value="grid">Square grid</option><option value="strip">Single strip</option></select></label>
-        <label class="field" style="width:96px"><span>Padding</span><input class="input" id="export-padding" type="number" min="0" max="16" value="0" data-agent-id="export-padding"></label>
-      </div>
-      <div class="option-grid" id="export-formats"></div>
-      <h3 class="title">Import</h3>
-      <div class="row wrap">
-        <label class="btn btn--outlined" data-agent-id="import-project-btn"><span class="ms ms--sm">folder_open</span>Project JSON<input type="file" id="import-project" accept="application/json,.json" class="sr-only"></label>
-        <label class="btn btn--outlined" data-agent-id="import-png-btn"><span class="ms ms--sm">image</span>PNG / sprite sheet<input type="file" id="import-png" accept="image/png,image/gif,image/webp" class="sr-only"></label>
-        <label class="field" style="width:90px"><span>Frame W</span><input class="input input--sm" id="import-fw" type="number" placeholder="auto" data-agent-id="import-frame-width"></label>
-        <label class="field" style="width:90px"><span>Frame H</span><input class="input input--sm" id="import-fh" type="number" placeholder="auto" data-agent-id="import-frame-height"></label>
-        <label class="chip" style="min-height:44px"><input type="checkbox" id="import-as-state" checked data-agent-id="import-as-state">Add as new state</label>
-      </div>
-      <p class="muted" style="font-size:.8rem">Tip: drag &amp; drop a PNG or project file anywhere on the studio.</p>
-    </div>
-  </dialog>
-
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <!-- Modules (classic scripts, dependency order, no bundler needed) -->
   <script src="js/core/store.js"></script>
   <script src="js/core/raster.js"></script>
   <script src="js/core/renderer.js"></script>
   <script src="js/core/input.js"></script>
   <script src="js/core/animation.js"></script>
   <script src="js/core/io.js"></script>
+  <script src="js/core/projects.js"></script>
+  <script src="js/library/pixel.js"></script>
+  <script src="js/library/characters.js"></script>
+  <script src="js/library/monsters.js"></script>
+  <script src="js/library/world.js"></script>
+  <script src="js/library/items.js"></script>
+  <script src="js/library/rpg_heroes.js"></script>
+  <script src="js/library/rpg_foes.js"></script>
+  <script src="js/library/rpg_world.js"></script>
+  <script src="js/library/rpg_items.js"></script>
+  <script src="js/library/rpg_expand.js"></script>
+  <script src="js/library/index.js"></script>
   <script src="js/agent/tools.js"></script>
+  <script src="js/agent/studio-tools.js"></script>
   <script src="js/agent/agent.js"></script>
   <script src="js/agent/mcp.js"></script>
-  <script src="js/ui/panels.js"></script>
-  <script src="js/ui/app.js"></script>
   <script src="js/ui/landing.js"></script>
+  <script>
+    // Landing chrome: theme toggle, counters, copy buttons, year, MCP mount
+    (() => {
+      const q = (s, r = document) => r.querySelector(s), qa = (s, r = document) => [...r.querySelectorAll(s)];
+      let toastT;
+      const toast = msg => { const el = q('#toast'); el.textContent = msg; el.classList.add('is-on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('is-on'), 2200); };
+      const setTheme = t => { document.documentElement.dataset.theme = t; try { localStorage.setItem('pf-theme', t); } catch {} q('#btn-theme .ms').textContent = t === 'dark' ? 'light_mode' : 'dark_mode'; };
+      setTheme(localStorage.getItem('pf-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+      q('#btn-theme').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+      try {
+        qa('[data-count="templates"]').forEach(el => { el.textContent = PF.Library.list().length; });
+        qa('[data-count="frames"]').forEach(el => { el.textContent = PF.Library.list().reduce((n, t) => { try { return n + PF.Library.docStats(t.id).frames; } catch { return n; } }, 0) + '+'; });
+      } catch (e) {}
+      qa('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(q(b.dataset.copy).textContent); toast('Copied to clipboard'); } catch { toast('Copy failed'); }
+      }));
+      qa('[data-copy-agent]').forEach(b => b.addEventListener('click', async () => {
+        const text = JSON.stringify({ tool: b.dataset.copyAgent, args: {} });
+        try { await navigator.clipboard.writeText(text); toast('Copied: ' + text); } catch { toast(text); }
+      }));
+      q('#year').textContent = new Date().getFullYear();
+      // Featured assets: animated engine-rendered previews, click opens in Studio
+      try {
+        const FEAT = ['hero_male', 'hero_female', 'slime', 'skeleton', 'tileset', 'coin_gem'];
+        const grid = q('#feat-grid'), anims = [];
+        const paint = (doc, si, fi, cv) => {
+          const st = doc.states[si % doc.states.length], fr = st.frames[fi % st.frames.length];
+          const tmp = document.createElement('canvas'); tmp.width = doc.width; tmp.height = doc.height;
+          const tctx = tmp.getContext('2d'), img = tctx.createImageData(doc.width, doc.height);
+          const out = new Uint32Array(img.data.buffer); out.fill(0);
+          const cell = new Uint32Array(doc.width * doc.height);
+          doc.layers.forEach((l, li) => {
+            cell.fill(0);
+            const p = fr.layers ? fr.layers[li] : fr.paint;
+            if (typeof p === 'function') p(cell, doc.width, doc.height); else if (p) cell.set(p);
+            for (let i = 0; i < out.length; i++) if (cell[i]) out[i] = out[i] ? PF.Color.blend(out[i], cell[i]) : cell[i];
+          });
+          tctx.putImageData(img, 0, 0);
+          const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+          ctx.clearRect(0, 0, cv.width, cv.height);
+          ctx.drawImage(tmp, 0, 0, cv.width, cv.height);
+        };
+        FEAT.forEach(id => {
+          const t = PF.Library.get(id); if (!t) return;
+          const doc = t.build(), stats = PF.Library.docStats(id);
+          const el = document.createElement('article');
+          el.className = 'feat-card';
+          el.innerHTML = `<div class="feat-preview"><canvas width="88" height="88"></canvas></div>
+            <div class="feat-body"><b></b><span></span><a class="btn btn--tonal btn--sm">Open in Studio</a></div>`;
+          el.querySelector('b').textContent = t.name;
+          el.querySelector('span').textContent = `${stats.states} states · ${stats.frames} frames`;
+          el.querySelector('a').href = 'studio.html?template=' + id;
+          const cv = el.querySelector('canvas');
+          paint(doc, 0, 0, cv);
+          anims.push({ doc, cv, i: 0 });
+          grid.appendChild(el);
+        });
+        let last = 0;
+        (function loop(ts) {
+          if (ts - last > 180) {
+            last = ts;
+            anims.forEach(a => {
+              const r = a.cv.getBoundingClientRect();
+              if (r.bottom > 0 && r.top < innerHeight && document.visibilityState === 'visible') {
+                a.i++; paint(a.doc, 0, a.i % a.doc.states[0].frames.length, a.cv);
+              }
+            });
+          }
+          requestAnimationFrame(loop);
+        })(0);
+      } catch (e) {}
+    })();
+  </script>
 </body>
 </html>

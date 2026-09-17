@@ -53,7 +53,7 @@ PF.Agent = (() => {
   const coerce = v => { if (/^".*"$|^'.*'$/.test(v)) return v.slice(1, -1); if (v === 'true') return true; if (v === 'false') return false;
     if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v); if (/^[\[{]/.test(v)) { try { return JSON.parse(v); } catch { return v; } } return v; };
   function help() {
-    say('agent', `Ways to drive PixelForge:\n• Natural language: "make a slime idle animation", "spinning coin", "hero walk cycle", "add outline", "flip x", "export gif", "add walk state", "new 64x64 canvas", "play", "undo", "clear".\n• Slash tools: /draw_rect x=0 y=0 width=8 height=8 fill=true color=#ff0044   (/tools lists ${PF.Tools.list().length} tools, /schema <tool> shows arguments)\n• JSON: {"tool":"paint_rows","args":{"rows":["GG","GG"],"legend":{"G":"#63c74d"}}} or an array of calls.\n• From code: window.PixelForge.call("fill",{x:0,y:0,color:"#000"}) or postMessage({type:"pf:call",id,tool,args}).\n• MCP: see the MCP section for the manifest & bridge.`);
+    say('agent', `Ways to drive PixelForge:\n• Templates: "open the male hero", "add a slime", "dungeon tileset", "weapons rack" — 32 animated assets (/list_templates to browse, /load_template id=hero_male to open, /append_template_states to merge).\n• Projects: /new_project, /open_project, /list_projects, /save_project, /duplicate_project, /delete_project.\n• Quick recipes: "make a slime idle animation", "spinning coin", "hero walk cycle", "add outline", "flip x", "export gif", "add walk state", "new 64x64 canvas", "play", "undo", "clear".\n• Slash tools: /draw_rect x=0 y=0 width=8 height=8 fill=true color=#ff0044   (/tools lists ${PF.Tools.list().length} tools, /schema <tool> shows arguments)\n• JSON: {"tool":"paint_rows","args":{"rows":["GG","GG"],"legend":{"G":"#63c74d"}}} or an array of calls.\n• From code: window.PixelForge.call("fill",{x:0,y:0,color:"#000"}) or postMessage({type:"pf:call",id,tool,args}).\n• MCP: see the MCP section for the manifest & bridge.`);
   }
 
   /* Execute a plan step by step (visible in the log) */
@@ -68,10 +68,34 @@ PF.Agent = (() => {
   }
 
   /* ---------- Natural-language planner (local recipes, no network) ---------- */
+  const TEMPLATE_WORDS = [
+    [/female|woman|girl|heroine/, 'hero_female'], [/male hero|man hero|knight|swordsman/, 'hero_male'],
+    [/skeleton|undead/, 'skeleton'], [/orc|brute|goblin/, 'orc'], [/\bslime\b|blob|jelly/, 'slime'],
+    [/\bbat\b/, 'bat'], [/ghost|spirit|phantom/, 'ghost'], [/mushroom|shroom/, 'mushroom'],
+    [/golem|rock monster|stone monster/, 'golem'], [/wolf|dire wolf|dog/, 'wolf'], [/chicken|hen|rooster/, 'chicken'],
+    [/villager|townsfolk|peasant/, 'villager_m'], [/merchant|trader|shopkeeper|shop/, 'merchant'],
+    [/tileset|dungeon tiles|grass tiles|terrain/, 'tileset'], [/\bwater\b|lake|river/, 'water'],
+    [/tree|forest|bush|flora|plants?/, 'flora'], [/campfire|bonfire|camp fire/, 'campfire'], [/torch/, 'torch'],
+    [/chest|treasure|loot box/, 'chest'], [/door|gate/, 'door'], [/portal/, 'portal'],
+    [/weapons?|sword|pickaxe|axe|bow|shield|arsenal/, 'weapons'], [/potion|food|apple|bread|meat|consumables?/, 'consumables'],
+    [/coin|gem|currency|money/, 'coin_gem'], [/\bfx\b|slash|hit spark|particles?|effects?/, 'fx'], [/\bhud\b|hearts|health bar/, 'hud']
+  ];
   async function natural(text) {
     const t = text.toLowerCase(), plan = [];
     const size = t.match(/(\d{1,3})\s*[x×]\s*(\d{1,3})/);
     if (/new|create|blank|canvas/.test(t) && size && !/slime|coin|hero|heart|character|player/.test(t)) { plan.push({ tool: 'new_document', args: { width: +size[1], height: +size[2], name: 'sprite' } }); }
+    // Rich built-in templates first ("open the male hero", "add a slime", "dungeon tileset")
+    const tplHit = (/template|asset|load|open|add|make|create|give|spawn|generate/.test(t) && PF.Library)
+      ? (TEMPLATE_WORDS.find(([re]) => re.test(t)) || []).slice(1) : [];
+    if (tplHit && tplHit[0] && !/outline|border|flip|export|undo|clear|play|pause/.test(t)) {
+      const id = tplHit[0];
+      say('agent', `Opening the "${id}" template — ${PF.Library.get(id).desc} I'll load it as its own project.`);
+      plan.push({ tool: 'load_template', args: { id } });
+      const results = await run(plan);
+      const failed = results.filter(r => !r.ok).length;
+      say('agent', failed ? `Done with ${failed} failed step(s).` : `Done — "${id}" is open. Every state and frame is editable, undo is available.`);
+      return;
+    }
     const recipe = Object.keys(RECIPES).find(k => RECIPES[k].match.test(t));
     if (recipe) { say('agent', `${RECIPES[recipe].intro} I'll build it step by step so you can watch each tool call.`); plan.push(...RECIPES[recipe].plan(t)); }
     if (/outline|border/.test(t)) plan.push({ tool: 'outline', args: { all_frames: true, color: pickColor(t) || '#181425' } });
@@ -132,8 +156,11 @@ PF.Agent = (() => {
   /* ---------- External agents: postMessage bridge + global API ---------- */
   async function onMessage(e) {
     const m = e.data; if (!m || m.type !== 'pf:call') return;
+    // Ignore our own echoes / non-window sources (notably opaque file:// origins)
+    if (!e.source || e.source === window) return;
     const r = await PF.Tools.call(m.tool, m.args || {});
-    (e.source || window).postMessage({ type: 'pf:result', id: m.id, ...r }, '*');
+    try { e.source.postMessage({ type: 'pf:result', id: m.id, ...r }, '*'); }
+    catch { /* file:// and cross-origin frames may refuse replies — result stays in local log */ }
   }
   window.PixelForge = {
     version: '1.0.0',

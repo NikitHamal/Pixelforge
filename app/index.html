@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PixelForge Studio — App</title>
+  <meta name="description" content="Projects, templates, canvas-first pixel editor and agent cockpit.">
+  <meta name="theme-color" content="#5a38f0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&display=block" rel="stylesheet">
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+  <!-- Topbar -->
+  <header class="topbar">
+    <button class="icon menu" id="menuBtn" aria-label="Open navigation" data-agent-id="nav-menu"><span class="ms">menu</span></button>
+    <a class="brand" href="../index.html" aria-label="PixelForge home"><span class="logo__mark"><canvas class="logo-canvas" width="8" height="8" aria-hidden="true"></canvas></span><span>PixelForge</span></a>
+    <div class="topbar-context" id="topbarContext"><span class="topbar-title" id="topbarTitle">Projects</span></div>
+    <div class="top-actions">
+      <button class="icon" id="themeBtn" aria-label="Toggle theme" title="Toggle theme" data-agent-id="theme-toggle"><span class="ms">dark_mode</span></button>
+      <button class="icon" id="helpBtn" aria-label="Help" title="Help" data-agent-id="open-help"><span class="ms">question_mark</span></button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar" aria-label="App navigation">
+    <a class="brand" href="../index.html"><span class="logo__mark"><canvas class="logo-canvas" width="8" height="8" aria-hidden="true"></canvas></span><span>PixelForge</span></a>
+    <div class="nav-title">Navigate</div>
+    <button class="nav active" data-view="projects" data-agent-id="nav-projects"><span class="ms glyph">folder_open</span>Projects</button>
+    <button class="nav" data-view="templates" data-agent-id="nav-templates"><span class="ms glyph">widgets</span>Templates</button>
+    <button class="nav" data-view="agent" data-agent-id="nav-agent"><span class="ms glyph">smart_toy</span>AI agent</button>
+    <div class="nav-title">Resources</div>
+    <button class="nav" data-view="docs" data-agent-id="nav-docs"><span class="ms glyph">menu_book</span>Agent docs</button>
+    <button class="nav" data-view="mcp" data-agent-id="nav-mcp"><span class="ms glyph">hub</span>MCP setup</button>
+  </aside>
+
+  <!-- Main -->
+  <main class="main" id="main">
+    <div class="file-hint hidden" id="fileHint" role="note"><span class="ms ms--sm">info</span><span>You're running from <code>file://</code> — everything works, but for downloads + MCP bridge serve over localhost: <code>npx serve F:\PixelForge</code></span><button class="ghost" id="fileHintClose">Dismiss</button></div>
+
+    <!-- PROJECTS -->
+    <section class="view active" id="view-projects" aria-label="Projects">
+      <div class="hero-banner">
+        <div class="head-copy">
+          <h1>Make a world, one frame at a time.</h1>
+          <p>Production pixel art for roguelikes, survival games and RPGs — built by you or your agent.</p>
+          <div class="page-actions">
+            <button class="btn light" id="newProjectBtn"><span class="ms ms--sm">add</span>New project</button>
+            <button class="btn ghost-light" data-view-go="templates">Browse templates</button>
+          </div>
+        </div>
+        <div class="hero-pixel-row"><canvas id="heroA" width="32" height="32"></canvas><canvas id="heroB" width="32" height="32"></canvas><canvas id="heroC" width="32" height="32"></canvas></div>
+      </div>
+      <div class="page-head">
+        <div class="head-copy"><div class="eyebrow">Your workspace</div><h1>Projects</h1><p>Open a game, continue a kit, or start from an empty canvas.</p></div>
+        <div class="page-actions">
+          <input class="search" id="projectSearch" placeholder="Search projects…" aria-label="Search projects" data-agent-id="project-search" spellcheck="false">
+          <button class="btn primary" id="newProjectBtn2"><span class="ms ms--sm">add</span>New project</button>
+        </div>
+      </div>
+      <div class="project-grid" id="projectGrid"></div>
+      <div class="card pad empty-state hidden" id="projectsEmpty">
+        <h3>No projects yet</h3>
+        <p>Create one from scratch or install any template kit — it becomes a project automatically.</p>
+      </div>
+    </section>
+
+    <!-- TEMPLATES -->
+    <section class="view" id="view-templates" aria-label="Templates">
+      <div class="page-head">
+        <div class="head-copy"><div class="eyebrow">Production-ready kits</div><h1>Templates</h1><p>Complete character suites, enemies, props and survival essentials.</p></div>
+        <div class="page-actions">
+          <input class="search" id="templateSearch" placeholder="Search templates…" aria-label="Search templates" data-agent-id="tpl-search" spellcheck="false">
+          <button class="btn outline" id="importBtn" data-agent-id="project-import"><span class="ms ms--sm">upload</span>Import JSON</button>
+          <input type="file" id="fileInput" hidden accept="application/json,.json">
+        </div>
+      </div>
+      <div class="cat-row" id="tplCats" role="tablist" aria-label="Template categories"></div>
+      <div class="section-title"><div><h2>Featured suites</h2><p>Named states, directions and frame timing included.</p></div><span class="badge ok" id="templateCount">0 kits</span></div>
+      <div class="template-grid" id="templateGrid"></div>
+    </section>
+
+    <!-- DOCS -->
+    <section class="view" id="view-docs" aria-label="Agent docs">
+      <div class="page-head">
+        <div class="head-copy"><div class="eyebrow">Agent-native by design</div><h1>Agent docs</h1><p>Drive every pixel, state and export through typed tools — no screenshots, no guessing.</p></div>
+        <span class="badge ok">● <span data-count="tools">48</span>&nbsp;tools live</span>
+      </div>
+      <div class="grid grid--3" style="margin-bottom:16px">
+        <article class="card pad"><h3>Start from templates</h3><p class="muted-sm"><code>list_templates</code> browses 32 animated assets; <code>load_template</code> opens one in the studio; <code>append_template_states</code> merges suites.</p></article>
+        <article class="card pad"><h3>Paint with text</h3><p class="muted-sm"><code>paint_rows</code> turns ASCII art plus a color legend into pixels — reliable and cheap for LLMs.</p></article>
+        <article class="card pad"><h3>See what you made</h3><p class="muted-sm"><code>get_pixels</code> returns hex rows and bounds; <code>render_preview</code> returns PNG data URLs for vision review loops.</p></article>
+      </div>
+      <div class="card pad" style="margin-bottom:16px">
+        <h3>Quick start</h3>
+<pre class="code">await PixelForge.call('list_templates', { category: 'Heroes' });
+await PixelForge.call('load_template', { id: 'hero_male' });
+await PixelForge.call('export', { format: 'spritesheet', scale: 2 });
+
+// Any window / iframe
+parent.postMessage({ type: 'pf:call', id: 1, tool: 'get_document', args: {} }, '*');
+
+// Discover + click the UI (studio page)
+PixelForge.describeUI('frame')
+PixelForge.clickUI('frame-add')</pre>
+      </div>
+      <div class="card pad">
+        <h3>Live tool registry</h3>
+        <p class="muted-sm">Generated from code — same surface the console, bridge and MCP use.</p>
+        <div class="tools-scroll">
+          <table class="tools-table" id="tools-table"><thead><tr><th>Tool</th><th>Description</th><th>Arguments</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- MCP -->
+    <section class="view" id="view-mcp" aria-label="MCP setup">
+      <div class="page-head">
+        <div class="head-copy"><div class="eyebrow">Model Context Protocol</div><h1>MCP setup</h1><p>One manifest — Claude Desktop, Cursor or any MCP client can drive the app.</p></div>
+        <span class="badge ok">● <span id="mcp-count">48</span>&nbsp;tools</span>
+      </div>
+      <div class="grid grid--2">
+        <div class="card pad stack">
+          <div class="row"><strong>Server manifest</strong><button class="btn btn--text btn--sm" data-copy="#mcp-manifest">Copy</button></div>
+          <pre class="code code--sm" id="mcp-manifest"></pre>
+          <div class="row"><strong>Client config</strong><button class="btn btn--text btn--sm" data-copy="#mcp-config">Copy</button></div>
+          <pre class="code code--sm" id="mcp-config"></pre>
+        </div>
+        <div class="card pad stack">
+          <div class="row"><strong>Bridge (reference)</strong><button class="btn btn--text btn--sm" data-copy="#mcp-bridge">Copy</button></div>
+          <pre class="code code--sm" id="mcp-bridge"></pre>
+          <div class="row wrap">
+            <input class="input grow" id="mcp-url" value="ws://localhost:7331" aria-label="Bridge WebSocket URL" data-agent-id="mcp-url" spellcheck="false">
+          </div>
+          <div class="row wrap">
+            <button class="btn btn--filled btn--sm" id="mcp-connect" data-agent-id="mcp-connect">Connect</button>
+            <button class="btn btn--outlined btn--sm" id="mcp-disconnect" data-agent-id="mcp-disconnect">Disconnect</button>
+          </div>
+          <p class="muted-sm">Status: <b id="mcp-status" data-kind="idle">not connected</b>. Open the studio tab too — tools act on the live document wherever it is open.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- AGENT -->
+    <section class="view" id="view-agent" aria-label="AI agent">
+      <div class="page-head">
+        <div class="head-copy"><div class="eyebrow">Tool-calling workspace</div><h1>AI agent cockpit</h1><p>The app is navigable by stable semantic actions, not visual guessing.</p></div>
+        <span class="badge ok">● Ready · <span data-count="tools">48</span> tools</span>
+      </div>
+      <div class="agent-layout">
+        <article class="card console">
+          <div class="console-head"><h2>PixelForge agent</h2><span class="badge ok">Local execution</span></div>
+          <div class="messages" id="agent-log" role="log" aria-live="polite" data-agent-id="agent-log"></div>
+          <div class="quick-row" id="agent-chips">
+            <button class="quick" data-prompt="/list_templates" data-agent-id="prompt-templates">Templates</button>
+            <button class="quick" data-prompt="/load_template id=hero_male" data-agent-id="prompt-hero">Male hero</button>
+            <button class="quick" data-prompt="/load_template id=slime" data-agent-id="prompt-slime">Slime</button>
+            <button class="quick" data-prompt="/list_projects" data-agent-id="prompt-projects">Projects</button>
+            <button class="quick" data-prompt="/help" data-agent-id="prompt-help">Help</button>
+          </div>
+          <form class="agent-input-row" id="agentForm">
+            <input class="agent-input" id="agent-input" placeholder="Open the male hero, then export a sprite sheet…" aria-label="Agent prompt" data-agent-id="agent-input">
+            <button type="button" class="btn primary" id="agent-send" data-agent-id="agent-send">Run</button>
+          </form>
+          <div class="tools-mini hidden" id="agent-tools-mini"></div>
+        </article>
+        <aside class="card manifest">
+          <h2>Tool map &amp; bridge</h2>
+          <p>The full registry, client config and WebSocket bridge live in MCP setup.</p>
+          <div class="row wrap">
+            <button class="btn tonal btn-sm" data-view-go="mcp">Open MCP setup</button>
+            <button class="btn tonal btn-sm" data-view-go="docs">Agent docs</button>
+            <button class="btn outline btn-sm" id="btn-agent-tools" data-agent-id="agent-tools-toggle">Tool chips</button>
+          </div>
+          <h3 style="margin-top:14px">Recent calls</h3>
+          <ul class="log" id="agentLog"></ul>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom nav (mobile) -->
+  <nav class="bottom" aria-label="App navigation">
+    <button class="active" data-view="projects"><span class="ms glyph">folder_open</span>Projects</button>
+    <button data-view="templates"><span class="ms glyph">widgets</span>Templates</button>
+    <button data-view="agent"><span class="ms glyph">smart_toy</span>Agent</button>
+  </nav>
+</div>
+
+<!-- New project modal -->
+<dialog class="modal" id="projectModal" aria-label="New project">
+  <div class="modal-head"><div><div class="eyebrow">Create workspace</div><h2>New project</h2></div><button class="icon" data-close aria-label="Close">×</button></div>
+  <form class="modal-form" id="projectForm">
+    <label>Project name<input name="name" id="npName" value="Oakvale Survival" required maxlength="60"></label>
+    <label>Starting kit<select name="kit" id="npKit"></select></label>
+    <div class="page-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn primary">Create project</button></div>
+  </form>
+</dialog>
+
+
+
+
+
+<!-- Help -->
+<dialog class="modal" id="helpModal" aria-label="Help">
+  <div class="modal-head"><div><div class="eyebrow">Help</div><h2>Where is everything?</h2></div><button class="icon" data-close aria-label="Close">×</button></div>
+  <table class="keys-table">
+    <tr><td>Projects</td><td>Create, search, open, duplicate, export and delete local projects.</td></tr>
+    <tr><td>Templates</td><td>32 animated kits. <b>Use kit</b> creates a project and opens it in the Studio page.</td></tr>
+    <tr><td>Studio</td><td>Opens by itself when you open a project or use a kit — that is the canvas-first editor.</td></tr>
+    <tr><td>Agent</td><td>Console + recent calls. Try <code>/list_templates</code> or <code>/load_template id=slime</code>.</td></tr>
+  </table>
+  <p class="muted-sm" style="margin-top:10px">Editor shortcuts (B/E/G/Space/Ctrl+S…) are listed in the Studio page help.</p>
+</dialog>
+
+
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="../js/core/store.js"></script>
+<script src="../js/core/raster.js"></script>
+<script src="../js/core/renderer.js"></script>
+<script src="../js/core/input.js"></script>
+<script src="../js/core/animation.js"></script>
+<script src="../js/core/io.js"></script>
+<script src="../js/core/projects.js"></script>
+<script src="../js/library/pixel.js"></script>
+<script src="../js/library/characters.js"></script>
+<script src="../js/library/monsters.js"></script>
+<script src="../js/library/world.js"></script>
+  <script src="../js/library/items.js"></script>
+  <script src="../js/library/rpg_heroes.js"></script>
+  <script src="../js/library/rpg_foes.js"></script>
+  <script src="../js/library/rpg_world.js"></script>
+  <script src="../js/library/rpg_items.js"></script>
+  <script src="../js/library/rpg_expand.js"></script>
+  <script src="../js/library/index.js"></script>
+<script src="../js/agent/tools.js"></script>
+<script src="../js/agent/studio-tools.js"></script>
+<script src="../js/agent/agent.js"></script>
+<script src="../js/agent/mcp.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

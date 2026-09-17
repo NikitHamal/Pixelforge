@@ -3,9 +3,15 @@ window.PF = window.PF || {};
 PF.Anim = (() => {
   /* Common game animation states: [name, frames, fps] */
   const PRESETS = [
-    ['idle', 4, 6], ['walk', 6, 10], ['run', 6, 12], ['jump', 4, 10], ['fall', 2, 8], ['land', 3, 12],
-    ['attack', 5, 12], ['attack2', 6, 14], ['cast', 5, 10], ['block', 2, 6], ['hurt', 2, 8], ['death', 6, 8],
-    ['climb', 4, 8], ['dash', 3, 14], ['crouch', 2, 6], ['swim', 4, 8], ['spin', 6, 12], ['open', 4, 8], ['pickup', 3, 8], ['glow', 4, 6]
+    ['idle', 4, 6], ['idle_down', 4, 6], ['idle_side', 4, 6], ['idle_up', 4, 6],
+    ['walk', 6, 10], ['walk_down', 4, 8], ['walk_side', 4, 8], ['walk_up', 4, 8],
+    ['run', 6, 12], ['run_side', 6, 12], ['jump', 4, 10], ['fall', 2, 8], ['land', 3, 12],
+    ['attack', 5, 12], ['attack2', 6, 14], ['attack_sword_side', 5, 12], ['attack_sword_down', 5, 12],
+    ['bow_side', 4, 10], ['mine_pickaxe', 5, 10], ['chop_axe', 4, 10],
+    ['cast', 5, 10], ['block', 2, 6], ['hurt', 2, 8], ['death', 5, 8],
+    ['sleep', 4, 4], ['eat', 4, 6], ['sit', 2, 6], ['pickup', 3, 8],
+    ['climb', 4, 8], ['dash', 3, 14], ['crouch', 2, 6], ['swim', 4, 8], ['spin', 6, 12],
+    ['open', 4, 8], ['glow', 4, 6], ['float', 4, 6], ['fly', 4, 12], ['burn', 4, 8], ['flow', 4, 6]
   ];
   let playing = false, acc = 0, lastT = 0, raf = 0;
 

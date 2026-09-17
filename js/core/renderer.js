@@ -2,7 +2,7 @@
 window.PF = window.PF || {};
 PF.Renderer = (() => {
   let canvas, ctx, off, offCtx, img, buf, onion, onionCtx, onionImg, onionBuf, checker;
-  const view = { zoom: 12, panX: 0, panY: 0, grid: true, onion: false, hover: null, hoverSize: 1 };
+  const view = { zoom: 12, panX: 0, panY: 0, grid: true, onion: false, hover: null, hoverSize: 1, sel: null };
   let dirty = true, dpr = 1, bgColor = '#d9d5e0';
 
   function init(el) {
@@ -34,15 +34,15 @@ PF.Renderer = (() => {
     const p = canvas.parentElement, W = p.clientWidth, H = p.clientHeight; if (!W || !H) return;
     dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-    const d = PF.Store.get(), pad = W < 600 ? 24 : 64;
-    view.zoom = Math.max(1, Math.floor(Math.min((W - pad) / d.width, (H - pad - 60) / d.height)));
+    const d = PF.Store.get(), padX = W < 600 ? 28 : 56, padY = W < 600 ? 36 : 64;
+    view.zoom = Math.max(1, Math.floor(Math.min((W - padX) / d.width, (H - padY) / d.height)));
     center(); invalidate();
+    PF.Store.emit('view', view);
   }
   function center() {
     const d = PF.Store.get();
     view.panX = Math.round((canvas.clientWidth - d.width * view.zoom) / 2);
-    view.panY = Math.round((canvas.clientHeight - d.height * view.zoom) / 2);
+    view.panY = Math.round((canvas.clientHeight - d.height * view.zoom) / 2) + 8;
   }
   const invalidate = () => { dirty = true; };
   function loop() { if (dirty) { dirty = false; draw(); } requestAnimationFrame(loop); }
@@ -51,40 +51,132 @@ PF.Renderer = (() => {
     const d = PF.Store.get();
     PF.Raster.composite(out, d.layers.map(l => ({ pixels: frame.pixels[l.id], visible: l.visible, opacity: l.opacity })));
   }
+  function roundRect(context, x, y, w, h, r) {
+    context.beginPath();
+    context.moveTo(x + r, y);
+    context.arcTo(x + w, y, x + w, y + h, r);
+    context.arcTo(x + w, y + h, x, y + h, r);
+    context.arcTo(x, y + h, x, y, r);
+    context.arcTo(x, y, x + w, y, r);
+    context.closePath();
+  }
+
   function draw() {
     if (!canvas.clientWidth) return;
     const d = PF.Store.get(), W = canvas.clientWidth, H = canvas.clientHeight;
     const z = view.zoom, ox = view.panX, oy = view.panY, pw = d.width * z, ph = d.height * z;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = bgColor; ctx.fillRect(0, 0, W, H);
+
+    // Infinite canvas workspace background
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
     ctx.imageSmoothingEnabled = false;
-    ctx.save(); ctx.beginPath(); ctx.rect(ox, oy, pw, ph); ctx.clip();
-    ctx.fillStyle = ctx.createPattern(checker, 'repeat'); ctx.fillRect(ox, oy, pw, ph);
+
+    // Figma artboard tag badge above top-left
+    const tagH = 18, tagPad = 6;
+    const tagText = `${d.name || 'Artboard'} · ${d.width}×${d.height}`;
+    ctx.font = '600 11px Poppins, system-ui, sans-serif';
+    const tagW = ctx.measureText(tagText).width + tagPad * 2;
+    const tagY = oy - tagH - 6;
+
+    if (tagY >= 4) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      roundRect(ctx, ox, tagY, tagW, tagH, 4);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tagText, ox + tagPad, tagY + tagH / 2);
+    }
+
+    // Figma-styled artboard soft drop-shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 6;
+    ctx.fillStyle = '#ffffff';
+    roundRect(ctx, ox, oy, pw, ph, 4);
+    ctx.fill();
+    ctx.restore();
+
+    // Clip to artboard with 4px corner radius
+    ctx.save();
+    roundRect(ctx, ox, oy, pw, ph, 4);
+    ctx.clip();
+
+    // Checkerboard background
+    ctx.fillStyle = ctx.createPattern(checker, 'repeat');
+    ctx.fillRect(ox, oy, pw, ph);
+
+    // Onion skin
     if (view.onion) {
       const st = PF.Store.state(), prev = st.frames[d.activeFrame - 1], next = st.frames[d.activeFrame + 1];
-      for (const [f, a] of [[prev, .32], [next, .18]]) if (f) { compositeFrame(f, onionBuf); onionCtx.putImageData(onionImg, 0, 0); ctx.globalAlpha = a; ctx.drawImage(onion, ox, oy, pw, ph); }
+      for (const [f, a] of [[prev, .32], [next, .18]]) if (f) {
+        compositeFrame(f, onionBuf);
+        onionCtx.putImageData(onionImg, 0, 0);
+        ctx.globalAlpha = a;
+        ctx.drawImage(onion, ox, oy, pw, ph);
+      }
       ctx.globalAlpha = 1;
     }
-    compositeFrame(PF.Store.frame(), buf); offCtx.putImageData(img, 0, 0); ctx.drawImage(off, ox, oy, pw, ph);
+
+    // Composite & draw pixels
+    compositeFrame(PF.Store.frame(), buf);
+    offCtx.putImageData(img, 0, 0);
+    ctx.drawImage(off, ox, oy, pw, ph);
+
+    // Refined pixel grid
     if (view.grid && z >= 6 && d.width <= 128) {
-      ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,.14)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+      ctx.lineWidth = 1;
       for (let x = 1; x < d.width; x++) { const px = ox + x * z + .5; ctx.moveTo(px, oy); ctx.lineTo(px, oy + ph); }
       for (let y = 1; y < d.height; y++) { const py = oy + y * z + .5; ctx.moveTo(ox, py); ctx.lineTo(ox + pw, py); }
       ctx.stroke();
+
+      // Major tile grid (8x8 or 16x16)
       if (d.width % 8 === 0 && d.height % 8 === 0 && d.width > 16) {
-        ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,.28)';
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(90, 56, 240, 0.35)';
+        ctx.lineWidth = 1;
         for (let x = 8; x < d.width; x += 8) { const px = ox + x * z + .5; ctx.moveTo(px, oy); ctx.lineTo(px, oy + ph); }
         for (let y = 8; y < d.height; y += 8) { const py = oy + y * z + .5; ctx.moveTo(ox, py); ctx.lineTo(ox + pw, py); }
         ctx.stroke();
       }
     }
+    // Selection marquee
+    if (view.sel && view.sel.w > 0 && view.sel.h > 0) {
+      const sx = ox + view.sel.x * z, sy = oy + view.sel.y * z, sw = view.sel.w * z, sh = view.sel.h * z;
+      ctx.save();
+      ctx.setLineDash([Math.max(3, z / 3), Math.max(2, z / 4)]);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(255,255,255,.95)';
+      ctx.strokeRect(sx, sy, sw, sh);
+      ctx.lineDashOffset = 4;
+      ctx.strokeStyle = 'rgba(20,10,60,.9)';
+      ctx.strokeRect(sx, sy, sw, sh);
+      ctx.restore();
+    }
     ctx.restore();
+
+    // Hover pixel cursor highlight
     if (view.hover) {
       const s = view.hoverSize, o = (s - 1) >> 1, hx = ox + (view.hover.x - o) * z, hy = oy + (view.hover.y - o) * z;
-      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.strokeRect(hx, hy, s * z, s * z);
-      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.strokeRect(hx - 1.5, hy - 1.5, s * z + 3, s * z + 3);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,.9)';
+      ctx.strokeRect(hx, hy, s * z, s * z);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(0,0,0,.8)';
+      ctx.strokeRect(hx - 1.5, hy - 1.5, s * z + 3, s * z + 3);
     }
-    ctx.strokeStyle = 'rgba(90,56,240,.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(ox - 1, oy - 1, pw + 2, ph + 2);
+
+    // Artboard bounding border
+    ctx.save();
+    roundRect(ctx, ox - 0.5, oy - 0.5, pw + 1, ph + 1, 4);
+    ctx.strokeStyle = 'rgba(90, 56, 240, 0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
   }
 
   /* Coordinate helpers */

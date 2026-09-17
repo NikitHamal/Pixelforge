@@ -41,15 +41,39 @@ PF.Panels = (() => {
       name.addEventListener('dblclick', () => { const n = prompt('Layer name', l.name); if (n) S().updateLayer(i, { name: n }); });
       const op = document.createElement('input'); op.type = 'range'; op.min = 0; op.max = 100; op.value = Math.round(l.opacity * 100); op.title = 'Opacity'; op.setAttribute('aria-label', 'Layer opacity'); op.dataset.agentId = `layer-${i}-opacity`;
       op.addEventListener('click', e => e.stopPropagation()); op.addEventListener('change', () => S().updateLayer(i, { opacity: +op.value / 100 }));
-      const more = ib('more_vert', 'Layer actions', `layer-${i}-menu`); more.addEventListener('click', e => { e.stopPropagation(); layerMenu(i); });
+      const more = ib('more_vert', 'Layer actions', `layer-${i}-menu`); more.addEventListener('click', e => { e.stopPropagation(); layerMenu(i, more); });
       row.append(vis, name, op, lock, more); el.appendChild(row);
     });
   }
-  function layerMenu(i) {
-    const d = S().get(), a = prompt(`Layer "${d.layers[i].name}": type up, down, merge, duplicate or delete`, 'up'); if (!a) return;
-    if (a === 'up') S().moveLayer(i, 1); else if (a === 'down') S().moveLayer(i, -1); else if (a === 'merge') S().mergeDown(i);
-    else if (a === 'delete') { if (!S().removeLayer(i)) PF.UI.toast('Cannot delete the last layer'); }
-    else if (a === 'duplicate') { S().setActive({ layer: i }); const src = d.layers[i].id, id = S().addLayer(d.layers[i].name + ' copy'); S().transact(dd => dd.states.forEach(s => s.frames.forEach(f => f.pixels[id].set(f.pixels[src])))); }
+  function popupMenu(anchor, items) {
+    document.querySelector('.mini-actions')?.remove();
+    const m = document.createElement('div');
+    m.className = 'mini-actions'; m.setAttribute('role', 'menu');
+    const r = anchor.getBoundingClientRect();
+    m.style.left = Math.max(8, Math.min(innerWidth - 210, r.left)) + 'px';
+    m.style.top = Math.min(innerHeight - items.length * 40 - 20, r.bottom + 4) + 'px';
+    items.forEach(([icon, label, fn, danger]) => {
+      const b = document.createElement('button'); b.setAttribute('role', 'menuitem');
+      if (danger) b.classList.add('danger');
+      b.innerHTML = `<span class="ms ms--sm">${icon}</span>`; b.append(document.createTextNode(label));
+      b.addEventListener('click', () => { m.remove(); fn(); });
+      m.appendChild(b);
+    });
+    document.body.appendChild(m);
+    const close = e => { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('pointerdown', close); } };
+    setTimeout(() => document.addEventListener('pointerdown', close), 0);
+    (m.querySelector('button') || m).focus?.();
+  }
+  function layerMenu(i, anchor) {
+    const d = S().get();
+    popupMenu(anchor, [
+      ['arrow_upward', 'Move up', () => S().moveLayer(i, 1)],
+      ['arrow_downward', 'Move down', () => S().moveLayer(i, -1)],
+      ['content_copy', 'Duplicate', () => { S().setActive({ layer: i }); const src = d.layers[i].id, id = S().addLayer(d.layers[i].name + ' copy'); S().transact(dd => dd.states.forEach(s => s.frames.forEach(f => f.pixels[id].set(f.pixels[src])))); }],
+      ['merge', 'Merge down', () => S().mergeDown(i)],
+      ['edit', 'Rename', () => { const n = prompt('Layer name', d.layers[i].name); if (n) S().updateLayer(i, { name: n }); }],
+      ['delete', 'Delete layer', () => { if (!S().removeLayer(i)) PF.UI.toast('Cannot delete the last layer'); }, true]
+    ]);
   }
 
   /* ---------- States ---------- */
@@ -94,9 +118,16 @@ PF.Panels = (() => {
 
   /* ---------- New document dialog ---------- */
   function initNewDialog() {
-    const dlg = q('#dlg-new'); q('#btn-new').addEventListener('click', () => dlg.showModal());
+    const dlg = q('#dlg-new'); const newBtn = q('#btn-new');
+    if (newBtn && dlg) newBtn.addEventListener('click', () => { if (!dlg.open) dlg.showModal(); });
     qa('#dlg-new .size-chips .chip').forEach(c => c.addEventListener('click', () => { q('#new-w').value = c.dataset.w; q('#new-h').value = c.dataset.h; qa('#dlg-new .size-chips .chip').forEach(x => x.classList.toggle('is-on', x === c)); }));
-    q('#new-create').addEventListener('click', () => { S().newDoc({ width: +q('#new-w').value, height: +q('#new-h').value, name: q('#new-name').value.trim() || 'sprite' }); dlg.close(); PF.UI.setView('canvas'); });
+    q('#new-create').addEventListener('click', () => {
+      const w = +q('#new-w').value, h = +q('#new-h').value, name = q('#new-name').value.trim() || 'sprite';
+      if (PF.Projects && PF.App && PF.App.onNewProject) {
+        PF.App.onNewProject(PF.Projects.create({ name, width: w, height: h }));
+      } else S().newDoc({ width: w, height: h, name });
+      dlg.close(); try { PF.UI.setView('canvas'); } catch {}
+    });
     q('#new-resize').addEventListener('click', () => { S().resize(+q('#new-w').value, +q('#new-h').value, 'center'); dlg.close(); });
     qa('dialog [data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
     qa('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
@@ -116,11 +147,13 @@ PF.Panels = (() => {
     q('#import-png').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return;
       try { const r = await PF.IO.importPNG(f, { frameWidth: +q('#import-fw').value || undefined, frameHeight: +q('#import-fh').value || undefined, asState: q('#import-as-state').checked }); PF.UI.toast(`Imported ${r.imported} frame(s)`); dlg.close(); } catch (err) { PF.UI.toast('Import failed: ' + err.message); } e.target.value = ''; });
     /* Drag & drop anywhere on the studio */
-    const studio = q('#studio');
+    const studio = q('#studio') || q('#stage');
+    if (studio) {
     studio.addEventListener('dragover', e => { e.preventDefault(); studio.classList.add('is-drop'); });
     studio.addEventListener('dragleave', () => studio.classList.remove('is-drop'));
     studio.addEventListener('drop', async e => { e.preventDefault(); studio.classList.remove('is-drop'); const f = e.dataTransfer.files[0]; if (!f) return;
       try { if (/json$/i.test(f.name)) await PF.IO.importProject(f); else await PF.IO.importPNG(f, { frameWidth: +q('#import-fw').value || undefined, frameHeight: +q('#import-fh').value || undefined, asState: q('#import-as-state').checked }); PF.UI.toast('Imported ' + f.name); } catch (err) { PF.UI.toast(err.message); } });
+    }
   }
   return { init, renderAll };
 })();

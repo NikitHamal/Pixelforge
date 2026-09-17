@@ -55,9 +55,11 @@
   qa('[data-count="presets"]').forEach(el => { el.textContent = PF.Anim.PRESETS.length; });
   qa('[data-count="ui"]').forEach(el => { el.textContent = document.querySelectorAll('[data-agent-id]').length + '+'; });
 
-  /* "Try in console" buttons in the agent section */
-  qa('[data-try]').forEach(b => b.addEventListener('click', () => { q('#studio').scrollIntoView({ behavior: 'smooth', block: 'start' }); PF.UI.setView('agent'); setTimeout(() => { q('#agent-input').value = b.dataset.try; q('#agent-send').click(); }, 500); }));
-  qa('[data-open-studio]').forEach(b => b.addEventListener('click', e => { e.preventDefault(); q('#studio').scrollIntoView({ behavior: 'smooth', block: 'start' }); setTimeout(() => PF.Renderer.fit(), 600); }));
+  /* "Try in the app" buttons: deep-link into /app agent view with a prompt */
+  qa('[data-try]').forEach(b => b.addEventListener('click', () => {
+    location.href = 'app/index.html#/agent?prompt=' + encodeURIComponent(b.dataset.try || '');
+  }));
+  qa('[data-open-studio]').forEach(b => b.addEventListener('click', e => { e.preventDefault(); location.href = 'app/index.html#/studio'; }));
 
   /* Year */
   const y = q('#year'); if (y) y.textContent = new Date().getFullYear();

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Runefall — Pixel RPG Survival</title>
+<meta name="description" content="A pixel-art RPG survival game built on PixelForge assets. Pick a class, survive the waves, slay the bosses.">
+<meta name="theme-color" content="#12101f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<div id="app">
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="vignette"></div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-left">
+        <div class="hpbar"><div id="hp-fill"></div><span id="hp-txt"></span></div>
+        <div class="xpbar"><div id="xp-fill"></div></div>
+      </div>
+      <div class="hud-mid">
+        <div id="time-txt">00:00</div>
+        <div id="lvl-txt">Lv 1</div>
+      </div>
+      <div class="hud-right">
+        <div id="kills"><span class="ms">swords</span><b id="kill-txt">0</b></div>
+        <button class="icon-btn" id="btn-mute" aria-label="Mute"><span class="ms">volume_up</span></button>
+        <button class="icon-btn" id="btn-pause" aria-label="Pause"><span class="ms">pause</span></button>
+      </div>
+    </div>
+    <div id="bossbar" class="hidden"><span id="boss-name"></span><div class="boss-track"><div id="boss-fill"></div></div></div>
+    <div id="banner" class="hidden"><div id="banner-main"></div><div id="banner-sub"></div></div>
+  </div>
+
+  <!-- touch controls -->
+  <div id="stick"><div id="nub"></div></div>
+  <button id="btn-atk" aria-label="Attack"><span class="ms">swords</span></button>
+
+  <!-- TITLE -->
+  <div id="screen-title" class="screen">
+    <div class="title-wrap">
+      <div class="game-logo"><span class="logo-rune">ᚱ</span>RUNEFALL</div>
+      <p class="tagline">The dark spills out. Pick your hero. Survive.</p>
+      <div id="classes"></div>
+      <p id="best-txt"></p>
+      <p class="controls-hint"><b>WASD / arrows</b> move · <b>Space / tap</b> attack · <b>P</b> pause · <b>M</b> mute<br>
+      Grab <span class="gold">coins &amp; gems</span> to level up · heal at <span class="warm">campfires</span> &amp; the <span class="cool">rune shrine</span> · beware <span class="lava">lava</span> &amp; <span class="lava">spikes</span></p>
+      <button class="icon-btn ghost" id="btn-mute2" aria-label="Mute"><span class="ms">volume_up</span></button>
+    </div>
+  </div>
+
+  <!-- LEVEL UP -->
+  <div id="screen-levelup" class="screen hidden">
+    <div class="modal">
+      <h2 id="lvl-num">Level 2</h2>
+      <p class="muted">Choose a blessing</p>
+      <div id="cards"></div>
+    </div>
+  </div>
+
+  <!-- PAUSE -->
+  <div id="screen-pause" class="screen hidden">
+    <div class="modal">
+      <h2>Paused</h2>
+      <div class="btn-col">
+        <button class="btn" id="btn-resume"><span class="ms">play_arrow</span>Resume</button>
+        <button class="btn" id="btn-restart"><span class="ms">refresh</span>Restart run</button>
+        <button class="btn" id="btn-quit"><span class="ms">home</span>Change hero</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="screen-over" class="screen hidden">
+    <div class="modal">
+      <h2 class="dead">YOU DIED</h2>
+      <p class="muted">The fall claims another hero.</p>
+      <div id="over-stats"></div>
+      <div class="btn-col">
+        <button class="btn primary" id="btn-again"><span class="ms">refresh</span>Try again</button>
+        <button class="btn" id="btn-title2"><span class="ms">home</span>Change hero</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/core/raster.js"></script>
+<script src="../../js/library/pixel.js"></script>
+<script src="../../js/library/characters.js"></script>
+<script src="../../js/library/monsters.js"></script>
+<script src="../../js/library/world.js"></script>
+<script src="../../js/library/items.js"></script>
+<script src="../../js/library/rpg_heroes.js"></script>
+<script src="../../js/library/rpg_foes.js"></script>
+<script src="../../js/library/rpg_world.js"></script>
+<script src="../../js/library/rpg_items.js"></script>
+<script src="../../js/library/rpg_expand.js"></script>
+<script src="../../js/library/index.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/world.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

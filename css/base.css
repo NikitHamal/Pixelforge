@@ -82,6 +82,9 @@ input[type="range"] { accent-color: var(--primary); width: 100%; }
   background: var(--inverse-surface); color: var(--inverse-on-surface); border-radius: var(--r-md);
   padding: 16px; font-size: .78rem; line-height: 1.55; overflow: auto; white-space: pre; margin: 0; max-height: 360px; tab-size: 2;
 }
+[data-theme="dark"] .code {
+  background: #0c0b12; color: #e4e1e9; border: 1px solid var(--outline-variant);
+}
 .code--sm { font-size: .72rem; max-height: 260px; }
 
 /* Top app bar */
@@ -149,6 +152,24 @@ input[type="range"] { accent-color: var(--primary); width: 100%; }
 /* Footer */
 .footer { padding: 40px 0 120px; border-top: 1px solid var(--outline-variant); margin-top: 24px; }
 .footer__inner { display: flex; flex-direction: column; gap: 16px; font-size: .85rem; color: var(--on-surface-variant); }
+
+/* Overflow guards: grid/flex children must shrink past wide content (code blocks, tables) */
+html, body { overflow-x: clip; }
+.grid > *, .agent-demo > *, .hero__grid > *, .band > * { min-width: 0; }
+.code { max-width: 100%; }
+.tools-scroll { min-width: 0; }
+.eyebrow { justify-self: start; max-width: 100%; }
+
+/* Featured assets strip (landing) */
+.feat-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.feat-card { background: var(--surface-container-low); border: 1px solid var(--outline-variant); border-radius: var(--r-lg); overflow: hidden; display: flex; flex-direction: column; transition: transform var(--dur-med) var(--ease-spring), box-shadow var(--dur-short); }
+.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.feat-preview { background: var(--surface-container); display: grid; place-items: center; padding: 14px; min-height: 120px; overflow: hidden; }
+.feat-preview canvas { width: 88px; height: 88px; max-width: 100%; object-fit: contain; image-rendering: pixelated; }
+.feat-body { padding: 12px 14px 14px; display: grid; gap: 4px; }
+.feat-body b { font-size: .9rem; }
+.feat-body span { font-size: .7rem; font-weight: 600; color: var(--on-surface-variant); }
+.feat-body .btn { margin-top: 6px; }
 
 /* Reveal animation */
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity var(--dur-long) var(--ease-emph), transform var(--dur-long) var(--ease-emph); }
