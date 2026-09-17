@@ -23,6 +23,7 @@ node scripts/verify.js         # THE gate. Run before claiming anything works.
 | Sprite quality gate | `node scripts/check-rpg.js` |
 | Prove a refactor changed no pixels | `node scripts/sprite-hash.js diff scripts/hashes-baseline.json` |
 | Re-baseline after an *intended* visual change | `node scripts/verify.js --update-baseline` |
+| Browse the catalogue (states + frames per template) | `node scripts/info.js` |
 | Look at a sprite sheet | `node scripts/sheet.js rpg_knight 6 run` → `scripts/out/` |
 | Contact sheet of every template | `node scripts/sheet.js --all 3` |
 | Before/after perf comparison | `node scripts/bench-compare.js` |
@@ -53,8 +54,9 @@ Three browser entry points sharing one engine:
 Plus `games/runefall/` — a playable survivors-like that consumes the asset
 library and doubles as an integration test for it.
 
-The interesting part is `js/library/`: ~67 template packs producing ~1,700
-animation frames, all generated from code.
+The interesting part is `js/library/`: **84 template packs, 694 animation
+states, 2,485 frames**, all generated from code. Run `node scripts/info.js` for
+the current catalogue.
 
 ---
 
@@ -121,6 +123,10 @@ js/library/rpg_foes.js   PF.RPG.foes — custom-rig foes (dragon, spider family,
 js/library/rpg_world.js  dungeon/village tilesets and props
 js/library/rpg_items.js  armoury, loot, status icons, magic, UI chrome
 js/library/rpg_expand.js paladin/druid/lich/ogre, campsite, trinkets, battle magic 3
+js/library/rpg_classes.js barbarian/monk/bard/ninja + bandit/cultist/minotaur/warlord
+js/library/rpg_beasts.js quadruped rig (cow/sheep/pig/horse/rabbit/deer), frog, duck,
+                         wraith, gargoyle, imp
+js/library/rpg_props.js  dungeon traps, interior furniture, weather overlays
 js/library/index.js      PF.Library — THE template registry
 
 js/agent/*               in-browser agent tool surface (tools, studio-tools, agent, mcp)
@@ -461,6 +467,19 @@ the record.
   rewrites the whole tree and buries real diffs in line-ending churn.
 - **`monsterSuite` vs `humanoidSuite`.** `monsterSuite` produces the full six
   facings; `heroSuite` produces a much larger action set. Pick deliberately.
+- **Never set a palette's `hair` to the outline colour (`#181425`).** The hair's
+  side panels sit *outside* a hood or helm, so a hair colour equal to the
+  outline renders as thick black bars around the head. The warlord and ninja
+  both hit this. Pick a value at least one step off the outline (`#262b44`,
+  `#5a6988`, …).
+- **A palette colour equal to a neighbouring part's colour erases the part.**
+  The first warlord draft had `shirt` and `helm` both `#3a4466`, so the head
+  merged into the torso. Check new palettes against the sheet, not the hex list.
+- **Headgear has only four rows of clearance** above the head (y0..3). A plume
+  or horn that sweeps *upward* falls off the canvas — sweep it sideways.
+- **A large, high-saturation cape swamps a 32x32 silhouette.** The ninja's first
+  crimson cape read as a robed monk; a dark cloak plus one bright accent (the
+  obi) reads correctly.
 - **Legacy warnings are expected.** `scripts/check-rpg.js` reports `LEGACY *`
   warnings for packs that predate the gate (drake, wolf, boar, chicken, torch,
   spells). These are known and should not be "fixed" opportunistically — they

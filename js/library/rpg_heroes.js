@@ -135,6 +135,23 @@ PF.RPG = (() => {
         api.rect(X(9), Y(5), X(22), Y(6), sh);
       }
     }
+    if (o.hat) {
+      // Floppy brimmed hat: crown + band + wide brim. The head only has four
+      // rows of clearance above it, so the plume sweeps back horizontally
+      // rather than upward - a vertical feather would fall off the canvas.
+      const c = o.hat, band = o.hatBand || '#262b44', sh = o.hatSh || '#262b44', plume = o.hatPlume;
+      if (side) {
+        api.rect(X(10), Y(0), X(21), Y(2), c);
+        api.rect(X(10), Y(2), X(21), Y(3), band);
+        api.rect(X(8), Y(3), X(24), Y(4), c); api.rect(X(8), Y(4), X(24), Y(4), sh);
+        if (plume) { api.line(X(10), Y(1), X(5), Y(1), plume, 1); api.px(X(4), Y(1), plume); api.px(X(5), Y(0), plume); api.px(X(5), Y(2), plume); }
+      } else {
+        api.rect(X(9), Y(0), X(22), Y(2), c);
+        api.rect(X(9), Y(2), X(22), Y(3), band);
+        api.rect(X(7), Y(3), X(24), Y(4), c); api.rect(X(7), Y(4), X(24), Y(4), sh);
+        if (plume) { api.line(X(9), Y(1), X(4), Y(1), plume, 1); api.px(X(3), Y(1), plume); api.px(X(4), Y(0), plume); api.px(X(4), Y(2), plume); }
+      }
+    }
     if (o.crown) {
       const c = o.crown, sh = o.crownSh || '#feae34';
       if (side) {

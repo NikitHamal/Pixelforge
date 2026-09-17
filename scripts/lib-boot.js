@@ -19,6 +19,9 @@ const FILES = [
   'js/library/rpg_world.js',
   'js/library/rpg_items.js',
   'js/library/rpg_expand.js',
+  'js/library/rpg_classes.js',
+  'js/library/rpg_beasts.js',
+  'js/library/rpg_props.js',
   'js/library/index.js'
 ];
 

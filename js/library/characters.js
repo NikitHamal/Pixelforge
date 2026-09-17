@@ -347,6 +347,13 @@ PF.Chars = (() => {
       else if (t.kind === 'bow') P.bow(api, hx + 4, hy - 2, t.pull || 0, BOW_PAL, t.arrow === false ? 0 : 1);
       else if (t.kind === 'food') { api.rect(hx - 1, hy - 4, hx + 1, hy - 2, '#e43b44'); api.px(hx, hy - 5, '#63c74d'); }
       else if (t.kind === 'staff') { api.line(hx, hy - 10, hx, hy + 4, '#b86f50', 2); api.rect(hx - 1, hy - 12, hx + 1, hy - 10, '#2ce8f5'); api.px(hx, hy - 11, '#ffffff'); }
+      else if (t.kind === 'lute') { // pear body + neck angled up-right
+        api.ellipse(hx - 4, hy - 2, hx + 2, hy + 4, '#b86f50', true);
+        api.ellipse(hx - 3, hy - 1, hx + 1, hy + 3, '#e4a672', true);
+        api.px(hx - 1, hy + 1, '#3e2731');
+        api.line(hx + 2, hy - 1, hx + 8, hy - 6, '#733e39', 2);
+        api.px(hx + 8, hy - 6, '#fee761'); api.px(hx + 7, hy - 7, '#fee761');
+      }
       else if (t.kind === 'box') { api.rect(hx - 2, hy - 1, hx + 2, hy + 3, '#b86f50'); api.rect(hx - 2, hy - 1, hx + 2, hy, '#733e39'); }
       if (t.slash) P.slash(api, hx + 2, hy - 4, 9, t.slash[0], t.slash[1], '#ffffff', 2);
       if (t.sparks) P.sparks(api, t.sparks[0], t.sparks[1], t.seed || 0, '#fee761');
@@ -364,6 +371,13 @@ PF.Chars = (() => {
       // head-on bow: lets archers attack on the down/up facings too. Held out
       // to the side of the torso so the limbs never sink into the tunic.
       else if (t.kind === 'bow') P.bowFront(api, hlx - 3, hly - 1, t.pull || 0, cfg.facing === 'up' ? -1 : 1, BOW_PAL, t.arrow === false ? 0 : 1);
+      else if (t.kind === 'lute') {
+        api.ellipse(hx - 3, hy - 1, hx + 3, hy + 5, '#b86f50', true);
+        api.ellipse(hx - 2, hy, hx + 2, hy + 4, '#e4a672', true);
+        api.px(hx, hy + 2, '#3e2731');
+        api.line(hx + 2, hy - 1, hx + 6, hy - 6, '#733e39', 2);
+        api.px(hx + 6, hy - 6, '#fee761');
+      }
       if (t.slash) P.slash(api, 16 + (cfg.kb || 0), 16 + (cfg.bob || 0), 11, t.slash[0], t.slash[1], '#ffffff', 2);
       if (t.sparks) P.sparks(api, t.sparks[0], t.sparks[1], t.seed || 0, '#fee761');
       if (t.dust) dust(api, t.dust);

@@ -25,6 +25,11 @@ RF.Game = (() => {
     goblin: { spr: 'rpg_goblin', mv: null, hp: 28, spd: 54, dmg: 10, r: 11, xp: 2, humanoid: true },
     spider: { spr: 'rpg_spider', mv: 'crawl', hp: 32, spd: 60, dmg: 11, r: 12, xp: 3 },
     spiderling: { spr: 'rpg_spiderling', mv: 'crawl', hp: 12, spd: 78, dmg: 6, r: 8, xp: 1 },
+    cow: { spr: 'rpg_animals', mv: 'cow_walk', hp: 40, spd: 20, dmg: 0, r: 13, xp: 4, passive: true },
+    sheep: { spr: 'rpg_animals', mv: 'sheep_walk', hp: 24, spd: 26, dmg: 0, r: 11, xp: 2, passive: true },
+    imp: { spr: 'rpg_imp', mv: 'dart', hp: 22, spd: 76, dmg: 9, r: 9, xp: 2, wobble: true },
+    bandit: { spr: 'rpg_bandit', mv: null, atk: 'attack_side', hp: 40, spd: 58, dmg: 12, r: 11, xp: 3, humanoid: true },
+    wraith: { spr: 'rpg_wraith', mv: 'float', hp: 70, spd: 48, dmg: 15, r: 11, xp: 5, drift: true },
     boar: { spr: 'boar', mv: 'trot', charge: 'charge', hp: 48, spd: 50, dmg: 14, r: 12, xp: 3, charger: true },
     wolf: { spr: 'wolf', mv: 'run', atk: 'attack', hp: 36, spd: 74, dmg: 12, r: 11, xp: 3 },
     skeleton: { spr: 'skeleton', mv: null, hp: 58, spd: 42, dmg: 14, r: 11, xp: 4, humanoid: true },
@@ -120,14 +125,16 @@ RF.Game = (() => {
   /* ================= spawning ================= */
   function hpScale() { return 1 + G.time / 150; }
   function unlocked() {
-    const t = G.time, pool = [['slime', 10], ['chicken', 3]];
+    const t = G.time, pool = [['slime', 10], ['chicken', 3], ['sheep', 2]];
     if (t > 25) pool.push(['bat', 8]);
+    if (t > 35) pool.push(['imp', 6], ['cow', 2]);
+    if (t > 60) pool.push(['bandit', 6]);
     if (t > 50) pool.push(['goblin', 8], ['mushroom', 5]);
     if (t > 80) pool.push(['spider', 7]);
     if (t > 95) pool.push(['spiderling', 6]);
     if (t > 110) pool.push(['wolf', 6], ['boar', 4]);
     if (t > 150) pool.push(['skeleton', 6]);
-    if (t > 190) pool.push(['orc', 5], ['ghost', 4]);
+    if (t > 190) pool.push(['orc', 5], ['ghost', 4], ['wraith', 3]);
     if (t > 230) pool.push(['necro', 3]);
     return pool;
   }
