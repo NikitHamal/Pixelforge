@@ -3,103 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>PixelForge Studio — AI-agent-ready 2D pixel art game asset studio</title>
-  <meta name="description" content="Create animated 2D pixel art game assets with many states, export to any format, and let any AI agent drive the whole studio through typed tools and MCP.">
-  <meta name="theme-color" content="#5a38f0">
+  <title>PixelForge — Game asset studio</title>
+  <meta name="description" content="PixelForge is a professional, AI-ready pixel art game asset studio for creating animation-ready characters, creatures and props.">
+  <meta name="theme-color" content="#6c4cff">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&display=block" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/studio.css">
-  <style>
-    .studio.is-drop { outline: 3px dashed var(--primary); outline-offset: -3px; }
-    #mcp-status[data-kind="ok"] { color: var(--tertiary); } #mcp-status[data-kind="error"] { color: var(--error); }
-  </style>
+  <link rel="stylesheet" href="css/workspace.css">
 </head>
-<body>
-  <a class="skip" href="#studio">Skip to studio</a>
-
-  <!-- Top app bar -->
-  <header class="topbar" data-agent-id="topbar">
-    <div class="container topbar__inner">
-      <a class="logo" href="#home" aria-label="PixelForge Studio home" data-agent-id="nav-home"><span class="logo__mark"><canvas id="logo-canvas" aria-hidden="true"></canvas></span>PixelForge</a>
-      <nav aria-label="Primary">
-        <a href="#features" data-agent-id="nav-features">Features</a>
-        <a href="#studio" data-agent-id="nav-studio">Studio</a>
-        <a href="#agents" data-agent-id="nav-agents">Agents</a>
-        <a href="#mcp" data-agent-id="nav-mcp">MCP</a>
-        <a href="#formats" data-agent-id="nav-formats">Formats</a>
+<body class="workspace-app">
+  <a class="skip" href="#page-content">Skip to content</a>
+  <header class="workspace-topbar">
+    <div class="workspace-topbar__inner">
+      <a class="workspace-brand" href="#dashboard" aria-label="PixelForge dashboard"><span class="workspace-brand__mark"><span class="ms ms--fill">grid_view</span></span><span>PixelForge</span><span class="workspace-brand__badge">BETA</span></a>
+      <nav class="workspace-nav" aria-label="Workspace navigation">
+        <a href="#dashboard" data-route="dashboard" data-agent-id="nav-dashboard"><span class="ms ms--sm">space_dashboard</span>Overview</a>
+        <a href="#templates" data-route="templates"><span class="ms ms--sm">auto_awesome_motion</span>Templates</a>
+        <a href="#projects" data-route="projects"><span class="ms ms--sm">folder_copy</span>Projects</a>
       </nav>
-      <div class="topbar__actions">
-        <button class="icon-btn" id="btn-theme" aria-label="Toggle theme" data-agent-id="theme-toggle"><span class="ms">dark_mode</span></button>
-        <a class="btn btn--filled" href="#studio" data-open-studio data-agent-id="open-studio"><span class="ms ms--sm">brush</span>Open Studio</a>
+      <div class="workspace-topbar__actions">
+        <label class="workspace-search workspace-search--top"><span class="ms ms--sm">search</span><input id="global-search" type="search" placeholder="Search assets" aria-label="Search assets"></label>
+        <a class="btn btn--filled btn--sm workspace-open-studio" href="#studio" data-agent-id="open-studio"><span class="ms ms--sm">brush</span>Open Studio</a>
+        <button class="icon-btn" id="btn-theme" aria-label="Toggle theme" title="Toggle theme"><span class="ms">dark_mode</span></button>
+        <button class="workspace-avatar" aria-label="Account menu">AR</button>
       </div>
     </div>
   </header>
 
-  <main>
-    <!-- Hero -->
-    <section class="hero" id="home">
-      <div class="container hero__grid">
-        <div class="hero__copy reveal">
-          <span class="eyebrow"><span class="ms">smart_toy</span>Agent-native · MCP-ready · Open formats</span>
-          <h1 class="display">Pixel art game assets, crafted by you <em style="font-style:normal;color:var(--primary)">or your AI agent.</em></h1>
-          <p class="body-lg">A complete 2D pixel art studio in the browser: layers, symmetry, animation states, onion skin and one-click export to sprite sheets, GIF, JSON atlases and more. Every single control is exposed as a typed tool, so agents can build production-ready assets end to end.</p>
-          <div class="hero__actions">
-            <a class="btn btn--filled btn--lg" href="#studio" data-open-studio data-agent-id="hero-open-studio"><span class="ms">draw</span>Start drawing</a>
-            <button class="btn btn--tonal btn--lg" data-try="make a slime idle animation" data-agent-id="hero-try-agent"><span class="ms">auto_awesome</span>Watch the agent build a sprite</button>
-          </div>
-          <div class="row wrap muted" style="font-size:.82rem;gap:14px">
-            <span class="row"><span class="ms ms--sm">bolt</span>No install, no backend</span>
-            <span class="row"><span class="ms ms--sm">code_off</span>Zero frameworks</span>
-            <span class="row"><span class="ms ms--sm">devices</span>Phone → desktop</span>
-          </div>
+  <main id="page-content" class="workspace-main">
+    <section class="workspace-page" id="page-dashboard" data-page="dashboard">
+      <div class="workspace-container">
+        <div class="workspace-heading workspace-heading--welcome">
+          <div><p class="workspace-kicker">WORKSPACE / THURSDAY, SEPTEMBER 17</p><h1>Good morning, Alex <span class="heading-wave">✦</span></h1><p class="workspace-subtitle">Build a living library of game-ready sprites, one frame at a time.</p></div>
+          <button class="btn btn--filled" data-action="new-project"><span class="ms ms--sm">add</span>New project</button>
         </div>
-        <div class="hero__demo reveal">
-          <div class="hero__stage">
-            <span class="chip chip--filled hero__tag"><span class="ms">play_circle</span>Rendered live by the engine</span>
-            <canvas id="hero-demo" aria-label="Animated slime and coin demo"></canvas>
-          </div>
-          <div class="hero__stats">
-            <div class="stat"><b data-count="tools">40</b><span>agent tools</span></div>
-            <div class="stat"><b data-count="presets">20</b><span>state presets</span></div>
-            <div class="stat"><b data-count="formats">7</b><span>export formats</span></div>
-          </div>
+        <div class="dashboard-grid">
+          <article class="welcome-card">
+            <div class="welcome-card__copy"><span class="status-pill status-pill--bright"><span class="status-dot"></span>All systems ready</span><h2>Make your next world<br><em>feel alive.</em></h2><p>Start from a polished character kit or open your latest project. PixelForge keeps every direction, state and export together.</p><div class="row wrap"><button class="btn btn--light" data-route-action="templates"><span class="ms ms--sm">auto_awesome</span>Explore templates</button><button class="btn btn--ghost-light" data-route-action="studio"><span class="ms ms--sm">play_circle</span>Open last project</button></div></div>
+            <div class="welcome-card__art" aria-hidden="true"><div class="art-orbit art-orbit--one"></div><div class="art-orbit art-orbit--two"></div><canvas id="dashboard-art" width="160" height="160"></canvas><span class="art-label art-label--one">IDLE</span><span class="art-label art-label--two">WALK</span></div>
+          </article>
+          <div class="metric-stack"><div class="metric-card"><span class="metric-icon metric-icon--violet"><span class="ms">folder_open</span></span><div><strong>12</strong><span>Projects</span></div><small>+3 this month</small></div><div class="metric-card"><span class="metric-icon metric-icon--mint"><span class="ms">animation</span></span><div><strong>184</strong><span>Animation states</span></div><small>Across your library</small></div><div class="metric-card"><span class="metric-icon metric-icon--amber"><span class="ms">cloud_done</span></span><div><strong>98%</strong><span>Synced</span></div><small>Just now</small></div></div>
         </div>
+        <div class="section-row"><div><p class="workspace-kicker">JUMP BACK IN</p><h2 class="workspace-title">Recent projects</h2></div><a class="inline-link" href="#projects">View all <span class="ms ms--sm">arrow_forward</span></a></div>
+        <div class="project-card-grid" id="dashboard-projects"></div>
+        <div class="section-row section-row--templates"><div><p class="workspace-kicker">CURATED STARTING POINTS</p><h2 class="workspace-title">Made for your kind of game</h2></div><a class="inline-link" href="#templates">Browse all <span class="ms ms--sm">arrow_forward</span></a></div>
+        <div class="mini-template-grid" id="dashboard-templates"></div>
       </div>
     </section>
 
-    <!-- Metrics band -->
-    <section class="container reveal">
-      <div class="band">
-        <div><b data-count="ui">150+</b><span>addressable UI elements</span></div>
-        <div><b>256²</b><span>max canvas, Uint32 buffers</span></div>
-        <div><b>60fps</b><span>dirty-flag rendering</span></div>
-        <div><b>80</b><span>undo levels, all tools</span></div>
+    <section class="workspace-page" id="page-templates" data-page="templates">
+      <div class="workspace-container">
+        <div class="workspace-heading"><div><p class="workspace-kicker">ASSET LIBRARY</p><h1>Templates for every adventure</h1><p class="workspace-subtitle">Production-ready pixel kits with the animation states your game actually needs.</p></div><button class="btn btn--filled" data-action="new-project"><span class="ms ms--sm">add</span>Blank canvas</button></div>
+        <div class="library-toolbar"><label class="workspace-search"><span class="ms ms--sm">search</span><input id="template-search" type="search" placeholder="Search characters, props, environments…" aria-label="Search templates"></label><div class="filter-chips" id="template-filters"><button class="filter-chip is-active" data-filter="all">All assets</button><button class="filter-chip" data-filter="characters"><span class="ms ms--sm">accessibility_new</span>Characters</button><button class="filter-chip" data-filter="creatures"><span class="ms ms--sm">pets</span>Creatures</button><button class="filter-chip" data-filter="props"><span class="ms ms--sm">category</span>Props</button><button class="filter-chip" data-filter="environment"><span class="ms ms--sm">landscape</span>Environment</button></div><button class="icon-btn library-sort" aria-label="Sort templates" title="Sort templates"><span class="ms">tune</span></button></div>
+        <div class="library-meta"><span id="template-count">12 assets</span><span class="library-meta__line"></span><span>Each kit includes a full animation suite</span></div>
+        <div class="template-grid" id="template-grid"></div>
       </div>
     </section>
 
-    <!-- Features -->
-    <section class="section" id="features">
-      <div class="container">
-        <div class="section__head reveal">
-          <span class="eyebrow"><span class="ms">stars</span>Full studio</span>
-          <h2 class="headline">Everything a game asset needs, nothing you have to configure.</h2>
-          <p class="body-lg">Built mobile-first with Material 3 Expressive shapes and motion. The same engine powers the canvas, the thumbnails, the exports and the agent.</p>
-        </div>
-        <div class="grid grid--3">
-          <article class="card card--primary reveal"><div class="card__icon"><span class="ms">brush</span></div><h3 class="title">Pro pixel tools</h3><p>Pencil, eraser, bucket (contiguous/global), line, rect, ellipse, shading, move, eyedropper, X/Y symmetry, brush sizes and a 32-color starter palette you can extend.</p></article>
-          <article class="card reveal"><div class="card__icon"><span class="ms">animation</span></div><h3 class="title">Animation states</h3><p>Idle, walk, run, jump, attack, hurt, death and 13 more presets. Per-frame durations, loop control, onion skin and a live preview that keeps playing while you edit.</p></article>
-          <article class="card reveal"><div class="card__icon"><span class="ms">layers</span></div><h3 class="title">Layers &amp; history</h3><p>Unlimited layers with opacity, visibility, lock and merge. Typed-array snapshots give you 80 levels of undo for pixels and structure alike.</p></article>
-          <article class="card card--tertiary reveal"><div class="card__icon"><span class="ms">smart_toy</span></div><h3 class="title">Agent-native</h3><p>Every action is a schema-described tool. Agents paint with ASCII rows, inspect their work as PNG, and click any control by id.</p></article>
-          <article class="card reveal"><div class="card__icon"><span class="ms">hub</span></div><h3 class="title">MCP server surface</h3><p>JSON-RPC handler for initialize, tools/list, tools/call and resources. Connect a stdio bridge and any MCP client can drive the studio.</p></article>
-          <article class="card card--secondary reveal"><div class="card__icon"><span class="ms">ios_share</span></div><h3 class="title">Export anywhere</h3><p>PNG, sprite sheet + Aseprite-compatible JSON (Unity, Godot, Phaser, Unreal), animated GIF, SVG, CSS and a lossless project file. Import PNG sheets back.</p></article>
-        </div>
+    <section class="workspace-page" id="page-projects" data-page="projects">
+      <div class="workspace-container">
+        <div class="workspace-heading"><div><p class="workspace-kicker">YOUR LIBRARY</p><h1>Projects</h1><p class="workspace-subtitle">Everything you are making, in one focused place.</p></div><button class="btn btn--filled" data-action="new-project"><span class="ms ms--sm">add</span>New project</button></div>
+        <div class="project-summary"><div><span class="summary-label">ACTIVE LIBRARY</span><strong>12 projects</strong></div><div><span class="summary-label">TOTAL STATES</span><strong>184 <small>animation-ready</small></strong></div><div class="summary-spacer"></div><label class="workspace-search workspace-search--project"><span class="ms ms--sm">search</span><input id="project-search" type="search" placeholder="Search projects" aria-label="Search projects"></label><button class="view-toggle is-active" aria-label="Grid view"><span class="ms">grid_view</span></button><button class="view-toggle" aria-label="List view"><span class="ms">view_list</span></button></div>
+        <div class="project-list" id="project-list"></div>
       </div>
     </section>
 
+    <section class="workspace-page workspace-page--studio" id="page-studio" data-page="studio">
+      <div class="studio-container">
+        <div class="studio-heading"><div class="studio-breadcrumb"><a href="#projects"><span class="ms ms--sm">arrow_back</span>Projects</a><span class="ms ms--sm">chevron_right</span><strong id="studio-project-title">hero-sprite</strong><span class="save-indicator"><span class="status-dot"></span>Saved locally</span></div><div class="studio-heading__actions"><button class="btn btn--outlined btn--sm" data-action="rename-project"><span class="ms ms--sm">edit</span>Rename</button><button class="btn btn--filled btn--sm" id="studio-export-action"><span class="ms ms--sm">ios_share</span>Export</button></div></div>
     <!-- ===================== STUDIO ===================== -->
     <section class="container" style="padding-block:8px 24px">
       <section class="studio" id="studio" data-view="canvas" aria-label="PixelForge Studio editor">
@@ -253,109 +228,12 @@
       </section>
     </section>
 
-    <!-- Agents -->
-    <section class="section" id="agents">
-      <div class="container">
-        <div class="section__head reveal">
-          <span class="eyebrow"><span class="ms">smart_toy</span>Agent-ready by design</span>
-          <h2 class="headline">The whole studio is a tool surface. Pixel-perfect, deterministic, inspectable.</h2>
-          <p class="body-lg">Agents don't screenshot-and-guess. They call typed tools, read back pixels as text, render previews for vision models and click any control by its stable id.</p>
-        </div>
-        <div class="grid grid--3" style="margin-bottom:24px">
-          <article class="card reveal"><div class="card__icon"><span class="ms">text_fields</span></div><h3 class="title">Paint with text</h3><p><code>paint_rows</code> turns ASCII art + a color legend into pixels. LLMs are great at grids; this makes sprite generation reliable and cheap.</p></article>
-          <article class="card reveal"><div class="card__icon"><span class="ms">visibility</span></div><h3 class="title">See what you made</h3><p><code>get_pixels</code> returns hex rows and bounds; <code>render_preview</code> and <code>render_state</code> return PNG data URLs for multimodal review loops.</p></article>
-          <article class="card reveal"><div class="card__icon"><span class="ms">ads_click</span></div><h3 class="title">Navigate the UI</h3><p><code>describe_ui</code> lists every element with <code>data-agent-id</code>, label, state and rect. <code>click_ui</code> presses or sets it — pixel-perfect on any screen size.</p></article>
-        </div>
-        <div class="agent-demo">
-          <div class="stack reveal" style="gap:12px">
-            <span class="label">From JavaScript, an iframe, or a browser automation agent</span>
-<pre class="code">// Global API (same registry the console & MCP use)
-await PixelForge.call('new_document', { width: 16, height: 16, name: 'slime' });
-await PixelForge.call('paint_rows', {
-  rows: ['..GGGG..', '.GGLWGG.', 'GGGGGGGG', '.DDDDDD.'],
-  legend: { G: '#63c74d', L: '#a8f28a', W: '#fff', D: '#3e8948' }, y: 6, x: 4
-});
-await PixelForge.call('add_state', { name: 'walk', from_preset: true });
-await PixelForge.call('export', { format: 'spritesheet', scale: 2 });
 
-// Any window / iframe
-parent.postMessage({ type: 'pf:call', id: 1, tool: 'get_document', args: {} }, '*');
-// → { type: 'pf:result', id: 1, ok: true, result: {...} }
-
-// Discover the UI
-PixelForge.describeUI('frame')   // [{ id:'frame-add', label:'Add blank frame', rect:{…} }, …]
-PixelForge.clickUI('frame-add')</pre>
-            <div class="row wrap">
-              <button class="btn btn--soft btn--sm" data-try="spinning coin" data-agent-id="try-coin"><span class="ms ms--sm">play_arrow</span>Run "spinning coin"</button>
-              <button class="btn btn--soft btn--sm" data-try="/describe_ui filter=frame" data-agent-id="try-describe"><span class="ms ms--sm">play_arrow</span>Run describe_ui</button>
-              <button class="btn btn--soft btn--sm" data-try='{"tool":"draw_ellipse","args":{"x":4,"y":4,"width":24,"height":24,"fill":true,"color":"#0099db"}}' data-agent-id="try-json"><span class="ms ms--sm">play_arrow</span>Run JSON call</button>
-            </div>
-          </div>
-          <div class="stack reveal" style="gap:12px">
-            <span class="label">Live tool registry (generated from code)</span>
-            <div class="tools-scroll">
-              <table class="tools-table" id="tools-table"><thead><tr><th>Tool</th><th>Description</th><th>Arguments</th></tr></thead><tbody></tbody></table>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- MCP -->
-    <section class="section" id="mcp" style="padding-top:0">
-      <div class="container">
-        <div class="section__head reveal">
-          <span class="eyebrow"><span class="ms">hub</span>Model Context Protocol</span>
-          <h2 class="headline">One manifest. Every agent in the world can use it.</h2>
-          <p class="body-lg">PixelForge speaks MCP JSON-RPC in the browser: <code>initialize</code>, <code>tools/list</code>, <code>tools/call</code>, <code>resources/list</code>, <code>resources/read</code>. Run the tiny stdio⇄WebSocket bridge and point Claude Desktop, Cursor, or any MCP client at it.</p>
-        </div>
-        <div class="grid grid--2">
-          <div class="card card--high reveal stack" style="gap:12px">
-            <div class="row"><span class="title grow">Server manifest · <span id="mcp-count">40</span> tools</span><button class="btn btn--text btn--sm" data-copy="#mcp-manifest" data-agent-id="copy-manifest"><span class="ms ms--sm">content_copy</span>Copy</button></div>
-            <pre class="code code--sm" id="mcp-manifest"></pre>
-            <div class="row"><span class="title grow">Client config</span><button class="btn btn--text btn--sm" data-copy="#mcp-config" data-agent-id="copy-config"><span class="ms ms--sm">content_copy</span>Copy</button></div>
-            <pre class="code code--sm" id="mcp-config"></pre>
-          </div>
-          <div class="card card--high reveal stack" style="gap:12px">
-            <div class="row"><span class="title grow">Bridge (reference implementation)</span><button class="btn btn--text btn--sm" data-copy="#mcp-bridge" data-agent-id="copy-bridge"><span class="ms ms--sm">content_copy</span>Copy</button></div>
-            <pre class="code code--sm" id="mcp-bridge"></pre>
-            <span class="label">Connect this tab to a bridge</span>
-            <div class="row wrap">
-              <input class="input grow" id="mcp-url" value="ws://localhost:7331" aria-label="Bridge WebSocket URL" data-agent-id="mcp-url" spellcheck="false">
-              <button class="btn btn--filled" id="mcp-connect" data-agent-id="mcp-connect"><span class="ms ms--sm">link</span>Connect</button>
-              <button class="btn btn--outlined" id="mcp-disconnect" data-agent-id="mcp-disconnect">Disconnect</button>
-            </div>
-            <p class="muted" style="font-size:.82rem">Status: <b id="mcp-status" data-kind="idle">not connected</b>. You can also call <code>PixelForge.mcp.handle({jsonrpc:'2.0',id:1,method:'tools/list'})</code> directly.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Formats -->
-    <section class="section" id="formats" style="padding-top:0">
-      <div class="container">
-        <div class="section__head reveal">
-          <span class="eyebrow"><span class="ms">ios_share</span>Import &amp; export</span>
-          <h2 class="headline">Ready for any engine.</h2>
-          <p class="body-lg">Sprite sheets ship with an Aseprite-compatible atlas — frame tags, durations and layers — which Unity, Godot, Phaser, Unreal, Defold and LÖVE importers already understand.</p>
-        </div>
-        <div class="format-list reveal">
-          <span class="chip chip--filled"><span class="ms">image</span>PNG (1–16×)</span><span class="chip chip--filled"><span class="ms">grid_view</span>Sprite sheet rows / grid / strip</span>
-          <span class="chip chip--filled"><span class="ms">data_object</span>Atlas JSON</span><span class="chip chip--filled"><span class="ms">gif_box</span>Animated GIF</span>
-          <span class="chip chip--filled"><span class="ms">polyline</span>SVG</span><span class="chip chip--filled"><span class="ms">css</span>CSS box-shadow</span>
-          <span class="chip chip--filled"><span class="ms">save</span>Project .pixelforge.json</span><span class="chip chip--filled"><span class="ms">upload</span>Import PNG / sheet / project</span>
-        </div>
       </div>
     </section>
   </main>
 
-  <footer class="footer">
-    <div class="container footer__inner">
-      <span class="logo"><span class="logo__mark" style="width:28px;height:28px"><span class="ms" style="color:#fff;font-size:16px">brush</span></span>PixelForge Studio</span>
-      <span>© <span id="year"></span> · Vanilla HTML/CSS/JS · Poppins · Material 3 Expressive · Agent &amp; MCP ready</span>
-    </div>
-  </footer>
-
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <!-- New / resize dialog -->
   <dialog class="sheet" id="dlg-new" aria-label="New document">
     <div class="sheet__inner">
@@ -402,9 +280,6 @@ PixelForge.clickUI('frame-add')</pre>
     </div>
   </dialog>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-  <!-- Modules (classic scripts, dependency order, no bundler needed) -->
   <script src="js/core/store.js"></script>
   <script src="js/core/raster.js"></script>
   <script src="js/core/renderer.js"></script>
@@ -417,5 +292,6 @@ PixelForge.clickUI('frame-add')</pre>
   <script src="js/ui/panels.js"></script>
   <script src="js/ui/app.js"></script>
   <script src="js/ui/landing.js"></script>
+  <script src="js/ui/workspace.js"></script>
 </body>
 </html>
