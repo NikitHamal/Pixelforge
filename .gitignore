@@ -1,6 +1,10 @@
 # Generated sprite sheets / contact sheets from scripts/sheet.js
 scripts/out/
 
+# Batch exports from scripts/forge.js
+forge-out/
+kit-out/
+
 # Agent-local workspace state (memory logs, absolute machine paths)
 .workbuddy-ai/
 

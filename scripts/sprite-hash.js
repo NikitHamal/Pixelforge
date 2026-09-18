@@ -7,10 +7,51 @@
      node scripts/sprite-hash.js diff  scripts/hashes.json
 */
 const fs = require('fs');
+const path = require('path');
 const { boot, hashBuf, renderFrame } = require('./lib-boot');
 
 const PF = boot();
-const [cmd = 'diff', file = 'scripts/hashes.json'] = process.argv.slice(2);
+const [cmd = 'diff', file = 'scripts/hashes-baseline'] = process.argv.slice(2);
+
+/* Sharded oracle.
+   A single JSON file for every frame is 190KB+ — small in absolute terms, but
+   past the 128KB per-argument limit of a process spawn AND a single git blob
+   body over some APIs, which makes it awkward to write from tooling. Shards of
+   ~48 templates keep every write tiny, still diff cleanly in review, and the
+   loader verifies that no shard is missing before it trusts the oracle. */
+const SHARD = 48;
+const isDir = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
+const shardPath = (dir, i) => path.join(dir, `shard-${String(i).padStart(2, '0')}.json`);
+
+function saveOracle(target, data) {
+  if (target.endsWith('.json')) { fs.writeFileSync(target, JSON.stringify(data)); return 1; }
+  fs.mkdirSync(target, { recursive: true });
+  for (const f of fs.readdirSync(target)) if (/^shard-\d+\.json$/.test(f)) fs.unlinkSync(path.join(target, f));
+  const ids = Object.keys(data);
+  let shards = 0;
+  for (let i = 0; i < ids.length; i += SHARD) {
+    const slice = {};
+    for (const id of ids.slice(i, i + SHARD)) slice[id] = data[id];
+    fs.writeFileSync(shardPath(target, shards), JSON.stringify(slice));
+    shards++;
+  }
+  fs.writeFileSync(path.join(target, 'index.json'), JSON.stringify({ templates: ids.length, shards, shardSize: SHARD, order: 'insertion' }, null, 0));
+  return shards;
+}
+
+function loadOracle(source) {
+  if (!isDir(source)) return { data: JSON.parse(fs.readFileSync(source, 'utf8')), shards: 1, expected: null };
+  const index = JSON.parse(fs.readFileSync(path.join(source, 'index.json'), 'utf8'));
+  const data = {};
+  let loaded = 0;
+  for (let i = 0; i < index.shards; i++) {
+    const p = shardPath(source, i);
+    if (!fs.existsSync(p)) throw new Error(`baseline shard missing: ${p} (${index.shards} expected)`);
+    Object.assign(data, JSON.parse(fs.readFileSync(p, 'utf8')));
+    loaded++;
+  }
+  return { data, shards: loaded, expected: index.templates };
+}
 
 function snapshot() {
   const out = {};
@@ -37,12 +78,17 @@ function snapshot() {
 
 if (cmd === 'save') {
   const snap = snapshot();
-  fs.writeFileSync(file, JSON.stringify(snap.data, null, 0));
-  console.log(`saved ${Object.keys(snap.data).length} templates / ${snap.frames} frames -> ${file}`);
+  const shards = saveOracle(file, snap.data);
+  console.log(`saved ${Object.keys(snap.data).length} templates / ${snap.frames} frames -> ${file} (${shards} shard${shards === 1 ? '' : 's'})`);
   process.exit(0);
 }
 
-const base = JSON.parse(fs.readFileSync(file, 'utf8'));
+const oracle = loadOracle(file);
+const base = oracle.data;
+if (oracle.expected !== null && oracle.expected !== Object.keys(base).length) {
+  console.error(`baseline is incomplete: index says ${oracle.expected} templates, ${oracle.shards} shards hold ${Object.keys(base).length}`);
+  process.exit(2);
+}
 const now = snapshot().data;
 let same = 0, changed = 0, added = 0, removed = 0;
 const diffs = [];

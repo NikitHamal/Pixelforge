@@ -12,6 +12,9 @@ and violating them produces silent, hard-to-see breakage.
 It has **zero dependencies, no build step, and no image assets** — every sprite
 is drawn at runtime by deterministic JavaScript maths.
 
+At a glance: **189 templates · 2,173 animation states · 8,855 frames · 25 style
+palettes**, plus atlas packing and 20+ engine export formats.
+
 ```bash
 node scripts/serve.js          # dev server -> http://localhost:5173/
 node scripts/verify.js         # THE gate. Run before claiming anything works.
@@ -21,9 +24,15 @@ node scripts/verify.js         # THE gate. Run before claiming anything works.
 |---|---|
 | Verify everything (do this before finishing) | `node scripts/verify.js` |
 | Sprite quality gate | `node scripts/check-rpg.js` |
-| Prove a refactor changed no pixels | `node scripts/sprite-hash.js diff scripts/hashes-baseline.json` |
+| Prove a refactor changed no pixels | `node scripts/sprite-hash.js diff scripts/hashes-baseline` |
 | Re-baseline after an *intended* visual change | `node scripts/verify.js --update-baseline` |
 | Browse the catalogue (states + frames per template) | `node scripts/info.js` |
+| Machine-readable asset catalogue | `node scripts/catalogue.js` |
+| Style engine gate | `node scripts/check-style.js` |
+| Atlas packer gate | `node scripts/check-atlas.js` |
+| Export format gate | `node scripts/check-export.js` |
+| Docs + catalogue gate | `node scripts/check-docs.js` |
+| Batch export / starter kits | `node scripts/forge.js kit out/ "cozy farm, pastel"` |
 | Look at a sprite sheet | `node scripts/sheet.js rpg_knight 6 run` → `scripts/out/` |
 | Contact sheet of every template | `node scripts/sheet.js --all 3` |
 | Before/after perf comparison | `node scripts/bench-compare.js` |
@@ -38,6 +47,12 @@ node scripts/verify.js         # THE gate. Run before claiming anything works.
    optimisation must report `0 changed`.
 5. **Ground contact sits at y=25..27 and shadows at groundY=29.** Never let them
    touch, or the outline pass fuses the feet into the shadow.
+6. **No figure paints on row 0.** The outline pass cannot draw outside the
+   buffer, so a pixel on row 0 reads as sliced off. The rig clamps head and
+   headgear to row 1+; the gate ratchets the templates that still clip.
+7. **A style may change nothing but colour.** `PF.Style.apply` only remaps
+   opaque pixels onto its palette; alpha, transparency and geometry are
+   untouchable (enforced by `check-style.js`).
 
 ---
 
@@ -54,9 +69,11 @@ Three browser entry points sharing one engine:
 Plus `games/runefall/` — a playable survivors-like that consumes the asset
 library and doubles as an integration test for it.
 
-The interesting part is `js/library/`: **84 template packs, 694 animation
-states, 2,485 frames**, all generated from code. Run `node scripts/info.js` for
-the current catalogue.
+The interesting part is `js/library/`: **189 templates, 2,173 animation states,
+8,855 frames**, all generated from code. Run `node scripts/info.js` for the
+current catalogue, `node scripts/catalogue.js` to regenerate
+`docs/asset-catalogue.md`, and `node scripts/forge.js list` for the genre
+roll-up.
 
 ---
 
@@ -70,8 +87,8 @@ node scripts/serve.js [port]        # static server (default 5173). Use http, no
 node scripts/verify.js              # syntax + quality + pixel regression + refs
 node scripts/verify.js --update-baseline
 node scripts/check-rpg.js           # canonical sprite quality gate
-node scripts/sprite-hash.js save scripts/hashes-baseline.json
-node scripts/sprite-hash.js diff scripts/hashes-baseline.json
+node scripts/sprite-hash.js save scripts/hashes-baseline
+node scripts/sprite-hash.js diff scripts/hashes-baseline
 
 # Visual QA (no browser required)
 node scripts/sheet.js <templateId> [scale] [stateFilter]
@@ -112,6 +129,10 @@ js/core/input.js         PF.Input — pointer tools, selection, clipboard, symme
 js/core/animation.js     PF.Anim — playback engine, state presets, live preview
 js/core/io.js            PF.IO — PNG / GIF / spritesheet export + import
 js/core/projects.js      PF.Projects — localStorage project persistence
+js/core/style.js         PF.Style — 25 palettes, ordered-dither retargeting, tint
+js/core/atlas.js         PF.Atlas — MaxRects packer + engine atlas serializers
+js/core/export.js        PF.Export — Tiled / Godot / Unity / C header / BMFont / SVG
+js/core/factory.js       PF.Factory — briefs, recipes, starter packs, search
 
 js/library/pixel.js      PF.Pixel — the draw API every template uses + weapon/FX primitives
 js/library/characters.js PF.Chars — the humanoid rig + hero/monster/wizard suites
@@ -127,10 +148,23 @@ js/library/rpg_classes.js barbarian/monk/bard/ninja + bandit/cultist/minotaur/wa
 js/library/rpg_beasts.js quadruped rig (cow/sheep/pig/horse/rabbit/deer), frog, duck,
                          wraith, gargoyle, imp
 js/library/rpg_props.js  dungeon traps, interior furniture, weather overlays
+js/library/font.js       PF.Font — 5x7 + 3x5 bitmap fonts, layout, BMFont data
+js/library/autotile.js   PF.AutoTile — wang (16) and blob (47) tileset generation
+js/library/scifi.js      PF.Scifi — marines, droids, machines, hulls, station props
+js/library/platformer.js PF.Platform — side-scroller heroes, baddies, blocks, HUD
+js/library/nature.js     PF.Nature — flora, critters, fish, biomes, orbit props
+js/library/urban.js      PF.Urban — city tiles, traffic, pedestrians, interiors
+js/library/horror.js     PF.Horror — undead, beasts, spirits, gothic sets
+js/library/farm.js       PF.Farm — crops, tools, produce, soil, buildings, animals
+js/library/vfx.js        PF.Vfx — explosions, muzzle, smoke, impacts, beams, ambient
+js/library/ui.js         PF.Ui — fonts, 9-slice panels, buttons, gauges, icons, autotiles
+js/library/tiny16.js     PF.Tiny — 16x16 handheld-scale heroes, foes, items, tiles
 js/library/index.js      PF.Library — THE template registry
 
 js/agent/*               in-browser agent tool surface (tools, studio-tools, agent, mcp)
 js/ui/*                  page boot scripts (landing, studio, panels)
+docs/*                   exporting, engine API, styles, agent tools, architecture,
+                         asset catalogue (generated)
 
 games/runefall/          demo game consuming the library
 scripts/                 dev tooling (see §2) — all Node, all dependency-free
@@ -147,9 +181,10 @@ that assign onto it and resolve each other **lazily** (inside function bodies),
 so declaration order is not strict — but the conventional order is:
 
 ```
-core/store → core/raster → core/renderer → core/input → core/animation
-→ core/io → core/projects → library/* (pixel → characters → packs → index)
-→ agent/* → ui/*
+core/store → core/raster → core/style → core/atlas → core/export
+→ core/renderer → core/input → core/animation → core/io → core/projects
+→ library/* (pixel → characters → font → autotile → rigs → packs → index)
+→ core/factory → agent/* → ui/*
 ```
 
 `scripts/lib-boot.js` loads a subset (`raster` + `library/*`) headlessly into a
@@ -269,7 +304,7 @@ These are enforced by `scripts/check-rpg.js`. Breaking them fails the gate.
 | 4 | **No baked drop shadows.** Ground contact sits at y=25..27 and the sprite stops there. | Shadows are the *engine's* job — games place them per entity so they can be scaled, tinted and faded independently of the art. `PF.Pixel.shadowFlat(api, cx, groundY, halfWidth)` is the helper for that; call it from game code, never from a template. |
 | 5 | **Frames must differ.** Consecutive frames in a looping state must differ by ≥8 pixels (≥4 for `*idle*`, which is intentionally subtle). | Catches stalled animations. See §6.3 for the classic trap. |
 | 6 | **No new runtime dependencies.** | The project runs from a static server with no toolchain. |
-| 7 | **Never touch `scripts/hashes-baseline.json` to make a test pass.** | It is the regression oracle. Re-baseline only for *intended* visual changes, and say so. |
+| 7 | **Never touch `scripts/hashes-baseline` to make a test pass.** | It is the regression oracle. Re-baseline only for *intended* visual changes, and say so. |
 
 ---
 
@@ -489,9 +524,16 @@ Runs, in order:
 |---|---|---|
 | Syntax | `node --check` on every `.js` | Everything parses |
 | Sprite quality | `scripts/check-rpg.js` | **0 fail, 0 warnings** |
+| Style engine | `scripts/check-style.js` | exact palettes, determinism, alpha preserved, `docOf` purity |
+| Atlas packer | `scripts/check-atlas.js` | no overlap, no loss, deterministic, manifests complete |
+| Export formats | `scripts/check-export.js` | RLE round-trips, C header tables agree, TSX math, BMFont counts |
+| Bitmap fonts | `scripts/check-font.js` | glyph boxes, measure == draw, wrap fits, **no clipped text anywhere in the library** |
 | Pixel regression | `scripts/sprite-hash.js diff` | `0 changed, 0 removed` unless the change was intended |
 | Game wiring | `scripts/check-game.js` | Every sprite id, state name and DOM id the game names resolves |
-| Page integrity | `scripts/check-pages.js` | Every asset path resolves; every `$('#id')` has markup |
+| Page integrity | `scripts/check-pages.js` | Every asset path resolves; every `$('#id')` has markup; every library file is `<script>`-tagged in every page |
+| References | `scripts/check-refs.js` | Every `PF.X.y` chain resolves; every agent tool schema is well-formed |
+| Docs | `scripts/check-docs.js` | Every documented command and link resolves; quoted counts match the registry |
+| Catalogue | `scripts/catalogue.js --check` | `docs/asset-catalogue.md` is regenerated and current |
 
 **A change is not done until `verify.js` prints `ALL GATES PASSED`.**
 
@@ -511,7 +553,10 @@ buffer and stores `fnv1a-hash:opaquePixelCount:lowestRow`. `diff` compares again
 a saved baseline and exits non-zero on any change or removal. New states and
 templates show as `+` and are fine.
 
-`scripts/hashes-baseline.json` is the current known-good oracle.
+`scripts/hashes-baseline/` is the current known-good oracle: an `index.json` plus
+`shard-NN.json` pieces of 48 templates each, so every write stays under the
+128KB single-argument limit of a process spawn (and of a git blob body). The
+loader refuses to diff against an incomplete baseline.
 `scripts/hashes-pre-optimisation.json` is the pre-2026-09-17 snapshot, kept for
 the record.
 
@@ -532,6 +577,15 @@ the record.
   rewrites the whole tree and buries real diffs in line-ending churn.
 - **`monsterSuite` vs `humanoidSuite`.** `monsterSuite` produces the full six
   facings; `heroSuite` produces a much larger action set. Pick deliberately.
+- **Head and headgear are clamped to row 1+.** On a lifted frame (evade apex,
+  jump) the head stops at row 3 and headgear at row 1, so the outline can close.
+  This changed 106 legacy frames on 2026-09-18 — an *intended* fix, re-baselined,
+  and it lowered the row-0 clip ratchet from 38 templates to 17.
+- **`api.hash` is translated by `offsetApi`.** Tilesheet painters get per-tile
+  noise, which is fine for texture and wrong if a pattern must continue across
+  tile borders — use a Bayer dither for that.
+- **`{fill:true}`-style option objects handed to `Raster` are shared.** Do not
+  retain or mutate them from a template.
 - **Never set a palette's `hair` to the outline colour (`#181425`).** The hair's
   side panels sit *outside* a hood or helm, so a hair colour equal to the
   outline renders as thick black bars around the head. The warlord and ninja
@@ -546,7 +600,7 @@ the record.
   crimson cape read as a robed monk; a dark cloak plus one bright accent (the
   obi) reads correctly.
 - **The gate is clean — keep it that way.** `scripts/check-rpg.js` reports 0
-  fail / 0 warnings across all 84 templates. It used to carry 32 `LEGACY *`
+  fail / 0 warnings across all 189 templates. It used to carry 32 `LEGACY *`
   warnings (duplicate frames, loop hitches, floating sprites); those were real
   animation defects and have all been fixed, not suppressed. A new warning is a
   new defect.

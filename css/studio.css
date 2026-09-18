@@ -248,7 +248,9 @@ dialog.sheet[open] { animation: sheet-in var(--dur-long) var(--ease-spring); }
 .sheet__inner { padding: 12px 20px 24px; display: flex; flex-direction: column; gap: 16px; }
 .sheet__handle { width: 36px; height: 4px; border-radius: 2px; background: var(--outline-variant); margin: 0 auto 4px; }
 .sheet__head { display: flex; align-items: center; justify-content: space-between; }
-.option-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+/* The export dialog now offers 20+ formats (was 7), so the grid scrolls
+   instead of pushing the import row off-screen. */
+.option-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: min(54vh, 520px); overflow-y: auto; padding-right: 2px; overscroll-behavior: contain; }
 .option { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: var(--r-md); background: var(--surface-container); text-align: left; }
 .option:hover { background: var(--surface-container-high); }
 .option:active { transform: scale(.97); }

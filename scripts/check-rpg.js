@@ -18,7 +18,11 @@ let pass = 0, fail = 0, warnings = 0;
 const ok = (c, msg) => { c ? pass++ : (fail++, console.log('FAIL:', msg)); };
 const warn = msg => { warnings++; console.log('WARN:', msg); };
 const seenIds = new Set();
-const isNew = id => id.startsWith('rpg_');
+/* Strict prefixes: every pack authored under the current quality bar. Legacy
+   packs (pre-gate) are reported as warnings; anything under these prefixes
+   must be clean or the gate fails. */
+const STRICT = /^(rpg_|pf_)/;
+const isNew = id => STRICT.test(id);
 // Legacy packs predate the gate: report, don't fail.
 const must = (tag, c, msg) => { isNew(tag) ? ok(c, msg) : (c ? pass++ : warn('LEGACY ' + msg)); };
 
@@ -31,7 +35,11 @@ const GROUND_CATS = new Set(['Heroes', 'NPCs', 'Enemies']);
    any NEW template that clips fails the gate. Lower it as they are fixed. */
 const OUT_U32 = PF.Color.hexToU32('#181425');
 const FIGURE_CATS = new Set(['Heroes', 'NPCs', 'Enemies', 'Animals']);
-const EDGE_BUDGET = 38;   // ratchet: only ever lower this. See the FAIL text for the list.
+const EDGE_BUDGET = 17;   // ratchet: only ever lower this. See the FAIL text for the list.
+                          // 38 -> 17 (2026-09-18): the head/headgear row clamp fixed
+                          // every humanoid that clipped during an evade or jump.
+                          // The 17 left are bespoke creature rigs (slime, ent, beasts,
+                          // wraith/gargoyle/imp/griffin) whose tops genuinely reach y0.
 const edgeClipped = new Set();
 const GROUND_IDS = new Set(['rpg_village', 'rpg_dungeon_props', 'rpg_savepoint']);
 /* States that are airborne by design. Sprites no longer carry a baked shadow,

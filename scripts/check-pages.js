@@ -19,6 +19,13 @@ const PAGES = [
 let fail = 0, pass = 0, note = 0;
 const ok = (c, msg) => { c ? pass++ : (fail++, console.log('FAIL: ' + msg)); };
 
+/* The engine is loaded with plain <script> tags, so a file added to
+   scripts/lib-boot.js but forgotten in a page is a silent runtime break (the
+   page simply has no PF.Whatever). This is the check AGENTS.md warned did not
+   exist: every library file the headless boot loads must be tagged in every
+   page. */
+const bootLibs = require('./lib-boot').FILES.filter(f => f.startsWith('js/library/'));
+
 for (const [rel] of PAGES) {
   const abs = path.join(ROOT, rel);
   if (!fs.existsSync(abs)) { ok(false, `${rel}: page missing`); continue; }
@@ -34,6 +41,10 @@ for (const [rel] of PAGES) {
     ok(fs.existsSync(p), `${rel}: missing asset "${u}"`);
   }
 
+  /* ---- every library file the headless boot needs is tagged here ---- */
+  const tagged = new Set(local.map(u => path.relative(ROOT, path.resolve(dir, u.split('?')[0])).split(path.sep).join('/')));
+  const missingLibs = bootLibs.filter(f => !tagged.has(f));
+  ok(missingLibs.length === 0, `${rel}: missing <script> for ${missingLibs.join(', ')}`);
   /* ---- ids queried by this page's own scripts ---- */
   const scripts = local.filter(u => u.endsWith('.js')).map(u => path.resolve(dir, u.split('?')[0]));
   let refs2 = 0, missing = 0;

@@ -101,6 +101,24 @@ PF.RPG = (() => {
       if (side) { wing(X(12), -1); }
       else { wing(X(10), -1); wing(X(21), 1); }
     }
+    /* Backpack: behind the body in the side and front views. A survival or
+       sci-fi silhouette is mostly carried by what the character is hauling, and
+       a pack appended after the outline pass would have no rim. */
+    if (o.backpack) {
+      const c = o.backpack, sh = o.backpackSh || '#262b44', strap = o.backpackStrap || o.backpackSh || '#262b44';
+      if (side) {
+        api.rect(X(8), Y(11), X(13), Y(19), c);
+        api.rect(X(8), Y(11), X(9), Y(19), sh);
+        api.rect(X(9), Y(13), X(12), Y(14), strap);
+        api.px(X(11), Y(16), o.backpackLatch || '#fee761');
+      } else {
+        api.rect(X(8), Y(11), X(9), Y(19), c);
+        api.rect(X(22), Y(11), X(23), Y(19), c);
+        api.rect(X(8), Y(11), X(9), Y(12), sh); api.rect(X(22), Y(11), X(23), Y(12), sh);
+        api.rect(X(9), Y(11), X(22), Y(12), strap);
+        api.px(X(15), Y(11), o.backpackLatch || '#fee761'); api.px(X(16), Y(11), o.backpackLatch || '#fee761');
+      }
+    }
     if (o.tail) {
       const c = o.tail;
       if (side) { api.line(X(12), Y(22), X(5 - sw), Y(26), c, 2); api.rect(X(3 - sw), Y(25), X(5 - sw), Y(27), c); }
@@ -129,6 +147,22 @@ PF.RPG = (() => {
     api.px(X(19), Y(11), o.capeClasp || '#feae34');
   }
 
+  /* Back view: with the character facing away, the pack is between the camera
+     and the body, so it lands in `post` on top of the torso — the same reason
+     the cape does. Drawn behind, it would be completely invisible from behind. */
+  function packBack(api, cfg, o) {
+    if (!o.backpack || cfg.facing !== 'up' || cfg.lying) return;
+    const bob = cfg.bob || 0, kb = cfg.kb || 0;
+    const Y = y => y + bob, X = x => x + kb;
+    const c = o.backpack, sh = o.backpackSh || '#262b44', strap = o.backpackStrap || sh;
+    api.rect(X(10), Y(12), X(21), Y(21), c);
+    api.rect(X(10), Y(12), X(11), Y(21), sh);
+    api.rect(X(20), Y(12), X(21), Y(21), sh);
+    api.rect(X(11), Y(15), X(20), Y(16), strap);
+    api.px(X(15), Y(13), o.backpackLatch || '#fee761'); api.px(X(16), Y(13), o.backpackLatch || '#fee761');
+    api.rect(X(12), Y(19), X(19), Y(20), sh);
+  }
+
   /* Headgear overlays: crown / hood / helm / beard / skull / circlet / ears / horns. */
   function headgear(api, cfg, o) {
     if (!o) return;
@@ -141,7 +175,10 @@ PF.RPG = (() => {
        write inside the buffer, so any headgear authored on y0 loses its outline
        and reads as a flat slice off the top of the frame. Author one row lower
        and row 0 stays free for the outline to close over it. */
-    const Y = y => y + bob + hd + 1, BY = y => y + bob, X = x => x + kb;
+    /* Same row-0 rule as the head: headgear may never paint above row 1, or
+       the outline cannot close over the hat on a lifted frame and the brim
+       looks cut off. Only the frames that would clip are affected. */
+    const Y = y => Math.max(1, y + bob + hd + 1), BY = y => y + bob, X = x => x + kb;
     if (o.hood) {
       const c = o.hood, sh = o.hoodSh || '#193c3e';
       if (side) {
@@ -191,6 +228,15 @@ PF.RPG = (() => {
         api.rect(X(9), Y(1), X(22), Y(4), c); api.rect(X(9), Y(1), X(22), Y(1), hi); api.rect(X(9), Y(4), X(22), Y(4), sh);
         api.rect(X(15), Y(8), X(16), Y(12), sh);
       }
+    }
+    /* Visor: a lit bar across the eye row. Authored at the head's eye rows
+       (front y9-10, side y8-9) so it reads as a face plate rather than a
+       blindfold, and it stays inside the head silhouette so the rifle/marine
+       packages keep the outline closed around it. */
+    if (o.visor) {
+      const c = o.visor;
+      if (side) { api.rect(X(14), Y(7), X(20), Y(8), c); api.px(X(20), Y(7), '#ffffff'); }
+      else { api.rect(X(12), Y(8), X(19), Y(9), c); api.px(X(12), Y(8), '#ffffff'); api.px(X(19), Y(9), c); }
     }
     if (o.beard) {
       const c = o.beard, sh = o.beardSh || '#8b9bb4', long = o.beardLong;
@@ -248,12 +294,18 @@ PF.RPG = (() => {
   }
 
   /* ================= shared suite ================= */
+  /* Weapons that fire instead of sweeping. A ranged attack must not draw the
+     melee arc trail — a steel smear hanging off a rifle reads as a broken
+     sprite — so the arc/impact channels are gated on this set. Anything not
+     listed keeps the original melee behaviour byte-for-byte. */
+  const FIREARM = new Set(['rifle', 'pistol', 'blaster']);
   function humanoidSuite(pal, label, o = {}) {
     const states = [];
+    const melee = !FIREARM.has(o.weapon || 'sword');
     const FP = PF.Chars.frontPose, SP = PF.Chars.sidePose;
     // garb runs BEFORE the body (behind it); headgear runs after the outline.
     const pre = (o.garb && (o.garb.cape || o.garb.wings || o.garb.tail)) ? (api, cfg, fi) => garb(api, cfg, o.garb, fi || 0) : null;
-    const post = (api, cfg, fi) => { if (o.garb) capeBack(api, cfg, o.garb); if (o.head) headgear(api, cfg, o.head); if (o.post) o.post(api, cfg, fi); };
+    const post = (api, cfg, fi) => { if (o.garb) { capeBack(api, cfg, o.garb); packBack(api, cfg, o.garb); } if (o.head) headgear(api, cfg, o.head); if (o.post) o.post(api, cfg, fi); };
     // Idle: four DISTINCT frames of a slow breath. The head settles into the
     // shoulders and the arms follow half a beat later; nothing leaves the
     // ground. The old form was `bob = -(i % 2)` at 6fps, i.e. two poses
@@ -349,7 +401,8 @@ PF.RPG = (() => {
       } else {
         for (let i = 0; i < 6; i++) {
           const cfg = SP(i, 6, 1, pal, { tool: { kind: o.weapon || 'sword', angle: PROF[i],
-            arc: arcFor(PROF, i, 10), impact: i === 3 ? [3, 2, 0.2] : null, behind: i >= 4 } });
+            arc: melee ? arcFor(PROF, i, 10) : null, behind: i >= 4,
+            impact: melee ? (i === 3 ? [3, 2, 0.2] : null) : (i === 3 ? [6, -1, 0.25] : null) } });
           cfg.armF = { dx: 2, dy: ADY[i] };
           cfg.kb = [0, 1, 2, 2, 1, 0][i];
           frames.push(Fr(ADUR[i], N(cfg, { pre, post }, i)));
@@ -372,7 +425,8 @@ PF.RPG = (() => {
       } else {
         for (let i = 0; i < 6; i++) {
           const cfg = FP(i, 6, 1, pal, facing, { tool: { kind: o.weapon || 'sword', angle: FRONT[i],
-            arc: arcFor(FRONT, i, 9), impact: i === 3 ? [3, 2, 0.2] : null, behind: i >= 4 } });
+            arc: melee ? arcFor(FRONT, i, 9) : null, behind: i >= 4,
+            impact: melee ? (i === 3 ? [3, 2, 0.2] : null) : (i === 3 ? [3, 0, 0.25] : null) } });
           cfg.armR = { dx: 1, dy: ADY[i] };
           cfg.kb = [0, 1, 2, 2, 1, 0][i];
           frames.push(Fr(ADUR[i], N(cfg, { pre, post }, i)));
@@ -436,7 +490,8 @@ PF.RPG = (() => {
     for (const [sname, facing] of [['parry_down', 'down'], ['parry_side', 'side'], ['parry_up', 'up']]) {
       const frames = [];
       for (let i = 0; i < 3; i++) {
-        const tool = { kind: o.weapon || 'sword', angle: PANG[i], arrow: false, pull: 0, arc: i === 0 ? [PANG[i] - 0.9, PANG[i], facing === 'side' ? 10 : 9] : null };
+        const tool = { kind: o.weapon || 'sword', angle: PANG[i], arrow: false, pull: 0,
+          arc: melee && i === 0 ? [PANG[i] - 0.9, PANG[i], facing === 'side' ? 10 : 9] : null };
         const cfg = facing === 'side' ? SP(i, 3, 0, pal, { tool }) : FP(i, 3, 0, pal, facing, { tool });
         cfg.kb = PKB[i];
         if (facing === 'side') cfg.armF = { dx: 2, dy: -3 }; else cfg.armR = { dx: 1, dy: -3 };

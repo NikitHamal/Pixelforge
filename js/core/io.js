@@ -145,6 +145,77 @@ PF.IO = (() => {
   }
   const importProject = async file => { PF.Store.load(await file.text()); return { ok: true, name: PF.Store.get().name }; };
 
+  /* ---------- Buffer -> canvas (fonts, atlas cells, C headers) ---------- */
+  function bufToCanvas(buf, w, h, scale = 1) {
+    const src = document.createElement('canvas'); src.width = w; src.height = h;
+    const sctx = src.getContext('2d'), img = sctx.createImageData(w, h);
+    new Uint32Array(img.data.buffer).set(buf.subarray(0, w * h));
+    sctx.putImageData(img, 0, 0);
+    if (scale === 1) return src;
+    const out = document.createElement('canvas'); out.width = w * scale; out.height = h * scale;
+    const octx = out.getContext('2d'); octx.imageSmoothingEnabled = false;
+    octx.drawImage(src, 0, 0, out.width, out.height);
+    return out;
+  }
+
+  /* ---------- Real atlas packing (PF.Atlas) ----------
+     The rows/grid sheet above is the simple path; this one runs the MaxRects
+     packer so the exported sheet is tight and the metadata matches the engine
+     the developer actually ships with. */
+  function buildAtlas({ scale = 1, padding = 1, maxSize = 2048, states = 'all' } = {}) {
+    /* Plan against the LIVE document, not the painter adapter: PF.Atlas.plan
+       only reads state/frame metadata, and the blit needs the real frames that
+       PF.Renderer.frameToCanvas understands (per-layer buffers). Passing the
+       adapter here would plan fine and then fail to render a single frame. */
+    const d = PF.Store.get();
+    const planDoc = states === 'all' ? d : { ...d, states: d.states.filter((s, i) => String(i) === String(states) || s.name === states) };
+    const atlas = PF.Atlas.plan([{ id: safe(d.name), doc: planDoc, scale }], { padding, maxSize, powerOfTwo: false });
+    const cv = document.createElement('canvas'); cv.width = atlas.width; cv.height = atlas.height;
+    const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+    for (const f of atlas.frames) {
+      const st = planDoc.states.find(s => s.name === f.state);
+      if (!st) continue;
+      ctx.drawImage(PF.Renderer.frameToCanvas(st.frames[f.frame], scale), f.x, f.y);
+    }
+    atlas.frames.forEach(f => { const p = atlas.placements.find(q => q.id === f.id); if (p) { f.w = p.w; f.h = p.h; } });
+    return { canvas: cv, atlas, image: `${safe(d.name)}.png`, docName: d.name };
+  }
+  const ATLAS_PRESETS = { preset: 'phaser3' };
+  async function exportAtlas({ preset = 'phaser3', scale = 1, padding = 1, maxSize = 2048 } = {}) {
+    const { canvas, atlas, image, docName } = buildAtlas({ scale, padding, maxSize });
+    const out = PF.Atlas.write(preset, atlas, { image, name: safe(docName), docName });
+    download(await toBlob(canvas), image);
+    download(out.text, out.filename, out.mime);
+    return { file: 'atlas', preset, image, width: canvas.width, height: canvas.height, frames: atlas.count, efficiency: atlas.efficiency, metadata: out.filename };
+  }
+
+  /* ---------- Single-file engine exporters (PF.Export) ---------- */
+  async function exportVia(format, opts = {}) {
+    const d = PF.Store.get(), src = PF.Export.fromStore(d);
+    const out = PF.Export.generate(format, src, { name: safe(d.name), image: `${safe(d.name)}.png`, ...opts });
+    download(out.text, out.filename, out.mime);
+    return { file: format, filename: out.filename, bytes: out.text.length };
+  }
+  /* BMFont ships as a glyph PNG + a .fnt descriptor. */
+  async function exportFont({ font = '5x7', scale = 1, color = '#ffffff' } = {}) {
+    const data = PF.Font.atlasData(font, { scale, color });
+    const fnt = PF.Export.bmfont({ face: 'PixelForge ' + font, lineHeight: data.lineHeight, base: data.base,
+      imageWidth: data.imageWidth, imageHeight: data.imageHeight, glyphs: data.glyphs },
+      { image: `pf-font-${font}.png` });
+    download(await toBlob(bufToCanvas(data.buffer, data.imageWidth, data.imageHeight, 1)), `pf-font-${font}.png`);
+    download(fnt, `pf-font-${font}.fnt`, 'text/plain');
+    return { file: 'bmfont', font, glyphs: data.glyphs.length, width: data.imageWidth, height: data.imageHeight };
+  }
+  /* Restyle the current document into a new project — the palette swap that
+     makes one asset library serve every hardware era. */
+  function styleProject(styleId) {
+    const d = PF.Store.get(), src = PF.Export.fromStore(d);
+    const styled = PF.Style.docOf(src, styleId);
+    const pid = PF.Projects.instantiateDocData(styled, `${safe(d.name)}-${styleId}`);
+    PF.Projects.setOpenId(pid);
+    return { project: pid, style: styleId, states: styled.states.length };
+  }
+
   const FORMATS = [
     { id: 'png', name: 'PNG frame', desc: 'Current frame, any scale', icon: 'image', run: exportPNG },
     { id: 'spritesheet', name: 'Sprite sheet + JSON', desc: 'All states, Aseprite-compatible atlas', icon: 'grid_view', run: exportSpriteSheet },
@@ -152,8 +223,26 @@ PF.IO = (() => {
     { id: 'json', name: 'Atlas JSON', desc: 'Frames, tags, durations', icon: 'data_object', run: exportJSON },
     { id: 'svg', name: 'SVG', desc: 'Crisp vector rects', icon: 'polyline', run: exportSVG },
     { id: 'css', name: 'CSS box-shadow', desc: 'Pure-CSS sprite', icon: 'css', run: exportCSS },
-    { id: 'project', name: 'Project file', desc: 'Lossless .pixelforge.json', icon: 'save', run: exportProject }
+    { id: 'project', name: 'Project file', desc: 'Lossless .pixelforge.json', icon: 'save', run: exportProject },
+    /* --- engine-ready exports (PF.Atlas + PF.Export) --- */
+    { id: 'atlas-phaser', name: 'Atlas — Phaser 3', desc: 'MaxRects-packed sheet + Phaser 3 JSON', icon: 'grid_view', run: o => exportAtlas({ ...o, preset: 'phaser3' }) },
+    { id: 'atlas-pixi', name: 'Atlas — TexturePacker', desc: 'Sheet + TexturePacker/PixiJS JSON', icon: 'grid_view', run: o => exportAtlas({ ...o, preset: 'texturepacker' }) },
+    { id: 'atlas-godot', name: 'Godot 4 SpriteFrames', desc: 'Sheet + .tres with one animation per state', icon: 'grid_view', run: o => exportAtlas({ ...o, preset: 'godot' }) },
+    { id: 'atlas-unity', name: 'Unity sprite sheet .meta', desc: 'Sheet + TextureImporter .meta with named sprites', icon: 'grid_view', run: o => exportAtlas({ ...o, preset: 'unity' }) },
+    { id: 'atlas-sparrow', name: 'Starling / Sparrow XML', desc: 'Sheet + SubTexture XML', icon: 'grid_view', run: o => exportAtlas({ ...o, preset: 'sparrow' }) },
+    { id: 'atlas-libgdx', name: 'LibGDX atlas JSON', desc: 'Sheet + LibGDX frames', icon: 'grid_view', run: o => exportAtlas({ ...o, preset: 'libgdx' }) },
+    { id: 'atlas-css', name: 'CSS sprite sheet', desc: 'Sheet + one CSS class per frame', icon: 'css', run: o => exportAtlas({ ...o, preset: 'css' }) },
+    { id: 'atlas-cssanim', name: 'CSS animation kit', desc: 'Sheet + keyframes per state', icon: 'css', run: o => exportAtlas({ ...o, preset: 'cssanim' }) },
+    { id: 'c-header', name: 'C header (RLE)', desc: 'Indexed palette + RLE frames + anim table', icon: 'data_object', run: o => exportVia('c-header', o) },
+    { id: 'tiled-tsx', name: 'Tiled tileset (.tsx)', desc: 'Tile size, columns and terrain metadata', icon: 'grid_view', run: o => exportVia('tiled-tsx', o) },
+    { id: 'tiled-example', name: 'Tiled example map', desc: 'Starter .tmx that loads the tileset', icon: 'grid_view', run: o => exportVia('tiled-example', o) },
+    { id: 'anim-json', name: 'Animation JSON', desc: 'Engine-neutral states and durations', icon: 'data_object', run: o => exportVia('anim-json', o) },
+    { id: 'svg-anim', name: 'Animated SVG', desc: 'CSS-keyframed animation of the active state', icon: 'polyline', run: o => exportVia('svg-anim', o) },
+    { id: 'nine-slice', name: 'Nine-slice JSON', desc: '9-patch border metadata for panels', icon: 'data_object', run: o => exportVia('nine-slice', o) },
+    { id: 'bmfont', name: 'Bitmap font (BMFont)', desc: 'Glyph PNG + AngelCode .fnt for this font', icon: 'text_fields', run: o => exportFont(o) },
+    { id: 'godot-notes', name: 'Godot import notes', desc: 'Step-by-step import recipe for this sprite', icon: 'save', run: o => exportVia('godot-import', o) }
   ];
   const run = (id, opts) => { const f = FORMATS.find(x => x.id === id); if (!f) throw new Error(`Unknown format "${id}". Use: ${FORMATS.map(x => x.id).join(', ')}`); return f.run(opts || {}); };
-  return { FORMATS, run, download, exportPNG, exportSpriteSheet, exportGIF, exportJSON, exportSVG, exportCSS, exportProject, importPNG, importProject, buildSheet, dataURL, encodeGIF };
+  return { FORMATS, run, download, exportPNG, exportSpriteSheet, exportGIF, exportJSON, exportSVG, exportCSS, exportProject,
+    exportAtlas, exportVia, exportFont, styleProject, buildAtlas, buildSheet, bufToCanvas, importPNG, importProject, dataURL, encodeGIF };
 })();

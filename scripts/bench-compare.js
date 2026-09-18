@@ -129,7 +129,36 @@ function oldMakeApi(buf, W, H) {
     ellipse(x0, y0, x1, y1, c, fill = true) { r.ellipse(buf, W, H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), typeof c === 'number' ? c : oldC(c), { fill }); },
     fill(x, y, c) { r.fill(buf, W, H, Math.round(x), Math.round(y), typeof c === 'number' ? c : oldC(c), true); },
     hash(x, y, seed = 0) { let h = (x * 374761393 + y * 668265263 + seed * 974634211) | 0; h = (h ^ (h >> 13)) | 0; h = Math.imul(h, 1274126177); h = (h ^ (h >> 16)) >>> 0; return h / 4294967295; },
-    shadeRect(x0, y0, x1, y1, amt) { r.shadeRegion(buf, W, H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), amt); }
+    shadeRect(x0, y0, x1, y1, amt) { r.shadeRegion(buf, W, H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), amt); },
+    /* The pre-optimisation helper bodies, so the full-library build can be
+       measured with the identical call surface on both sides. */
+    grad(x0, y0, x1, y1, cTop, cBot) {
+      const ta = PF.Color.rgba(typeof cTop === 'number' ? cTop : oldC(cTop)), ba = PF.Color.rgba(typeof cBot === 'number' ? cBot : oldC(cBot));
+      const t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1)), span = Math.max(1, b - t);
+      for (let y = t; y <= b; y++) {
+        const k = (y - t) / span;
+        const c = PF.Color.fromRGBA(Math.round(ta[0] + (ba[0] - ta[0]) * k), Math.round(ta[1] + (ba[1] - ta[1]) * k), Math.round(ta[2] + (ba[2] - ta[2]) * k), 255);
+        this.rect(x0, y, x1, y, c);
+      }
+    },
+    dith(x0, y0, x1, y1, cA, cB, seed = 0) {
+      const l = Math.round(Math.min(x0, x1)), r2 = Math.round(Math.max(x0, x1)), t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1));
+      for (let y = t; y <= b; y++) for (let x = l; x <= r2; x++) this.px(x, y, ((x + y + seed) & 1) ? cA : cB);
+    },
+    speck(x0, y0, x1, y1, seed, colors, density = 0.12) {
+      const l = Math.round(Math.min(x0, x1)), r2 = Math.round(Math.max(x0, x1)), t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1));
+      for (let y = t; y <= b; y++) for (let x = l; x <= r2; x++) {
+        const h = this.hash(x, y, seed);
+        if (h < density) this.px(x, y, colors[Math.floor(this.hash(x, y, seed + 99) * colors.length) % colors.length]);
+      }
+    },
+    blob(cx, cy, rx, ry, base, hi, sh) {
+      this.ellipse(cx - rx, cy - ry, cx + rx, cy + ry, base, true);
+      const hb = Math.max(1, ry >> 1);
+      if (hi) this.ellipse(cx - rx + 1, cy - ry, cx + rx - 1, cy - ry + hb, hi, true);
+      if (sh) this.ellipse(cx - rx + 1, cy + ry - hb, cx + rx - 1, cy + ry, sh, true);
+    },
+    rim(x0, y0, x1, y1, light) { this.rect(x0, y0, x1, Math.min(y0, y1) === y0 ? y0 : y1, light); }
   };
 }
 
@@ -140,6 +169,12 @@ const OC = oldHexToU32('#181425'), NC = PF.Color.hexToU32('#181425');
 const W = 32, H = 32;
 const sprite = new Uint32Array(W * H);
 for (let y = 6; y < 26; y++) for (let x = 9; x < 24; x++) sprite[y * W + x] = 0xffcc8844;
+
+/* A sprite with the empty margins real sprites have: outline should spend no
+   time on rows 0-5 or 26-31. */
+const sparse = new Uint32Array(W * H);
+for (let y = 8; y < 24; y++) for (let x = 10; x < 22; x++) sparse[y * W + x] = 0xffcc8844;
+const oldSparse = sparse.slice();
 
 const layers = [];
 for (let l = 0; l < 4; l++) {
@@ -162,7 +197,16 @@ const CASES = [
     () => { for (let i = 0; i < 30000; i++) PF.Raster.composite(cOut, layers); }],
   ['pixel.makeApi + draw', 40000,
     () => { for (let i = 0; i < 40000; i++) { const a = oldMakeApi(oBuf, W, H); a.rect(8, 8, 20, 20, '#e8b796'); a.px(16, 16, '#181425'); a.line(8, 24, 24, 24, '#3e2731', 2); } },
-    () => { for (let i = 0; i < 40000; i++) { const a = PF.Pixel.makeApi(cBuf, W, H); a.rect(8, 8, 20, 20, '#e8b796'); a.px(16, 16, '#181425'); a.line(8, 24, 24, 24, '#3e2731', 2); } }]
+    () => { for (let i = 0; i < 40000; i++) { const a = PF.Pixel.makeApi(cBuf, W, H); a.rect(8, 8, 20, 20, '#e8b796'); a.px(16, 16, '#181425'); a.line(8, 24, 24, 24, '#3e2731', 2); } }],
+  ['api.speck 32² (full)', 40000,
+    () => { const a = oldMakeApi(oBuf, W, H); for (let i = 0; i < 40000; i++) a.speck(0, 0, W - 1, H - 1, i & 7, ['#5a6988', '#c0cbdc'], 0.2); },
+    () => { const a = PF.Pixel.makeApi(cBuf, W, H); for (let i = 0; i < 40000; i++) a.speck(0, 0, W - 1, H - 1, i & 7, ['#5a6988', '#c0cbdc'], 0.2); }],
+  ['api.dith 32² (full)', 60000,
+    () => { const a = oldMakeApi(oBuf, W, H); for (let i = 0; i < 60000; i++) a.dith(0, 0, W - 1, H - 1, '#1c2a44', '#3a4466', i & 1); },
+    () => { const a = PF.Pixel.makeApi(cBuf, W, H); for (let i = 0; i < 60000; i++) a.dith(0, 0, W - 1, H - 1, '#1c2a44', '#3a4466', i & 1); }],
+  ['raster.outline sparse', 20000,
+    () => { for (let i = 0; i < 20000; i++) oldOutline(oldSparse, W, H, OC); },
+    () => { for (let i = 0; i < 20000; i++) PF.Raster.outline(sparse, W, H, NC); }]
 ];
 
 console.log('benchmark'.padEnd(24) + 'before'.padStart(11) + 'after'.padStart(11) + 'speedup'.padStart(10));
