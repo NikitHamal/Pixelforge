@@ -136,6 +136,17 @@ PF.Library = (() => {
     add('rpg_climber', 'Climber', 'NPCs', 'Five-frame hand-over-hand ascent that resets each cycle so it holds still against a scrolling wall. Legs are posed, not walked: a climb is the one action no sine gait fits.', ['npc', 'climbing', 'platform', 'rock'], () => RL().climbSuite(), { w: 32, h: 32 });
     add('rpg_rest', 'Resting Poses', 'NPCs', 'Seven seated states on a dedicated hip-anchored rig: stool, floor, knees-up, dozing nod, reclined toe-tap, drinking and a shocked emote. Breath drives head and torso on separate beats so every frame differs.', ['npc', 'idle', 'resting', 'sitting', 'emote'], () => RL().restSuite(), { w: 32, h: 32, featured: true });
     add('rpg_spear', 'Spear Combat', 'Enemies', 'Twelve polearm states across side/down/up: draw, combat-ready stance and step, slash, two thrusts, parry, evade, lunge, retreat, hit and knockdown. Thrusts drive the whole body forward, which is what sells reach.', ['enemy', 'spear', 'polearm', 'combat', 'guard'], () => RL().spearSuite(), { w: 32, h: 32, featured: true });
+    // ---- Cross-genre production pack: sci-fi, modern, platformer, arcade ----
+    const G = () => PF.Genres;
+    add('nova_marine', 'Nova Marine', 'Heroes', 'Armored sci-fi trooper with idle, walk, run, jet dash, blaster attack, hurt and death cycles.', ['sci-fi', 'space', 'shooter', 'player', 'blaster'], () => G().marineSuite(), { w: 32, h: 32, featured: true });
+    add('service_droid', 'Service Droid', 'NPCs', 'Readable utility robot with locomotion, field repair, blaster defense, damage and shutdown animations.', ['sci-fi', 'robot', 'npc', 'crafting'], () => G().robotSuite(), { w: 32, h: 32 });
+    add('void_stalker', 'Void Stalker', 'Enemies', 'Bioluminescent alien hunter with predatory locomotion and a six-frame energy claw combo.', ['sci-fi', 'alien', 'enemy', 'melee'], () => G().alienSuite(), { w: 32, h: 32, featured: true });
+    add('urban_survivor', 'Urban Survivor', 'Heroes', 'Contemporary scavenger with field gear, full locomotion and a weighty improvised melee attack.', ['modern', 'survival', 'zombie', 'player'], () => G().survivorSuite(), { w: 32, h: 32 });
+    add('arcade_vehicles', 'Arcade Vehicles', 'World', 'Buggy, hovercraft and motorbike, each with animated idle and driving cycles for racing and action games.', ['vehicle', 'racing', 'arcade', 'sci-fi'], () => G().vehiclesSuite(), { w: 32, h: 32, featured: true });
+    add('platform_runner', 'Platform Runner', 'Heroes', 'Platform-game protagonist with idle, eight-frame run, jump rise, fall, wall slide and dash.', ['platformer', 'player', 'runner', 'metroidvania'], () => G().platformerSuite(), { w: 32, h: 32, featured: true });
+    add('cyber_tiles', 'Cyber Facility Tiles', 'World', 'Animated 4x4 tile sheet with metal decking, energy conduits, machinery and starfield panels.', ['tiles', 'sci-fi', 'cyberpunk', 'environment'], () => G().cyberTilesSuite(), { w: 64, h: 64, featured: true });
+    add('scifi_projectiles', 'Sci-Fi Projectiles', 'FX', 'Plasma, laser, rocket, electric, acid and shield-impact effects with six-frame motion cycles.', ['sci-fi', 'effects', 'projectile', 'combat'], () => G().projectilesSuite(), { w: 32, h: 32 });
+    add('scifi_interface', 'Sci-Fi Interface', 'UI', 'Animated HUD, warning panel, target reticle and radar components for futuristic games.', ['sci-fi', 'ui', 'hud', 'interface'], () => G().sciFiUISuite(), { w: 32, h: 32 });
     extraPacks.forEach(fn => { try { fn(add); } catch (e) { console.warn('pack failed', e); } });
 
     return T;
@@ -206,6 +217,7 @@ PF.Library = (() => {
      every visible template on every list render (and again next to tplDoc),
      so the uncached form re-generated the entire library twice per paint. */
   const statsCache = new Map();
+  const renderDocCache = new Map();
   function docStats(id) {
     const hit = statsCache.get(id); if (hit !== undefined) return hit;
     const t = get(id); if (!t) return null;
@@ -216,8 +228,47 @@ PF.Library = (() => {
     return r;
   }
 
-  return { list, get, categories, thumbnail, instantiate, docStats, countFrames,
+  /* Headless game-facing render API. It avoids Store, DOM and canvas entirely,
+     making built-in assets usable from game loops, workers and Node tooling.
+     State may be an index or exact name; frame indices wrap for animation. */
+  function render(id, { state = 0, frame = 0, palette, out, scratch } = {}) {
+    const t = get(id); if (!t) throw new Error(`Unknown template "${id}"`);
+    let d = renderDocCache.get(id);
+    if (!d) { d = t.build(); renderDocCache.set(id, d); }
+    const si = typeof state === 'string' ? d.states.findIndex(s => s.name === state) : Number(state);
+    if (!Number.isInteger(si) || si < 0 || si >= d.states.length) throw new RangeError(`Unknown state "${state}" for ${id}`);
+    const frameNo = Number(frame);
+    if (!Number.isInteger(frameNo)) throw new RangeError(`Frame must be an integer, received "${frame}"`);
+    const st = d.states[si], fi = (frameNo % st.frames.length + st.frames.length) % st.frames.length, fr = st.frames[fi];
+    const target = out || new Uint32Array(d.width * d.height);
+    if (!(target instanceof Uint32Array) || target.length !== d.width * d.height) throw new RangeError(`render output must be Uint32Array(${d.width * d.height})`);
+    target.fill(0);
+    const painters = fr.layers || [fr.paint], work = scratch || new Uint32Array(target.length);
+    if (!(work instanceof Uint32Array) || work.length !== target.length || work === target) throw new RangeError(`render scratch must be a distinct Uint32Array(${target.length})`);
+    for (const painter of painters) {
+      work.fill(0); if (typeof painter === 'function') painter(work, d.width, d.height); else if (painter) work.set(painter);
+      for (let i = 0; i < target.length; i++) if (work[i]) target[i] = target[i] ? PF.Color.blend(target[i], work[i]) : work[i];
+    }
+    if (palette) PF.Raster.remapPalette(target, palette, target);
+    return { pixels: target, width: d.width, height: d.height, state: st.name, frame: fi, duration: fr.duration, fps: st.fps, loop: st.loop };
+  }
+
+  /* Indexed catalogue discovery for editor search, agent tools and games.
+     All filters compose; query matches id, name, description and tags. */
+  function query({ text = '', category, tags = [], featured, width, height } = {}) {
+    const needle = String(text).trim().toLowerCase(), wanted = Array.isArray(tags) ? tags : [tags];
+    return list().filter(t => {
+      if (category && category !== 'All' && t.category !== category) return false;
+      if (featured !== undefined && !!t.featured !== !!featured) return false;
+      if (width !== undefined && t.w !== +width) return false;
+      if (height !== undefined && t.h !== +height) return false;
+      if (wanted.length && !wanted.every(tag => t.tags.includes(tag))) return false;
+      return !needle || [t.id, t.name, t.desc, ...t.tags].join(' ').toLowerCase().includes(needle);
+    });
+  }
+
+  return { list, get, categories, query, render, thumbnail, instantiate, docStats, countFrames,
     /* registerPack runs at boot, before anything is cached — clear defensively
        so a late-registered pack can never serve a stale stats entry. */
-    registerPack: fn => { extraPacks.push(fn); statsCache.clear(); thumbCache.clear(); } };
+    registerPack: fn => { extraPacks.push(fn); statsCache.clear(); renderDocCache.clear(); thumbCache.clear(); } };
 })();

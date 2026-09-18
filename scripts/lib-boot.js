@@ -25,6 +25,7 @@ const FILES = [
   'js/library/rpg_medieval.js',
   'js/library/rpg_tiny.js',
   'js/library/rpg_life.js',
+  'js/library/genre_pack.js',
   'js/library/index.js'
 ];
 

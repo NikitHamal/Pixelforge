@@ -193,6 +193,28 @@ PF.Raster = (() => {
     return base;
   }
   const replaceColor = (p, from, to) => { for (let i = 0; i < p.length; i++) if (p[i] === from) p[i] = to; };
+  /* Compile a palette once, then remap whole frames without reparsing colours.
+     `mapping` accepts Map, object, or [from,to][]; hex and u32 can be mixed.
+     Unknown colours and transparency are preserved. `out` enables an
+     allocation-free hot path for games that recolour every animation tick. */
+  const compiledPalettes = new WeakSet();
+  function compilePalette(mapping) {
+    const entries = mapping instanceof Map ? [...mapping] : Array.isArray(mapping) ? mapping : Object.entries(mapping || {});
+    const map = new Map();
+    for (const [from, to] of entries) {
+      const source = PF.Color.hexToU32(from);
+      if (source) map.set(source, PF.Color.hexToU32(to)); // transparency is structural, never a palette colour
+    }
+    compiledPalettes.add(map);
+    return map;
+  }
+  function remapPalette(src, mapping, out) {
+    const map = compiledPalettes.has(mapping) ? mapping : compilePalette(mapping);
+    const dst = out || new Uint32Array(src.length);
+    if (dst.length !== src.length) throw new RangeError('palette output length must match source');
+    for (let i = 0; i < src.length; i++) dst[i] = map.get(src[i]) ?? src[i];
+    return dst;
+  }
   /* Region shading (lighten/darken) */
   function shadeRegion(p, w, h, x0, y0, x1, y1, amt) {
     const l = Math.max(0, Math.min(x0, x1)), r = Math.min(w - 1, Math.max(x0, x1)), t = Math.max(0, Math.min(y0, y1)), b = Math.min(h - 1, Math.max(y0, y1));
@@ -243,5 +265,5 @@ PF.Raster = (() => {
   /* Unique colors */
   const colorsOf = p => { const s = new Set(); for (let i = 0; i < p.length; i++) if (p[i]) s.add(p[i]); return [...s]; };
 
-  return { set, get, stamp, line, rect, ellipse, fill, flipH, flipV, mirrorInto, rotate90, shift, outline, outlineSelective, replaceColor, shadeRegion, composite, bounds, paintRows, toRows, colorsOf };
+  return { set, get, stamp, line, rect, ellipse, fill, flipH, flipV, mirrorInto, rotate90, shift, outline, outlineSelective, replaceColor, compilePalette, remapPalette, shadeRegion, composite, bounds, paintRows, toRows, colorsOf };
 })();

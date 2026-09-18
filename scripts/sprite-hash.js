@@ -23,9 +23,10 @@ function snapshot() {
       const fr = [];
       for (const f of s.frames) {
         const buf = renderFrame(doc, f);
-        let n = 0, lowest = -1;
-        for (let i = 0; i < buf.length; i++) if (buf[i]) { n++; const y = (i / doc.width) | 0; if (y > lowest) lowest = y; }
-        fr.push(hashBuf(buf) + ':' + n + ':' + lowest);
+        // Pixel counts and ground bounds belong to check-rpg.js. Keeping this
+        // baseline to the pixel hash alone makes it compact enough for API-
+        // based releases while retaining exact byte-level regression checks.
+        fr.push(hashBuf(buf));
         frames++;
       }
       states[s.name] = fr;

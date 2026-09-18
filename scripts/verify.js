@@ -1,6 +1,6 @@
 /* One-shot verification gate. Run this before you call anything done.
 
-   Steps: syntax -> sprite quality -> pixel regression -> game wiring -> pages.
+   Steps: syntax -> sprite quality -> engine API -> pixel regression -> game wiring -> pages.
 
    Usage: node scripts/verify.js [--update-baseline]
 */
@@ -41,6 +41,7 @@ const run = (name, args) => {
 const STEPS = [
   syntaxCheck,
   () => run('sprite quality gate', ['scripts/check-rpg.js']),
+  () => run('engine API contracts', ['scripts/check-engine-api.js']),
   () => updateBaseline
     ? run('pixel baseline updated', ['scripts/sprite-hash.js', 'save', 'scripts/hashes-baseline.json'])
     : run('pixel regression', ['scripts/sprite-hash.js', 'diff', 'scripts/hashes-baseline.json']),

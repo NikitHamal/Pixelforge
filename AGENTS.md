@@ -54,8 +54,8 @@ Three browser entry points sharing one engine:
 Plus `games/runefall/` — a playable survivors-like that consumes the asset
 library and doubles as an integration test for it.
 
-The interesting part is `js/library/`: **84 template packs, 694 animation
-states, 2,485 frames**, all generated from code. Run `node scripts/info.js` for
+The interesting part is `js/library/`: **115 template packs, 1,490 animation
+states, 6,365 frames**, all generated from code. Run `node scripts/info.js` for
 the current catalogue.
 
 ---
@@ -546,7 +546,7 @@ the record.
   crimson cape read as a robed monk; a dark cloak plus one bright accent (the
   obi) reads correctly.
 - **The gate is clean — keep it that way.** `scripts/check-rpg.js` reports 0
-  fail / 0 warnings across all 84 templates. It used to carry 32 `LEGACY *`
+  fail / 0 warnings across all 115 templates. It used to carry 32 `LEGACY *`
   warnings (duplicate frames, loop hitches, floating sprites); those were real
   animation defects and have all been fixed, not suppressed. A new warning is a
   new defect.
