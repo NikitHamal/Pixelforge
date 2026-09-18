@@ -97,6 +97,84 @@ PF.Iso = (() => {
   /* Rounded projection, for the primitives that want integer endpoints. */
   const at = (u, v, w) => proj(u, v, w).map(Math.round);
 
+  /* ---- contact shadows -------------------------------------------------
+
+     Nothing in this pack cast a shadow, so every figure, prop and building
+     floated a few pixels above the tile it was standing on and a built scene
+     read as a collage of stickers. One helper fixes the lot: `grounded` walks
+     a finished suite and re-wraps every frame's painter with a shadow pass.
+
+     Three things make it work.
+
+     It runs AFTER the painter, which means after rig's outline pass — the
+     library's outline traces every non-zero pixel, so a shadow drawn with the
+     art earns its own hard black ring around it.
+
+     It only writes into pixels the art left empty, so it can never eat the
+     sprite it belongs to.
+
+     And the footprint is measured from the frame's own silhouette rather than
+     hand-tuned per prop: widest opaque span, lowest opaque row. A walk cycle's
+     shadow then tracks the stride for free, and a new prop gets a correct
+     shadow without anybody remembering to add one.
+
+     It is centred ON the contact point and offset down and to the right, away
+     from this pack's fixed upper-left sun. Centred exactly under the sprite it
+     is entirely hidden by the sprite — which is what a first attempt at this
+     produced: a single stray pixel poking out beside a barrel.
+
+     The shape is a DIAMOND. On an isometric tile a round shadow is the single
+     clearest tell that something was not drawn in the projection. Alpha 0x4c
+     is a soft shadow in PNG and vanishes from GIF, whose encoder cuts
+     transparency at 128 — the right answer in both. */
+  const SHADOW = PF.Color.hexToU32('#0b0a1a4c');
+  const grounded = (suite, o) => {
+    const opt = o || {};
+    const scale = opt.scale === undefined ? 0.92 : opt.scale;
+    const squash = opt.squash === undefined ? 0.46 : opt.squash;
+    const dx = opt.dx === undefined ? 2.4 : opt.dx, dy = opt.dy === undefined ? 0.6 : opt.dy;
+    for (const st of suite.states) for (const fr of st.frames) {
+      const inner = fr.paint;
+      fr.paint = (buf, W, H) => {
+        inner(buf, W, H);
+        let x0 = W, x1 = -1, y1 = -1;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          if (!buf[y * W + x]) continue;
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y > y1) y1 = y;
+        }
+        if (x1 < 0) return;
+        /* `base` measures the span across the lowest few opaque rows instead
+           of the whole silhouette. A figure's shadow has to come from its
+           FEET: measured over everything, a drawn sword stretches the
+           footprint half a tile sideways and drags its centre out with it, so
+           the knight ends up standing on the edge of his own shadow. Props
+           want the opposite — a tree measured at its base is a shadow the
+           width of the trunk — so they leave this off. */
+        if (opt.base) {
+          let b0 = W, b1 = -1;
+          for (let y = Math.max(0, y1 - opt.base + 1); y <= y1; y++)
+            for (let x = 0; x < W; x++) {
+              if (!buf[y * W + x]) continue;
+              if (x < b0) b0 = x;
+              if (x > b1) b1 = x;
+            }
+          if (b1 >= 0) { x0 = b0; x1 = b1; }
+        }
+        const rx = Math.max(3, ((x1 - x0 + 1) / 2) * scale), ry = Math.max(1.6, rx * squash);
+        const cx = (x0 + x1) / 2 + dx, cy = y1 + dy;
+        for (let y = Math.max(0, Math.floor(cy - ry)); y <= Math.min(H - 1, Math.ceil(cy + ry)); y++)
+          for (let x = Math.max(0, Math.floor(cx - rx)); x <= Math.min(W - 1, Math.ceil(cx + rx)); x++) {
+            if (Math.abs(x - cx) / rx + Math.abs(y - cy) / ry > 1) continue;
+            const i = y * W + x;
+            if (!buf[i]) buf[i] = SHADOW;
+          }
+      };
+    }
+    return suite;
+  };
+
   /* --------------------------------------------------------------- solids */
 
   /* The footprint quad at elevation w, optionally inset — inset tops are how
@@ -437,7 +515,7 @@ PF.Iso = (() => {
     a.rect(x + 1, y - h, x + 1, y, cs);
   }
 
-  const propsSuite = () => ({
+  const propsSuite = () => grounded({
     width: 32, height: 32, name: 'Iso Props',
     layers: [{ name: 'prop' }],
     states: [
@@ -575,7 +653,7 @@ PF.Iso = (() => {
         for (let k = 0; k < 3; k++) a.rect(cx - 4, cy - 14 + k * 2, cx + 3 - k, cy - 14 + k * 2, '#5a3d26');
       }))
     ]
-  });
+  }, { scale: 0.98, squash: 0.46, dx: 2.6, dy: 0.8 });
 
   /* ==================================================================== */
   /*  Expansion: characters, buildings, terrain features                    */
@@ -794,7 +872,11 @@ PF.Iso = (() => {
         a.px(q[0], q[1], '#5a0c18');
       }
     })));
-    return { width: 32, height: 32, name: label, layers: [{ name: 'Figure' }], states };
+    /* A figure occupies rather less of its tile than a building does, so the
+       footprint is pulled in and flattened — a person standing in the middle
+       of a full-tile diamond reads as standing in a puddle. */
+    return grounded({ width: 32, height: 32, name: label, layers: [{ name: 'Figure' }], states },
+      { scale: 1.55, squash: 0.44, dx: 2.0, dy: 0.6, base: 6 });
   }
 
   /* ------------------------------------------------------- buildings */
@@ -940,7 +1022,11 @@ PF.Iso = (() => {
       }
       R.disc(a, hub[0], hub[1], 2.0, '#555768', '#8d8f9e');
     })));
-    return { width: 32, height: TALL, name: 'iso buildings', layers: [{ name: 'Building' }], states: S };
+    /* A building fills its tile, so the shadow is the tile diamond itself
+       rather than a silhouette-derived one — a roof overhangs the walls and
+       measuring the roof would throw the shadow out past the foundations. */
+    return grounded({ width: 32, height: TALL, name: 'iso buildings', layers: [{ name: 'Building' }], states: S },
+      { scale: 0.95, squash: 0.50, dx: 2.8, dy: 0.6 });
   }
 
   /* -------------------------------------------------- terrain features */
