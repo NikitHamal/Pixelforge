@@ -156,8 +156,10 @@ core/store → core/raster → core/renderer → core/input → core/animation
 fake `window` so the whole asset pipeline runs in plain Node. **If you add a
 library file, add it to `FILES` in `scripts/lib-boot.js` and to the `<script>`
 list in all four HTML pages** (`index.html`, `studio.html`, `app/index.html`,
-`games/runefall/index.html`). `check-pages.js` will not catch a missing script
-tag for you — it only checks that listed paths exist.
+`games/runefall/index.html`), and register it in `js/library/index.js` — six
+places in all. `check-pages.js` asserts every `js/library/*.js` entry in
+`FILES` appears in all four pages, so a missed `<script>` tag fails the gate
+rather than surfacing as `PF.YourPack is undefined` on one page only.
 
 ### 4.2 The pixel buffer contract
 
@@ -491,7 +493,7 @@ Runs, in order:
 | Sprite quality | `scripts/check-rpg.js` | **0 fail, 0 warnings** |
 | Pixel regression | `scripts/sprite-hash.js diff` | `0 changed, 0 removed` unless the change was intended |
 | Game wiring | `scripts/check-game.js` | Every sprite id, state name and DOM id the game names resolves |
-| Page integrity | `scripts/check-pages.js` | Every asset path resolves; every `$('#id')` has markup |
+| Page integrity | `scripts/check-pages.js` | Every asset path resolves; every sprite pack is loaded by every page; every `$('#id')` has markup |
 
 **A change is not done until `verify.js` prints `ALL GATES PASSED`.**
 

@@ -41,10 +41,13 @@ fantasy-RPG scope:
   game can hold a plot at stage 3 and step it on a tick.
 - **Isometric kit** (`js/library/iso.js`) — ground tiles, stackable blocks,
   walls with real openings, stairs and ramps, and ten set-piece props, all
-  built from one tile-space projection. The footprint is exactly 256 pixels —
-  the determinant of the 2:1 isometric lattice — so a floor laid from these
-  tiles has no pinholes and no doubled seams. `scripts/test.js` tiles a field
-  and counts the holes rather than trusting the eye.
+  built from one tile-space projection. Each tile's *fill* is exactly 256
+  pixels — the determinant of the 2:1 isometric lattice — so a floor laid from
+  these tiles has no pinholes and no doubled seams; the outline pass then
+  bleeds one pixel past the fill on every edge, which is what draws the floor
+  grid where neighbours meet. `scripts/test.js` tiles a field and counts the
+  holes rather than trusting the eye. Props carry no ground of their own, so a
+  barrel drops onto any floor tile in the pack.
 - **UI kit** (`js/library/ui_kit.js`) — panels, buttons, bars, icons, cursors,
   gamepad/key prompts, dialogue boxes and inventory slots. Every panel is
   authored 9-slice friendly (2px border band, flat centre) so an engine can
@@ -93,7 +96,9 @@ fantasy-RPG scope:
   `--columns`, `--padding`, `--out`. Formats are additive: `--format
   png,gif,godot4` renders once and writes all three. `pack` emits a
   `manifest.json` and survives a failing template rather than abandoning a
-  160-asset export half-written.
+  160-asset export half-written — but exits non-zero and names what failed.
+  `--dry-run` renders everything and lists what it would write without
+  touching the disk.
 - **`scripts/render.js`** — the headless renderer behind the CLI, usable on its
   own: `build`, `sheet`, `sheetPNG`, `gif`, `info`, `framePixels`. Produces the
   exact atlas shape `PF.Exporters` consumes. Upscaling is nearest-neighbour
@@ -144,12 +149,62 @@ fantasy-RPG scope:
   frame-table JSON target. The export target is now `json`.
 - **`npm test` no longer aliases `npm run verify`** — it runs the unit suite, so
   a fast check is actually fast.
+- **Godot 4 `SpriteFrames` threw away every hold frame.** Each frame was
+  written with `"duration": 1.0`; Godot reads that field as a multiplier of the
+  animation's `1/speed`, not as seconds, so a deliberate two-frame blink spent
+  as long open as shut. Durations are now emitted relative to the state's fps.
+- **Unity `.png.meta` had no `guid`.** Unity keys every asset by one and treats
+  a meta file without it as unimported, rewriting it from scratch on open and
+  discarding every sprite rect in it. The guid is now derived from the sheet
+  name, so re-exporting the same sprite keeps existing scene references alive;
+  `textureType` is set, and sprite ids are the full 32 hex digits Unity expects.
+- **CSS one-shot animations snapped back to frame 0** on their final tick —
+  a death pose popped upright. Non-looping states now carry
+  `animation-fill-mode: forwards`.
+- **`phaser-anims` hardcoded `<name>.json`** as the atlas filename, so the
+  generated module 404'd whenever two targets shared an extension and the CLI
+  disambiguated the file it actually wrote.
+- **`godot-tileset` emitted one tile the size of the whole sheet**, because
+  nothing supplied the tile size — a 64x64 tile sheet and a 64x64 single sprite
+  are the same atlas. Added `--tile-width` / `--tile-height`.
+- **Numeric CLI flags were unvalidated.** `--padding abc` surfaced as a Node
+  internal (`size out of range ... NaN`), `--scale 1.3` succeeded and wrote a
+  sheet with fractional frame rects no importer can slice, and `--columns 0`
+  was silently ignored. All three now fail with the flag name and the value.
+- **`check-pages.js` did not catch a missing `<script>` tag.** Deleting a
+  library file from all four pages passed the entire gate suite; the pack was
+  simply absent at runtime. The gate now asserts every `js/library/*.js` entry
+  in `scripts/lib-boot.js`'s `FILES` is loaded by every page.
 
 ### Fixed — art
 
-A full visual pass over the farm pack, per the house rule that every visual
-change must be exported and *looked at*. None of these were visible to any
-numeric gate:
+A full visual pass over the farm and isometric packs, per the house rule that
+every visual change must be exported and *looked at*. None of these were
+visible to any numeric gate:
+
+- Iso props each baked a ground diamond of their own material underneath
+  themselves, so a barrel could not be placed on a stone floor without
+  stamping a patch of planks into it, and a tree stamped grass into a dungeon.
+  Props are now transparent overlays anchored to the footprint centre.
+- The iso barrel used `MAT.wood`'s three tones byte for byte and therefore
+  vanished against a plank tile — the exact failure the contributor guide
+  warns about. Rebuilt in a darker cooperage with iron hoops.
+- `iso_props/lamp` flickered on `2, 3, 2, 3`: four frames, two of them
+  duplicates. It also silhouetted as a lollipop; it is now a housed lantern on
+  a four-step flame ramp.
+- Iso blocks were 9, 10 and 11px tall depending on the material, so a mixed
+  stack stepped. All ten are one height now.
+- The `ramp` state's fourteen 1px risers were swallowed by the outline pass and
+  the slope read as a flat quadrilateral. Seven 2px risers read.
+- `stairs_nw` read as a lumpy wedge while `stairs_ne` read crisply: on that
+  axis the riser is the mid-tone face, so it had no contrast against the tread.
+  Risers on both axes now take the shaded tone.
+- Tree and boulder scattered highlight flecks over their bounding boxes, which
+  landed in open air and read as screen dirt; the crystal's sparkle sat 2px
+  clear of its own tip. All now anchored to the form.
+- The iso crate cross-braced both faces under a rail and a shadow band — five
+  of ten face rows spoken for — and smeared into a brown mass. Rebuilt with
+  upright slat seams, which are 1px wide and read at any size.
 
 - Silo read as an office block — 3px ribs crossed by a dark row every 5 lines
   drew a grid of window panes. Rebuilt with fine corrugation, barrel shading

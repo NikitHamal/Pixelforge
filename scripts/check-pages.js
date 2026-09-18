@@ -6,7 +6,15 @@
 */
 const fs = require('fs');
 const path = require('path');
-const { ROOT } = require('./lib-boot');
+const { ROOT, FILES } = require('./lib-boot');
+
+/* Every sprite pack the headless boot loads has to be on every page too. A new
+   pack file that gets added to lib-boot but missed in one page's <script> list
+   renders fine in the CLI and in three of the four pages, and throws
+   `PF.Whatever is undefined` in the fourth — which no other gate looks at.
+   Core modules are deliberately not checked this way: the demo game has no use
+   for the GIF encoder and should not be made to load it. */
+const PACKS = FILES.filter(f => f.startsWith('js/library/'));
 
 /* page -> the scripts it loads (relative to the page's own directory) */
 const PAGES = [
@@ -34,8 +42,12 @@ for (const [rel] of PAGES) {
     ok(fs.existsSync(p), `${rel}: missing asset "${u}"`);
   }
 
-  /* ---- ids queried by this page's own scripts ---- */
+  /* ---- every sprite pack is loaded ---- */
   const scripts = local.filter(u => u.endsWith('.js')).map(u => path.resolve(dir, u.split('?')[0]));
+  const loaded = new Set(scripts.map(p => path.relative(ROOT, p).split(path.sep).join('/')));
+  for (const f of PACKS) ok(loaded.has(f), `${rel}: does not load "${f}" (in scripts/lib-boot.js FILES)`);
+
+  /* ---- ids queried by this page's own scripts ---- */
   let refs2 = 0, missing = 0;
   for (const sp of scripts) {
     if (!fs.existsSync(sp)) continue;
