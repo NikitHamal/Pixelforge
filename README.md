@@ -51,7 +51,9 @@ pixelforge <command> [options]
   serve [--port n]  Dev server
 ```
 
-Export options: `--out <dir>` `--format <list>` `--scale <n>` `--state <name>` `--columns <n>` `--padding <n>`
+Export options: `--out <dir>` `--format <list>` `--scale <n>` `--state <name>` `--columns <n>` `--padding <n>` `--tile-width <n>` `--tile-height <n>` `--dry-run`
+
+`--dry-run` renders everything and lists what it *would* write without touching the disk — the cheap way to check a 169-asset pack still builds before wiring it into a build step.
 
 ### Formats
 
@@ -210,7 +212,7 @@ app/ studio.html       editors
 games/runefall/        demo game
 ```
 
-Adding a library file means registering it in **four** places: `scripts/lib-boot.js`, the `<script>` list in each of the four HTML pages, and `js/library/index.js`. `scripts/check-pages.js` catches a missed one.
+Adding a library file means registering it in **six** places: `FILES` in `scripts/lib-boot.js`, the `<script>` list in each of the four HTML pages (`index.html`, `studio.html`, `app/index.html`, `games/runefall/index.html`), and `js/library/index.js`. `scripts/check-pages.js` asserts every `js/library/*.js` entry in `lib-boot.js`'s `FILES` appears in all four pages, so a missed `<script>` tag fails the gate.
 
 ---
 

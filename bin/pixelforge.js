@@ -37,22 +37,38 @@ function parseArgs(argv) {
 }
 
 const num = (v, d) => (v === undefined || v === true ? d : Number(v));
+
+/* Numeric flags have to be whole numbers, and saying so here is the difference
+   between an actionable error and a Node internal. `--padding abc` used to
+   reach new Uint32Array(NaN) and surface as "size out of range"; `--scale 1.3`
+   used to succeed and write a sheet with fractional frame rects that no
+   importer can slice. */
+function int(v, d, name, min) {
+  if (v === undefined || v === true) return d;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < min) die(`--${name} must be a whole number >= ${min} (got "${v}")`);
+  return n;
+}
 const safe = s => String(s || 'sprite').replace(/[^a-z0-9_-]+/gi, '_').toLowerCase();
 
 function out(flags, fallback) {
   const dir = path.resolve(flags.out === undefined || flags.out === true ? fallback : String(flags.out));
-  fs.mkdirSync(dir, { recursive: true });
+  if (!dryRun) fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-let wrote = 0;
+/* --dry-run still renders everything — that is the point. It is the cheapest
+   way to answer "what would a 169-asset pack put on disk, and does every
+   template in it still build?" without touching the filesystem. */
+let wrote = 0, dryRun = false;
 function write(dir, file, data) {
   const p = path.join(dir, file);
-  fs.writeFileSync(p, data);
+  if (!dryRun) fs.writeFileSync(p, data);
   wrote++;
-  console.log(`  ${path.relative(process.cwd(), p)}  ${(data.length / 1024).toFixed(1)} KB`);
+  console.log(`  ${dryRun ? '[dry] ' : ''}${path.relative(process.cwd(), p)}  ${(data.length / 1024).toFixed(1)} KB`);
   return p;
 }
+const dryNote = () => (dryRun ? ' (dry run, nothing written)' : '');
 
 const die = msg => { console.error(`pixelforge: ${msg}`); process.exit(1); };
 
@@ -104,7 +120,7 @@ const extOf = id => {
   return t ? t.ext : id;
 };
 
-/* Three targets emit `.json` (phaser-atlas, aseprite, frames) and two emit
+/* Three targets emit `.json` (phaser-atlas, aseprite, json) and two emit
    `.tres` (godot4, godot-tileset), so `--format phaser-atlas,aseprite` would
    silently have one overwrite the other. Disambiguate by folding the target id
    into the name, but ONLY when the run actually requests a colliding pair —
@@ -147,7 +163,10 @@ function exportOne(id, dir, opts) {
       }
       continue;
     }
-    const res = PF.Exporters.run(f, packed.atlas, opts);
+    /* phaser-anims emits a loader that names the atlas file. Tell it what
+       fileName actually produced, or the generated module 404s the moment two
+       targets share an extension and the name gets disambiguated. */
+    const res = PF.Exporters.run(f, packed.atlas, { ...opts, atlasFile: fileName(name, 'phaser-atlas') });
     write(dir, fileName(name, f), Buffer.from(res.text, 'utf8'));
   }
 }
@@ -160,47 +179,64 @@ function resolveFormats(flags) {
   return list;
 }
 
-function cmdExport(flags, rest) {
-  if (!rest.length) die('export needs at least one template id');
-  const opts = {
-    scale: num(flags.scale, 1),
+function renderOpts(flags) {
+  return {
+    scale: int(flags.scale, 1, 'scale', 1),
     state: flags.state === true ? undefined : flags.state,
-    columns: flags.columns === undefined ? undefined : num(flags.columns, undefined),
-    padding: num(flags.padding, 0),
+    columns: flags.columns === undefined ? undefined : int(flags.columns, undefined, 'columns', 1),
+    padding: int(flags.padding, 0, 'padding', 0),
+    /* Only godot-tileset reads these, and it has no way to guess: a 64x64 tile
+       sheet and a 64x64 single sprite are the same atlas. Without the flags the
+       target emitted one tile covering the whole image. */
+    tileWidth: flags['tile-width'] === undefined ? undefined : int(flags['tile-width'], undefined, 'tile-width', 1),
+    tileHeight: flags['tile-height'] === undefined
+      ? (flags['tile-width'] === undefined ? undefined : int(flags['tile-width'], undefined, 'tile-width', 1))
+      : int(flags['tile-height'], undefined, 'tile-height', 1),
     formats: resolveFormats(flags)
   };
-  if (!(opts.scale >= 1)) die('--scale must be 1 or more');
+}
+
+function cmdExport(flags, rest) {
+  if (!rest.length) die('export needs at least one template id');
+  dryRun = flags['dry-run'] === true;
+  const opts = renderOpts(flags);
   const dir = out(flags, 'pixelforge-out');
   for (const id of rest) exportOne(id, dir, opts);
-  console.log(`\n${wrote} file${wrote === 1 ? '' : 's'} -> ${path.relative(process.cwd(), dir) || '.'}`);
+  console.log(`\n${wrote} file${wrote === 1 ? '' : 's'} -> ${path.relative(process.cwd(), dir) || '.'}${dryNote()}`);
 }
 
 function cmdPack(flags, rest) {
+  dryRun = flags['dry-run'] === true;
   let ids = rest;
+  if (flags.all && (flags.category || flags.tag || rest.length))
+    console.error('note: --all overrides --category, --tag and any listed ids');
   if (flags.all) ids = PF.Library.list().map(t => t.id);
   else if (flags.category) ids = PF.Library.list().filter(t => t.category.toLowerCase() === String(flags.category).toLowerCase()).map(t => t.id);
   else if (flags.tag) ids = PF.Library.list().filter(t => (t.tags || []).some(g => g.toLowerCase() === String(flags.tag).toLowerCase())).map(t => t.id);
   if (!ids.length) die('pack needs ids, or --all / --category X / --tag Y');
 
-  const opts = {
-    scale: num(flags.scale, 1),
-    state: flags.state === true ? undefined : flags.state,
-    columns: flags.columns === undefined ? undefined : num(flags.columns, undefined),
-    padding: num(flags.padding, 0),
-    formats: resolveFormats(flags)
-  };
+  const opts = renderOpts(flags);
   const dir = out(flags, 'pixelforge-pack');
   const manifest = [];
+  const failed = [];
   for (const id of ids) {
     // One bad template must not abandon a 160-asset pack half-written.
     try { exportOne(id, dir, opts); manifest.push(R.info(R.build(id))); }
-    catch (e) { console.error(`  ! ${id}: ${e.message}`); }
+    catch (e) { failed.push(id); console.error(`  ! ${id}: ${e.message}`); }
   }
   write(dir, 'manifest.json', Buffer.from(JSON.stringify({
     generator: 'pixelforge', version: require('../package.json').version,
     scale: opts.scale, formats: opts.formats, count: manifest.length, templates: manifest
   }, null, 2), 'utf8'));
-  console.log(`\n${wrote} file${wrote === 1 ? '' : 's'} -> ${path.relative(process.cwd(), dir) || '.'}`);
+  console.log(`\n${manifest.length}/${ids.length} template${ids.length === 1 ? '' : 's'}, ` +
+    `${wrote} file${wrote === 1 ? '' : 's'} -> ${path.relative(process.cwd(), dir) || '.'}${dryNote()}`);
+  /* Surviving a bad template is the point of the try above; REPORTING success
+     afterwards is not. A build step that bulk-exports assets was going green
+     having written nothing. */
+  if (failed.length) {
+    console.error(`${failed.length} failed: ${failed.join(', ')}`);
+    process.exitCode = 1;
+  }
 }
 
 function cmdVerify() {
@@ -240,6 +276,9 @@ COMMANDS
       --state <name>          only this animation state
       --columns <n>           frames per sheet row (default: longest state)
       --padding <n>           px between frames on the sheet
+      --tile-width <n>        godot-tileset: tile size within the sheet
+      --tile-height <n>       godot-tileset: defaults to --tile-width
+      --dry-run               render and list the files, write nothing
 
   pack [id...]              Bulk export plus a manifest.json
       --all | --category <name> | --tag <tag>
@@ -260,6 +299,7 @@ EXAMPLES
   pixelforge export rpg_knight --format png,gif --scale 4 --out ./assets
   pixelforge export farm_tiles --format png,godot-tileset --out ./assets
   pixelforge pack --category Enemies --format png,phaser-atlas --out ./assets/enemies
+  pixelforge pack --all --format png,json --dry-run
 `);
 }
 

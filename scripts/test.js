@@ -498,8 +498,13 @@ it('love2d emits one quad per frame', () => {
 it('css keyframes cover the strip', () => {
   const t = PF.Exporters.cssAnim(ATLAS);
   ok(t.includes('@keyframes'), 'keyframes block');
-  // one background-position per frame plus the closing 100% stop
-  eq((t.match(/background-position/g) || []).length, 5, 'keyframe stops');
+  // Count inside the @keyframes block only: the class rule carries its own
+  // background-position so the sprite still shows its first frame when the
+  // animation is paused or suppressed by prefers-reduced-motion.
+  const kf = t.slice(t.indexOf('@keyframes'));
+  // one stop per frame plus the closing 100% stop
+  eq((kf.match(/background-position/g) || []).length, 5, 'keyframe stops');
+  ok(/^\.[\w-]+ \{[^}]*background-position/m.test(t), 'class rule seeds the first frame');
   ok(/animation:[^;]*infinite/.test(t), 'looping state animates forever');
 });
 it('run rejects an unknown target with a helpful message', () => {
