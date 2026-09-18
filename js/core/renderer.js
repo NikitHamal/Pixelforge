@@ -228,6 +228,30 @@ PF.Renderer = (() => {
     const octx = out.getContext('2d'); octx.imageSmoothingEnabled = false; octx.clearRect(0, 0, out.width, out.height);
     octx.drawImage(tmp, 0, 0, out.width, out.height); return out;
   }
+  /* Draw an arbitrary buffer at an integer scale. frameToCanvas is tied to the
+     document's dimensions; panels that show a derived buffer (an effect
+     preview, a 3x3 tile wrap) have their own size and need this instead.
+     Its own scratch canvas, so a panel repainting on every slider move cannot
+     evict the one the live animation preview reuses each tick. */
+  let pvScratch = null, pvCtx = null, pvImg = null, pvBuf = null;
+  function bufferToCanvas(buf, w, h, scale = 1, target) {
+    if (!pvScratch || pvScratch.width !== w || pvScratch.height !== h) {
+      pvScratch = document.createElement('canvas'); pvScratch.width = w; pvScratch.height = h;
+      pvCtx = pvScratch.getContext('2d');
+      pvImg = pvCtx.createImageData(w, h);
+      pvBuf = new Uint32Array(pvImg.data.buffer);
+    }
+    pvBuf.set(buf.subarray(0, pvBuf.length));
+    pvCtx.putImageData(pvImg, 0, 0);
+    if (scale === 1 && !target) return pvScratch;
+    const out = target || document.createElement('canvas');
+    out.width = w * scale; out.height = h * scale;
+    const octx = out.getContext('2d'); octx.imageSmoothingEnabled = false;
+    octx.clearRect(0, 0, out.width, out.height);
+    octx.drawImage(pvScratch, 0, 0, out.width, out.height);
+    return out;
+  }
+
   const canvasEl = () => canvas;
-  return { init, fit, center, invalidate, toPixel, setZoom, zoomBy, pan, setHover, setOption, getView, frameToCanvas, canvasEl, compositeFrame };
+  return { init, fit, center, invalidate, toPixel, setZoom, zoomBy, pan, setHover, setOption, getView, frameToCanvas, bufferToCanvas, canvasEl, compositeFrame };
 })();

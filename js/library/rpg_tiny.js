@@ -48,7 +48,7 @@ PF.RPG.tiny = (() => {
     if (hi) api.ellipse(cx - rx + 1, cy - ry, cx + rx - 1, cy - ry + hb, hi, true);
     if (sh) api.ellipse(cx - rx + 1, cy + ry - hb, cx + rx - 1, cy + ry, sh, true);
   }
-  function tspeck(api, x0, y0, x1, y1, seed, colors, density = 0.08) {
+  function tspeck(api, x0, y0, x1, y1, seed, colors, density = 0.16) {
     const l = Math.round(Math.min(x0, x1)), r = Math.round(Math.max(x0, x1)), t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1));
     for (let y = t; y <= b; y++) for (let x = l; x <= r; x++) {
       const h = api.hash(x, y, seed);
@@ -141,7 +141,7 @@ PF.RPG.tiny = (() => {
       rb(tc - 6 * s, 16 + ad, 18 + ad, 1, pal.shirt);
       rb(tc - 6 * s, 19 + ad, 21 + ad, 1, pal.skin);
       tblob(api, X(tc), BY(19), 5, 4, pal.shirt, pal.shirtHi, pal.shirtSh);
-      tspeck(api, X(tc - 4), BY(17), X(tc + 4), BY(21), 7, [pal.shirtSh, pal.shirtHi], 0.08);
+      tspeck(api, X(tc - 4), BY(17), X(tc + 4), BY(21), 7, [pal.shirtSh, pal.shirtHi], 0.16);
       rb(tc, 21, 22, 5, pal.belt);
       rb(tc, 21, 22, 1, pal.buckle); api.px(X(tc), BY(21), '#ffffff');
       if (bk) { api.line(X(tc - 3), BY(15), X(tc + 3), BY(22), '#3e2731', 1); api.line(X(tc + 3), BY(15), X(tc - 3), BY(22), '#3e2731', 1); }
@@ -161,7 +161,7 @@ PF.RPG.tiny = (() => {
     api.px(X(11 + legL.dx), BY(27 + legL.dy), pal.pantsSh); api.px(X(20 + legR.dx), BY(27 + legR.dy), pal.pantsSh);
     // torso blob + cloth tooth + belt
     tblob(api, X(16), BY(19), 6, 4, pal.shirt, pal.shirtHi, pal.shirtSh);
-    tspeck(api, X(11), BY(17), X(21), BY(21), 7, [pal.shirtSh, pal.shirtHi], 0.08);
+    tspeck(api, X(11), BY(17), X(21), BY(21), 7, [pal.shirtSh, pal.shirtHi], 0.16);
     api.rect(X(10), BY(21), X(21), BY(22), pal.belt);
     api.rect(X(15), BY(21), X(16), BY(22), pal.buckle); api.px(X(15), BY(21), '#ffffff');
     if (back) { api.line(X(14), BY(15), X(17), BY(22), '#3e2731', 1); api.line(X(17), BY(15), X(14), BY(22), '#3e2731', 1); }
