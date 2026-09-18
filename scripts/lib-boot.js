@@ -22,6 +22,8 @@ const FILES = [
   'js/library/rpg_classes.js',
   'js/library/rpg_beasts.js',
   'js/library/rpg_props.js',
+  'js/library/rpg_medieval.js',
+  'js/library/rpg_tiny.js',
   'js/library/index.js'
 ];
 

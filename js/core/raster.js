@@ -161,6 +161,27 @@ PF.Raster = (() => {
     }
     return o;
   }
+  /* Selective outline: same silhouette pass as outline(), but outline pixels
+     sitting on a top edge are recoloured to a light rim (Tiny-style volume).
+     ADDITIVE — outline() above is untouched, so every existing sprite renders
+     byte-identically unless it opts into this. */
+  function outlineSelective(p, w, h, c, opts = {}) {
+    const base = outline(p, w, h, c, opts.diagonal);
+    const lightHex = opts.light || opts.top;
+    if (!lightHex) return base;
+    const light = PF.Color.hexToU32(lightHex);
+    if (!light || light === c) return base;
+    for (let y = 0; y < h; y++) {
+      const row = y * w, hasBelow = y + 1 < h, hasAbove = y > 0;
+      for (let x = 0; x < w; x++) {
+        const i = row + x;
+        if (base[i] !== c || p[i]) continue; // outline-only pixels
+        const below = hasBelow ? p[i + w] : 0, above = hasAbove ? p[i - w] : 0;
+        if (below && !above) base[i] = light; // top-facing rim
+      }
+    }
+    return base;
+  }
   const replaceColor = (p, from, to) => { for (let i = 0; i < p.length; i++) if (p[i] === from) p[i] = to; };
   /* Region shading (lighten/darken) */
   function shadeRegion(p, w, h, x0, y0, x1, y1, amt) {
@@ -212,5 +233,5 @@ PF.Raster = (() => {
   /* Unique colors */
   const colorsOf = p => { const s = new Set(); for (let i = 0; i < p.length; i++) if (p[i]) s.add(p[i]); return [...s]; };
 
-  return { set, get, stamp, line, rect, ellipse, fill, flipH, flipV, rotate90, shift, outline, replaceColor, shadeRegion, composite, bounds, paintRows, toRows, colorsOf };
+  return { set, get, stamp, line, rect, ellipse, fill, flipH, flipV, rotate90, shift, outline, outlineSelective, replaceColor, shadeRegion, composite, bounds, paintRows, toRows, colorsOf };
 })();

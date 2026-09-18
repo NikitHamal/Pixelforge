@@ -33,6 +33,42 @@ PF.Pixel = (() => {
   /* deterministic pseudo-random from coords (stable speckles) */
   Api.prototype.hash = function (x, y, seed = 0) { let h = (x * 374761393 + y * 668265263 + seed * 974634211) | 0; h = (h ^ (h >> 13)) | 0; h = Math.imul(h, 1274126177); h = (h ^ (h >> 16)) >>> 0; return h / 4294967295; };
   Api.prototype.shadeRect = function (x0, y0, x1, y1, amt) { PF.Raster.shadeRegion(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), amt); };
+  /* ---- Flexible volume helpers (ADDITIVE — existing methods untouched) ----
+     Opt-in organic shading for bespoke painters. All deterministic (hash-based),
+     all route through this.px/rect/ellipse so offsetApi views keep working. */
+  // Vertical gradient fill: mixes cTop -> cBot across rows. Pure maths.
+  Api.prototype.grad = function (x0, y0, x1, y1, cTop, cBot) {
+    const ta = PF.Color.rgba(num(cTop)), ba = PF.Color.rgba(num(cBot));
+    const t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1)), span = Math.max(1, b - t);
+    for (let y = t; y <= b; y++) {
+      const k = (y - t) / span;
+      const c = PF.Color.fromRGBA(Math.round(ta[0] + (ba[0] - ta[0]) * k), Math.round(ta[1] + (ba[1] - ta[1]) * k), Math.round(ta[2] + (ba[2] - ta[2]) * k), 255);
+      this.rect(x0, y, x1, y, c);
+    }
+  };
+  // Checker dither between two colours. Breaks up flat rect bands.
+  Api.prototype.dith = function (x0, y0, x1, y1, cA, cB, seed = 0) {
+    const l = Math.round(Math.min(x0, x1)), r = Math.round(Math.max(x0, x1)), t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1));
+    for (let y = t; y <= b; y++) for (let x = l; x <= r; x++) this.px(x, y, ((x + y + seed) & 1) ? cA : cB);
+  };
+  // Deterministic speckle texture. density 0..1, colours cycled by hash.
+  Api.prototype.speck = function (x0, y0, x1, y1, seed, colors, density = 0.12) {
+    const l = Math.round(Math.min(x0, x1)), r = Math.round(Math.max(x0, x1)), t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1));
+    for (let y = t; y <= b; y++) for (let x = l; x <= r; x++) {
+      const h = this.hash(x, y, seed);
+      if (h < density) this.px(x, y, colors[Math.floor(this.hash(x, y, seed + 99) * colors.length) % colors.length]);
+    }
+  };
+  // Organic rounded mass: base blob + top highlight + bottom shade. The
+  // anti-rect: one call replaces 3-4 hard rects with a Tiny-style volume.
+  Api.prototype.blob = function (cx, cy, rx, ry, base, hi, sh) {
+    this.ellipse(cx - rx, cy - ry, cx + rx, cy + ry, base, true);
+    const hb = Math.max(1, ry >> 1);
+    if (hi) this.ellipse(cx - rx + 1, cy - ry, cx + rx - 1, cy - ry + hb, hi, true);
+    if (sh) this.ellipse(cx - rx + 1, cy + ry - hb, cx + rx - 1, cy + ry, sh, true);
+  };
+  // Top-edge rim light on an already-drawn band.
+  Api.prototype.rim = function (x0, y0, x1, y1, light) { this.rect(x0, y0, x1, Math.min(y0, y1) === y0 ? y0 : y1, light); };
   const makeApi = (buf, W, H) => new Api(buf, W, H);
   /* Offset view of a draw API: identical surface, coordinates translated by
      (ox, oy). Tilesheet painters use this to draw 16px tiles onto a 64px sheet.
@@ -75,6 +111,50 @@ PF.Pixel = (() => {
     const ha = angle + Math.PI / 2;
     api.line(tx, ty, tx + Math.cos(ha) * 3 - Math.sin(angle) * 2, ty + Math.sin(ha) * 3 + Math.cos(angle) * 2, palette.head, 3);
     api.px(tx + 1, ty, palette.shine);
+  }
+  /* Flanged medieval mace from hand */
+  function mace(api, hx, hy, angle, palette) {
+    const p = palette || { handle: '#733e39', head: '#8b9bb4', shine: '#ffffff', guard: '#5a6988' };
+    const len = 10, tx = hx + Math.cos(angle) * len, ty = hy + Math.sin(angle) * len;
+    api.line(hx, hy, tx, ty, p.handle || '#733e39', 2);
+    const ha = angle + Math.PI / 2;
+    api.ellipse(tx - 2, ty - 2, tx + 2, ty + 2, p.head || '#8b9bb4', true);
+    api.line(tx - Math.cos(ha) * 3, ty - Math.sin(ha) * 3, tx + Math.cos(ha) * 3, ty + Math.sin(ha) * 3, p.guard || '#5a6988', 2);
+    api.px(tx + Math.cos(angle) * 3, ty + Math.sin(angle) * 3, p.shine || '#ffffff');
+    api.px(tx, ty, '#ffffff');
+  }
+  /* Medieval spear / halberd from hand */
+  function spear(api, hx, hy, angle, palette) {
+    const p = palette || { handle: '#b86f50', head: '#c0cbdc', shine: '#ffffff', lug: '#5a6988' };
+    const len = 14, tx = hx + Math.cos(angle) * len, ty = hy + Math.sin(angle) * len;
+    const bx = hx - Math.cos(angle) * 3, by = hy - Math.sin(angle) * 3;
+    api.line(bx, by, tx, ty, p.handle || '#b86f50', 2);
+    const ha = angle + Math.PI / 2;
+    api.line(tx - Math.cos(angle) * 3, ty - Math.sin(angle) * 3, tx + Math.cos(angle) * 3, ty + Math.sin(angle) * 3, p.head || '#c0cbdc', 2);
+    api.px(tx + Math.cos(angle) * 4, ty + Math.sin(angle) * 4, p.shine || '#ffffff');
+    api.line(tx - Math.cos(ha) * 2, ty - Math.sin(ha) * 2, tx + Math.cos(ha) * 2, ty + Math.sin(ha) * 2, p.lug || '#5a6988', 1);
+  }
+  /* Heavy blacksmith / war hammer */
+  function hammer(api, hx, hy, angle, palette) {
+    const p = palette || { handle: '#b86f50', head: '#5a6988', face: '#c0cbdc', shine: '#ffffff' };
+    const len = 10, tx = hx + Math.cos(angle) * len, ty = hy + Math.sin(angle) * len;
+    api.line(hx, hy, tx, ty, p.handle || '#b86f50', 2);
+    const ha = angle + Math.PI / 2;
+    api.line(tx - Math.cos(ha) * 3, ty - Math.sin(ha) * 3, tx + Math.cos(ha) * 3, ty + Math.sin(ha) * 3, p.head || '#5a6988', 3);
+    api.px(tx - Math.cos(ha) * 3, ty - Math.sin(ha) * 3, p.face || '#c0cbdc');
+    api.px(tx + Math.cos(ha) * 3, ty + Math.sin(ha) * 3, p.face || '#c0cbdc');
+    api.px(tx, ty, p.shine || '#ffffff');
+  }
+  /* Medieval kite / heater shield at (sx, sy) with heraldic cross */
+  function kiteShield(api, sx, sy, baseCol = '#ffffff', rimCol = '#c0cbdc', crossCol = '#e43b44') {
+    api.rect(sx - 3, sy - 5, sx + 3, sy - 1, rimCol);
+    api.rect(sx - 3, sy, sx + 3, sy + 2, rimCol);
+    api.rect(sx - 2, sy + 3, sx + 2, sy + 4, rimCol);
+    api.px(sx, sy + 5, rimCol);
+    api.rect(sx - 2, sy - 4, sx + 2, sy + 2, baseCol);
+    api.rect(sx - 1, sy + 3, sx + 1, sy + 4, baseCol);
+    api.line(sx, sy - 3, sx, sy + 3, crossCol, 1);
+    api.line(sx - 2, sy - 1, sx + 2, sy - 1, crossCol, 1);
   }
   /* Bow held vertically at (bx,by): arc + string + optional arrow pull t */
   function bow(api, bx, by, pull, palette, arrowT = 1) {
@@ -160,6 +240,12 @@ PF.Pixel = (() => {
     api.px(sx, sy, '#ffffff');
   }
 
-  return { C, frame, makeApi, offsetApi, clamp, lerp, easeOut, easeInOut, TAU,
-    sword, pickaxe, axe, bow, bowFront, shield, slash, sparks, particles, shadowFlat, flashWhite };
+  /* Outline finish with an optional light top rim. Same contract as the rig's
+     finish() (1px silhouette pass) plus Tiny-style volume on demand. */
+  function finishSelective(buf, W, H, c = '#181425', opts = {}) {
+    buf.set(PF.Raster.outlineSelective(buf, W, H, PF.Color.hexToU32(c), opts));
+  }
+
+  return { C, frame, makeApi, offsetApi, clamp, lerp, easeOut, easeInOut, TAU, finishSelective,
+    sword, pickaxe, axe, mace, spear, hammer, shield, kiteShield, bow, bowFront, slash, sparks, particles, shadowFlat, flashWhite };
 })();

@@ -344,6 +344,10 @@ PF.Chars = (() => {
       const hx = 18 + (cfg.kb || 0) + ((cfg.armF || {}).dx || 0), hy = 19 + (cfg.bob || 0) + ((cfg.armF || {}).dy || 0);
       if (t.kind === 'sword') P.sword(api, hx, hy, t.angle, SWORD_PAL);
       else if (t.kind === 'shield') P.shield(api, hx + 1, hy - 1, '#b86f50', '#8b9bb4');
+      else if (t.kind === 'kiteShield') P.kiteShield(api, hx + 1, hy - 1, t.base, t.rim, t.cross);
+      else if (t.kind === 'mace') P.mace(api, hx, hy, t.angle, t.pal);
+      else if (t.kind === 'spear') P.spear(api, hx, hy, t.angle, t.pal);
+      else if (t.kind === 'hammer') P.hammer(api, hx, hy, t.angle, t.pal);
       else if (t.kind === 'pickaxe') P.pickaxe(api, hx, hy, t.angle, PICK_PAL);
       else if (t.kind === 'axe') P.axe(api, hx, hy, t.angle, AXE_PAL);
       else if (t.kind === 'bow') P.bow(api, hx + 4, hy - 2, t.pull || 0, BOW_PAL, t.arrow === false ? 0 : 1);
@@ -368,6 +372,10 @@ PF.Chars = (() => {
       const hx = 23 + (cfg.kb || 0) + ((cfg.armR || {}).dx || 0), hy = 19 + (cfg.bob || 0) + ((cfg.armR || {}).dy || 0);
       const hlx = 9 + (cfg.kb || 0) + ((cfg.armL || {}).dx || 0), hly = 19 + (cfg.bob || 0) + ((cfg.armL || {}).dy || 0);
       if (t.kind === 'sword') P.sword(api, hx, hy, t.angle, SWORD_PAL);
+      else if (t.kind === 'mace') P.mace(api, hx, hy, t.angle, t.pal);
+      else if (t.kind === 'spear') P.spear(api, hx, hy, t.angle, t.pal);
+      else if (t.kind === 'hammer') P.hammer(api, hx, hy, t.angle, t.pal);
+      else if (t.kind === 'kiteShield') P.kiteShield(api, hlx - 1, hly - 1, t.base, t.rim, t.cross);
       else if (t.kind === 'pickaxe') P.pickaxe(api, hx, hy, t.angle, PICK_PAL);
       else if (t.kind === 'axe') P.axe(api, hx, hy, t.angle, AXE_PAL);
       else if (t.kind === 'food') { const f = t.at || [hx - 2, hy - 4]; api.rect(f[0] - 1, f[1] - 1, f[0] + 1, f[1] + 1, '#e43b44'); api.px(f[0], f[1] - 2, '#63c74d'); api.px(f[0] - 1, f[1] - 1, '#f6757a'); }
