@@ -91,6 +91,7 @@ function hslToHex(h, s, l) {
   PF.Input.init($('#pixel-canvas'));
   PF.Anim.preview.init($('#preview-canvas'));
   PF.Panels.init();
+  PF.Fx.init();
   PF.UI.setTheme(localStorage.getItem('pf-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   $('#btn-theme').addEventListener('click', () => PF.UI.setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
 
@@ -469,8 +470,10 @@ function hslToHex(h, s, l) {
   }
   PF.UI.openDrawer = openDrawer; PF.UI.closeDrawers = closeDrawers;
 
-  /* ---- Panels + agent console ---- */
-  PF.Panels.init();
+  /* ---- Agent console ----
+     Panels are initialised with the other core modules near the top of boot;
+     calling init() again here registered every panel listener a second time,
+     so one click on Add Layer added two. */
   PF.Agent.init({ log: $('#agent-log'), input: $('#agent-input'), send: $('#agent-send'), chips: $('#agent-chips'),
     model: $('#agent-model'), status: $('#agent-status'), stop: $('#agent-stop'), mode: $('#agent-mode'), refresh: $('#agent-models-refresh'),
     connect: { btn: $('#agent-connect'), dlg: $('#dlg-nebian'), login: $('#neb-login'), pass: $('#neb-password'), go: $('#neb-go'), err: $('#neb-error') } });

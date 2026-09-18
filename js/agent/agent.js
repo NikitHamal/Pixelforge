@@ -236,7 +236,17 @@ PF.Agent = (() => {
     if (/\b(play|animate|preview)\b/.test(t) && !recipe) plan.push({ tool: 'play', args: {} });
     if (/\b(pause|stop)\b/.test(t)) plan.push({ tool: 'pause', args: {} });
     const st = t.match(/add (?:an? )?(\w+) (?:state|animation)/); if (st) plan.push({ tool: 'add_state', args: { name: st[1], from_preset: true } });
-    const ex = t.match(/export|download|save/); if (ex) { const f = PF.IO.FORMATS.find(x => t.includes(x.id)) || (/sheet|atlas/.test(t) ? { id: 'spritesheet' } : /gif/.test(t) ? { id: 'gif' } : { id: 'png' }); const sc = t.match(/(\d+)\s*x\b/); plan.push({ tool: 'export', args: { format: f.id, scale: sc ? +sc[1] : (f.id === 'gif' || f.id === 'png' ? 4 : 1) } }); }
+    /* Engine names first: "export for Godot" must not fall through to PNG just
+       because the format id is `engine:godot4` and the sentence says "godot". */
+    const ENGINE_WORDS = [[/godot.*tile|tileset.*godot/, 'engine:godot-tileset'], [/godot/, 'engine:godot4'], [/unity/, 'engine:unity'],
+      [/phaser.*anim/, 'engine:phaser-anims'], [/phaser/, 'engine:phaser-atlas'], [/l[oö]ve\s*2?d?|lua/, 'engine:love2d'],
+      [/game\s*maker/, 'engine:gamemaker'], [/aseprite/, 'engine:aseprite'], [/\bzip\b|bundle|everything/, 'bundle']];
+    const ex = t.match(/export|download|save/); if (ex) {
+      const eng = ENGINE_WORDS.find(([re]) => re.test(t));
+      const f = (eng && PF.IO.FORMATS.find(x => x.id === eng[1])) || PF.IO.FORMATS.find(x => t.includes(x.id)) || (/sheet|atlas/.test(t) ? { id: 'spritesheet' } : /gif/.test(t) ? { id: 'gif' } : { id: 'png' });
+      const sc = t.match(/(\d+)\s*x\b/);
+      plan.push({ tool: 'export', args: { format: f.id, scale: sc ? +sc[1] : (f.id === 'gif' || f.id === 'png' ? 4 : 1) } });
+    }
     if (/dark mode|dark theme/.test(t)) plan.push({ tool: 'set_view', args: { theme: 'dark' } });
     if (/light mode|light theme/.test(t)) plan.push({ tool: 'set_view', args: { theme: 'light' } });
     if (/onion/.test(t)) plan.push({ tool: 'set_view', args: { onion: !/off|hide|disable/.test(t) } });

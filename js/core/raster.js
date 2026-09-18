@@ -63,8 +63,15 @@ PF.Raster = (() => {
       if (mx && my) set(p, w, h, w - 1 - px, h - 1 - py, c);
     }
   }
+  /* A NaN or Infinity coordinate makes both Bresenham loops non-terminating:
+     the error term stops comparing, so the step conditions never fire and the
+     end test never matches. One bad argument would freeze the whole studio, so
+     every loop-driven primitive rejects non-finite input up front. */
+  const fin = (a, b, c2, d) => Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(c2) && Number.isFinite(d);
+
   /* Bresenham line */
   function line(p, w, h, x0, y0, x1, y1, c, size = 1, mx = false, my = false) {
+    if (!fin(x0, y0, x1, y1)) return;
     let dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy;
     for (;;) {
       stamp(p, w, h, x0, y0, c, size, mx, my);
@@ -75,6 +82,7 @@ PF.Raster = (() => {
     }
   }
   function rect(p, w, h, x0, y0, x1, y1, c, { fill = false, size = 1, mx = false, my = false } = {}) {
+    if (!fin(x0, y0, x1, y1)) return;
     const l = Math.min(x0, x1), r = Math.max(x0, x1), t = Math.min(y0, y1), b = Math.max(y0, y1);
     if (fill) {
       // Plain fill: clip once, then write rows directly instead of bounds-checking per pixel.
@@ -90,6 +98,7 @@ PF.Raster = (() => {
   }
   /* Midpoint ellipse inside bounding box (Zingl) */
   function ellipse(p, w, h, x0, y0, x1, y1, c, { fill = false, size = 1, mx = false, my = false } = {}) {
+    if (!fin(x0, y0, x1, y1)) return;
     let a = Math.abs(x1 - x0), b = Math.abs(y1 - y0), b1 = b & 1;
     let dx = 4 * (1 - a) * b * b, dy = 4 * (b1 + 1) * a * a, err = dx + dy + b1 * a * a, e2;
     if (x0 > x1) { x0 = x1; x1 += a; } if (y0 > y1) y0 = y1;

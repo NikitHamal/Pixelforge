@@ -31,7 +31,7 @@ PF.RPG.world = (() => {
         R16(0, 0, 15, 1, '#8b9bb4'); R16(0, 14, 15, 15, '#3a4466');
         R16(0, 7, 15, 8, '#3a4466'); // slab seam
         R16(7, 0, 8, 7, '#3a4466'); R16(7, 8, 8, 15, '#3a4466');
-        speck(api, tx, ty, tx + 15, ty + 15, idx * 7 + 1, ['#8b9bb4', '#3a4466'], 0.12);
+        speck(api, tx, ty, tx + 15, ty + 15, idx * 7 + 1, ['#8b9bb4', '#3a4466'], 0.24);
       };
       const brick = (base, mort, hi) => {
         R16(0, 0, 15, 15, mort);
@@ -43,7 +43,7 @@ PF.RPG.world = (() => {
             api.px(X(x0 + 1), Y(y0 + 1), hi);
           }
         }
-        speck(api, tx, ty, tx + 15, ty + 15, idx * 7 + 2, [hi], 0.06);
+        speck(api, tx, ty, tx + 15, ty + 15, idx * 7 + 2, [hi], 0.12);
       };
       switch (idx) {
         case 0: stone(); break;
@@ -51,15 +51,15 @@ PF.RPG.world = (() => {
           api.line(X(2), Y(2), X(6), Y(8), '#262b44', 1); api.line(X(6), Y(8), X(5), Y(13), '#262b44', 1);
           api.line(X(11), Y(3), X(13), Y(7), '#262b44', 1); break;
         case 2: stone();
-          speck(api, tx, ty, tx + 15, ty + 15, 31, ['#3e8948', '#265c42'], 0.2);
+          speck(api, tx, ty, tx + 15, ty + 15, 31, ['#3e8948', '#265c42'], 0.4);
           R16(0, 12, 5, 15, '#3e8948'); break;
         case 3: // rune floor
-          R16(0, 0, 15, 15, '#3a4466'); speck(api, tx, ty, tx + 15, ty + 15, 41, ['#262b44'], 0.12);
+          R16(0, 0, 15, 15, '#3a4466'); speck(api, tx, ty, tx + 15, ty + 15, 41, ['#262b44'], 0.24);
           api.ellipse(X(3), Y(3), X(12), Y(12), '#2ce8f5', false);
           api.px(X(7), Y(5), '#2ce8f5'); api.px(X(8), Y(10), '#2ce8f5'); api.px(X(5), Y(8), '#ffffff'); api.px(X(10), Y(7), '#ffffff'); break;
         case 4: brick('#733e39', '#3e2731', '#b86f50'); break;
         case 5: brick('#5c4a5a', '#3e2731', '#8b7b8b');
-          speck(api, tx, ty, tx + 15, ty + 15, 51, ['#3e8948'], 0.14); break;
+          speck(api, tx, ty, tx + 15, ty + 15, 51, ['#3e8948'], 0.28); break;
         case 6: // pillar segment
           R16(0, 0, 15, 15, '#262b44');
           R16(3, 0, 12, 15, '#8b9bb4'); R16(3, 0, 5, 15, '#c0cbdc'); R16(10, 0, 12, 15, '#5a6988');
@@ -67,8 +67,8 @@ PF.RPG.world = (() => {
           R16(2, 0, 13, 1, '#c0cbdc'); R16(2, 14, 13, 15, '#5a6988'); break;
         case 7: // lava: crust shifts between variants = slow bubbling shimmer
           R16(0, 0, 15, 15, '#e43b44');
-          speck(api, tx, ty, tx + 15, ty + 15, 61 + v * 13, ['#f77622', '#fee761'], 0.22);
-          speck(api, tx, ty, tx + 15, ty + 15, 62 + v * 17, ['#5c1a1a'], 0.18);
+          speck(api, tx, ty, tx + 15, ty + 15, 61 + v * 13, ['#f77622', '#fee761'], 0.44);
+          speck(api, tx, ty, tx + 15, ty + 15, 62 + v * 17, ['#5c1a1a'], 0.36);
           if (v) { api.px(X(4), Y(5), '#fee761'); api.px(X(11), Y(10), '#fee761'); }
           else { api.px(X(9), Y(3), '#fee761'); api.px(X(5), Y(12), '#fee761'); }
           break;
@@ -82,7 +82,7 @@ PF.RPG.world = (() => {
           for (let s = 0; s < 4; s++) { R16(1 + s, 1 + s * 3, 14 - s, 3 + s * 3, '#5a6988'); R16(1 + s, 1 + s * 3, 14 - s, 1 + s * 3, '#8b9bb4'); }
           R16(5, 10, 10, 12, '#181425'); break;
         case 10: // spikes
-          R16(0, 0, 15, 15, '#3a4466'); speck(api, tx, ty, tx + 15, ty + 15, 71, ['#262b44'], 0.1);
+          R16(0, 0, 15, 15, '#3a4466'); speck(api, tx, ty, tx + 15, ty + 15, 71, ['#262b44'], 0.2);
           [2, 6, 10, 13].forEach(x => { api.line(X(x), Y(13), X(x), Y(5), '#8b9bb4', 2); api.px(X(x), Y(5), '#ffffff'); api.px(X(x) - 1, Y(10), '#5a6988'); });
           R16(0, 13, 15, 15, '#262b44'); break;
         case 11: // grate
@@ -140,7 +140,7 @@ PF.RPG.world = (() => {
       api.rect(4, 12, 28, 15, '#f77622');
       for (let x = 4; x <= 28; x += 2) api.line(x, 12, x - 3, 5, '#feae34', 1);
       api.line(4, 5, 28, 5, '#fee761', 2);
-      speck(api, 5, 6, 27, 12, 3, ['#f77622'], 0.2);
+      speck(api, 5, 6, 27, 12, 3, ['#f77622'], 0.4);
       // door + window glow
       api.rect(14, 20, 18, 28, '#5c3a2a'); api.rect(14, 20, 18, 21, '#733e39');
       api.px(17, 24, '#fee761');
@@ -237,7 +237,7 @@ PF.RPG.world = (() => {
       api.line(15, top, 15, 25, '#5a6988', 1); api.line(17, top, 17, 25, '#5a6988', 1);
       if (!broken) { api.rect(8, 2, 24, 5, '#8b9bb4'); api.rect(8, 2, 24, 3, '#c0cbdc'); }
       else { api.px(12, 12, '#5a6988'); api.px(19, 10, '#8b9bb4'); api.px(15, 27, '#3a4466'); api.px(22, 27, '#5a6988'); }
-      speck(api, 11, top, 21, 25, 5, ['#5a6988'], 0.1);
+      speck(api, 11, top, 21, 25, 5, ['#5a6988'], 0.2);
       finish(buf);
     };
     const altar = (lit) => (buf, W, H) => {
@@ -316,7 +316,7 @@ PF.RPG.world = (() => {
         api.px(x - 1, y - 5, '#ffffff'); api.px(x + 1, y - 4, '#ffffff');
       });
       if (glow) { api.px(6, 18, '#2ce8f5'); api.px(26, 17, '#2ce8f5'); }
-      speck(api, 4, 24, 28, 28, 9, ['#265c42'], 0.3);
+      speck(api, 4, 24, 28, 28, 9, ['#265c42'], 0.6);
       finish(buf);
     };
     const throne = (buf, W, H) => {
@@ -380,7 +380,7 @@ PF.RPG.world = (() => {
       // cliff ledges
       api.rect(0, 0, 9, 10, '#5a6988'); api.rect(23, 0, 31, 10, '#5a6988');
       api.rect(0, 0, 9, 2, '#3e8948'); api.rect(23, 0, 31, 2, '#3e8948');
-      speck(api, 0, 2, 9, 10, 1, ['#3a4466'], 0.2); speck(api, 23, 2, 31, 10, 2, ['#3a4466'], 0.2);
+      speck(api, 0, 2, 9, 10, 1, ['#3a4466'], 0.4); speck(api, 23, 2, 31, 10, 2, ['#3a4466'], 0.4);
       // falling sheet with phase scroll
       for (let y = 2; y < 26; y++) {
         for (let x = 10; x <= 21; x++) {
@@ -407,8 +407,8 @@ PF.RPG.world = (() => {
     const frame = (i) => (buf, W, H) => {
       const api = apiFor(buf, W, H);
       api.rect(0, 0, 31, 31, '#e43b44');
-      speck(api, 0, 0, 31, 31, 4, ['#f77622'], 0.2);
-      speck(api, 0, 0, 31, 31, 5, ['#5c1a1a'], 0.16);
+      speck(api, 0, 0, 31, 31, 4, ['#f77622'], 0.4);
+      speck(api, 0, 0, 31, 31, 5, ['#5c1a1a'], 0.32);
       // cracks glow
       api.line(4, 6 + (i % 2), 12, 8 - (i % 2), '#fee761', 1);
       api.line(18, 20 - (i % 2), 28, 22 + (i % 2), '#fee761', 1);
