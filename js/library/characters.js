@@ -7,12 +7,47 @@ PF.Chars = (() => {
   const P = () => PF.Pixel, C = h => PF.Color.hexToU32(h);
   const OUTLINE = '#181425';
 
+  /* Most pack palettes carry only a base tone and one shade per part, which is
+     two tones — enough for a box and not enough for a limb. Deriving the third
+     and fourth tone from the base keeps every existing palette valid while
+     giving the rig a real light-to-shadow ramp. Light is from the upper left
+     everywhere in the library, so `lit` goes on the left/top of a form. */
+  const mix = (hex, to, t) => {
+    const [r, g, b] = PF.Color.rgba(C(hex));
+    const q = v => Math.max(0, Math.min(255, Math.round(v)));
+    return PF.Color.u32ToHex(PF.Color.fromRGBA(q(r + (to - r) * t), q(g + (to - g) * t), q(b + (to - b) * t), 255));
+  };
+  const lit = h => mix(h, 255, 0.28);
+  const dim = h => mix(h, 20, 0.34);
+
+  /* A silhouette at 32px is decided by its corner pixels. Writing a curve as a
+     list of per-row [left, right] spans is the only legible way to author one;
+     a stack of api.rect calls hides the shape in the arithmetic. */
+  const span = (api, x, y, rows, c) => {
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (r) api.rect(x + r[0], y + i, x + r[1], y + i, c);
+    }
+  };
+  /* The skull: crown cut back two pixels, jaw drawn in, and a six-wide neck
+     row that the shoulders below read as a neck. A 12x10 rectangle is a brick. */
+  const SKULL = [[2, 9], [1, 10], [0, 11], [0, 11], [0, 11], [0, 11], [0, 11], [0, 11], [1, 10], [3, 8]];
+  function skull(api, hx, hy, base, shade) {
+    span(api, hx, hy, SKULL, base);
+    // right two columns fall away from the light; jaw and neck sit in shadow
+    for (let i = 0; i < 8; i++) api.rect(hx + Math.max(SKULL[i][0], 9), hy + i, hx + SKULL[i][1], hy + i, shade);
+    api.rect(hx + 1, hy + 8, hx + 10, hy + 8, shade);
+    api.rect(hx + 3, hy + 9, hx + 8, hy + 9, dim(shade));
+    api.px(hx + 2, hy + 1, lit(base));
+    api.rect(hx + 1, hy + 2, hx + 2, hy + 3, lit(base));
+  }
+
   const MALE = { skin: '#e8b796', skinSh: '#c28569', hair: '#3e2731', hairSh: '#262b44', hairHi: '#5e3b4d',
     shirt: '#0099db', shirtSh: '#124e89', shirtHi: '#2ce8f5', pants: '#3a4466', pantsSh: '#262b44',
-    boots: '#262b44', belt: '#733e39', buckle: '#fee761', outline: OUTLINE, blush: null, lip: '#a22633' };
+    boots: '#262b44', belt: '#733e39', buckle: '#fee761', outline: OUTLINE, blush: null, lip: '#a4635a' };
   const FEMALE = { skin: '#f2c094', skinSh: '#c28569', hair: '#a22633', hairSh: '#733e39', hairHi: '#f6757a',
     shirt: '#b55088', shirtSh: '#68386c', shirtHi: '#f6757a', pants: '#3a4466', pantsSh: '#262b44',
-    boots: '#3e2731', belt: '#3e2731', buckle: '#fee761', outline: OUTLINE, blush: '#f6757a', lip: '#a22633', tie: '#fee761' };
+    boots: '#3e2731', belt: '#3e2731', buckle: '#fee761', outline: OUTLINE, blush: '#f6757a', lip: '#b06a63', tie: '#fee761' };
   const VILLAGER_M = { ...MALE, shirt: '#3e8948', shirtSh: '#265c42', shirtHi: '#63c74d', hair: '#733e39', hairSh: '#3e2731', pants: '#5a6988' };
   const VILLAGER_F = { ...FEMALE, shirt: '#3e8948', shirtSh: '#265c42', shirtHi: '#63c74d', hair: '#733e39', hairSh: '#3e2731' };
   const SKELETON = { skin: '#ead4aa', skinSh: '#c8b28a', hair: null, shirt: '#8b9bb4', shirtSh: '#5a6988', shirtHi: '#c0cbdc',
@@ -74,19 +109,36 @@ PF.Chars = (() => {
     const aL = cfg.armL || { dx: 0, dy: 0 }, aR = cfg.armR || { dx: 0, dy: 0 };
     // legs (pants + boots)
     leg(12 + kb + lA.dx, Y(22 + lA.dy), pal); leg(17 + kb + lB.dx, Y(22 + lB.dy), pal);
+    /* A 3x6 leg has room for exactly one tone per column, so the read has to
+       come from where the tones sit: a lit hip pixel, a shaded outer column, a
+       lit boot cuff and a dark sole. Without the cuff the boot and the trouser
+       merge into a single dark block, which is what made every figure stubby. */
     function leg(x, y, pal) {
-      api.rect(x, y, x + 2, y + 4, pal.pants);
-      api.rect(x + 2, y, x + 2, y + 4, pal.pantsSh);
+      api.rect(x, y, x + 2, y + 3, pal.pants);
+      api.rect(x + 2, y, x + 2, y + 3, pal.pantsSh);
+      api.px(x, y, lit(pal.pants));
+      api.px(x + 1, y + 2, pal.pantsSh);            // knee crease
       api.rect(x, y + 4, x + 2, y + 5, pal.boots);
-      api.px(x, y + 4, pal.pantsSh);
+      api.rect(x, y + 4, x + 2, y + 4, lit(pal.boots));
+      api.px(x + 2, y + 4, pal.boots);
+      api.rect(x, y + 5, x + 2, y + 5, dim(pal.boots));
     }
-    // torso
+    // torso — chest at full width, waist pulled in one pixel each side. The
+    // straight 12-wide box from shoulder to belt is what read as a slab.
     const tx = 10 + kb, ty = Y(14);
-    api.rect(tx, ty, tx + 11, ty + 7, pal.shirt);
-    api.rect(tx + 10, ty, tx + 11, ty + 7, pal.shirtSh);
-    api.rect(tx, ty, tx + 1, ty + 7, pal.shirtHi);
+    api.rect(tx, ty, tx + 11, ty + 4, pal.shirt);
+    api.rect(tx + 1, ty + 5, tx + 10, ty + 7, pal.shirt);
+    api.rect(tx + 10, ty, tx + 11, ty + 4, pal.shirtSh);
+    api.rect(tx + 10, ty + 5, tx + 10, ty + 7, pal.shirtSh);
+    api.rect(tx, ty, tx + 1, ty + 4, pal.shirtHi);
+    api.px(tx + 1, ty + 5, pal.shirtHi);
+    // collar: a lit band under the jaw, notched at the neck corners, is what
+    // stops the head from sitting directly on the chest
+    api.rect(tx + 2, ty, tx + 9, ty, lit(pal.shirt));
+    api.px(tx + 3, ty, pal.shirtSh); api.px(tx + 8, ty, pal.shirtSh);
     // belt
-    api.rect(tx, ty + 5, tx + 11, ty + 6, pal.belt);
+    api.rect(tx + 1, ty + 5, tx + 10, ty + 6, pal.belt);
+    api.rect(tx + 1, ty + 5, tx + 10, ty + 5, lit(pal.belt));
     api.rect(tx + 5, ty + 5, tx + 6, ty + 6, pal.buckle);
     // chest detail: buttons / ribs
     if (pal === SKELETON) {
@@ -101,11 +153,21 @@ PF.Chars = (() => {
     // merchant hat brim behind head? drawn with head
     // arms
     arm(7 + kb + aL.dx, Y(14 + aL.dy), true, pal); arm(22 + kb + aR.dx, Y(14 + aR.dy), false, pal);
+    /* Arms sit flush against the torso and the outline pass only draws against
+       transparency, so without an inner shadow column the sleeve and the chest
+       fuse into one shape. The cuff then splits sleeve from forearm, and the
+       knuckle pixel gives the hand an end — three pixels that turn a column
+       into an arm. */
     function arm(x, y, left, pal) {
-      api.rect(x, y, x + 2, y + 2, pal.shirt);
-      api.rect(x, y + 3, x + 2, y + 6, pal.skin);
-      api.rect(x + (left ? 2 : 0), y + 3, x + (left ? 2 : 0), y + 6, pal.skinSh);
-      api.rect(x, y + 2, x + 2, y + 3, pal.shirtSh);
+      const inn = left ? x + 2 : x, out = left ? x : x + 2;
+      api.rect(x, y, x + 2, y + 3, pal.shirt);
+      api.px(out, y, lit(pal.shirt));
+      api.rect(inn, y, inn, y + 2, dim(pal.shirt));
+      api.rect(x, y + 3, x + 2, y + 3, pal.shirtSh);   // cuff
+      api.rect(x, y + 4, x + 2, y + 6, pal.skin);
+      api.rect(inn, y + 4, inn, y + 6, pal.skinSh);
+      api.px(out, y + 4, lit(pal.skin));
+      api.px(out, y + 6, pal.skinSh);
     }
     // head — cfg.headDy sinks the head into the shoulders for a breathing
     // idle without moving the feet (a whole-body bob reads as a hop)
@@ -116,9 +178,7 @@ PF.Chars = (() => {
   function drawHeadFront(api, tx, hy, pal, cfg) {
     // tx = torso left (10+kb); head x = tx..tx+11
     const hx = tx;
-    api.rect(hx, hy, hx + 11, hy + 9, pal.skin);
-    api.rect(hx + 10, hy, hx + 11, hy + 9, pal.skinSh);
-    api.rect(hx, hy + 8, hx + 11, hy + 9, pal.skinSh);
+    skull(api, hx, hy, pal.skin, pal.skinSh);
     // ears
     api.rect(hx - 1, hy + 5, hx - 1, hy + 6, pal.skin);
     api.rect(hx + 12, hy + 5, hx + 12, hy + 6, pal.skin);
@@ -172,14 +232,19 @@ PF.Chars = (() => {
   function drawHairFront(api, hx, hy, pal, cfg) {
     if (!pal.hair) return;
     const female = (pal === FEMALE || pal === VILLAGER_F);
-    api.rect(hx - 1, hy - 2, hx + 12, hy + 1, pal.hair);
+    /* The cap follows the skull's own taper one pixel out. A flat 14-wide slab
+       over a 12-wide head is what gave every character a mushroom cap. */
+    span(api, hx, hy - 2, [[2, 9], [1, 10], [0, 11], [-1, 12]], pal.hair);
     api.rect(hx - 1, hy + 2, hx, hy + 5, pal.hair);
     api.rect(hx + 11, hy + 2, hx + 12, hy + 5, pal.hair);
-    // fringe
+    // fringe — uneven so it reads as hair rather than as a fitted cap
     api.px(hx + 2, hy + 2, pal.hair); api.px(hx + 5, hy + 2, pal.hair); api.px(hx + 8, hy + 2, pal.hair);
+    api.px(hx + 3, hy + 3, pal.hairSh); api.px(hx + 8, hy + 3, pal.hairSh);
     // shine + shade
-    api.rect(hx + 1, hy - 2, hx + 3, hy - 1, pal.hairHi);
-    api.rect(hx + 11, hy - 2, hx + 12, hy + 3, pal.hairSh);
+    api.rect(hx + 2, hy - 2, hx + 4, hy - 1, pal.hairHi);
+    api.px(hx + 5, hy - 2, pal.hairHi);
+    api.rect(hx + 10, hy - 1, hx + 12, hy + 3, pal.hairSh);
+    api.px(hx + 9, hy - 2, pal.hairSh);
     if (female) {
       // long sides down to shoulders
       api.rect(hx - 2, hy + 2, hx - 1, hy + 12, pal.hair);
@@ -208,16 +273,15 @@ PF.Chars = (() => {
   function drawHeadBack(api, tx, hy, pal, cfg) {
     const hx = tx;
     if (pal === SKELETON) {
-      api.rect(hx, hy, hx + 11, hy + 9, pal.bone);
-      api.rect(hx + 10, hy, hx + 11, hy + 9, pal.skinSh);
+      skull(api, hx, hy, pal.bone, pal.skinSh);
       api.line(hx + 2, hy + 3, hx + 9, hy + 3, pal.shirtSh, 1);
       api.line(hx + 2, hy + 5, hx + 9, hy + 5, pal.shirtSh, 1);
       return;
     }
-    api.rect(hx, hy, hx + 11, hy + 9, pal.hair || pal.skin);
+    skull(api, hx, hy, pal.hair || pal.skin, pal.hairSh || pal.skinSh);
     if (pal.hair) {
-      api.rect(hx + 1, hy, hx + 4, hy + 2, pal.hairHi);
-      api.rect(hx + 9, hy + 2, hx + 11, hy + 9, pal.hairSh);
+      api.rect(hx + 2, hy, hx + 5, hy + 2, pal.hairHi);
+      api.rect(hx + 9, hy + 2, hx + 11, hy + 7, pal.hairSh);
       api.line(hx + 2, hy + 4, hx + 2, hy + 8, pal.hairSh, 1);
       api.line(hx + 9, hy + 4, hx + 9, hy + 8, pal.hairSh, 1);
       const female = (pal === FEMALE || pal === VILLAGER_F);
@@ -250,18 +314,25 @@ PF.Chars = (() => {
     const bdx = Math.max(-2, Math.min(2, aB.dx || 0)), bdy = aB.dy || 0;
     const bx = 11 + kb + bdx, by = Y(14 + bdy);
     api.rect(bx, by, bx + 2, by + 3, pal.shirtSh);
-    api.rect(bx, by + 4, bx + 1, by + 5, pal.skinSh);
+    api.rect(bx, by + 3, bx + 2, by + 3, dim(pal.shirtSh));   // cuff
+    api.rect(bx, by + 4, bx + 1, by + 6, pal.skinSh);
 
     // 2. Back leg (darker pants & boot)
-    api.rect(12 + kb + lB.dx, Y(22 + lB.dy), 14 + kb + lB.dx, Y(27 + lB.dy), pal.pantsSh);
-    api.rect(12 + kb + lB.dx, Y(26 + lB.dy), 14 + kb + lB.dx, Y(27 + lB.dy), pal.boots);
+    sideLeg(12 + kb + lB.dx, Y(22 + lB.dy), pal.pantsSh, dim(pal.boots), pal.boots);
 
     // 3. Torso (drawn cleanly over back arm & leg)
     const tx = 12 + kb, ty = Y(14);
-    api.rect(tx, ty, tx + 7, ty + 7, pal.shirt);
-    api.rect(tx, ty, tx + 1, ty + 7, pal.shirtSh);
+    /* Chest full depth, small of the back pulled in one pixel: in profile the
+       waist taper is what separates ribcage from hips. A straight 8-deep box
+       reads as a barrel. */
+    api.rect(tx, ty, tx + 7, ty + 4, pal.shirt);
+    api.rect(tx + 1, ty + 5, tx + 7, ty + 7, pal.shirt);
+    api.rect(tx, ty, tx + 1, ty + 4, pal.shirtSh);
+    api.rect(tx + 1, ty + 5, tx + 1, ty + 7, pal.shirtSh);
     api.rect(tx + 6, ty, tx + 7, ty + 7, pal.shirtHi);
-    api.rect(tx, ty + 5, tx + 7, ty + 6, pal.belt);
+    api.rect(tx + 2, ty, tx + 5, ty, lit(pal.shirt));          // collar
+    api.rect(tx + 1, ty + 5, tx + 7, ty + 6, pal.belt);
+    api.rect(tx + 1, ty + 5, tx + 7, ty + 5, lit(pal.belt));
     api.rect(tx + 3, ty + 5, tx + 4, ty + 6, pal.buckle);
     if (pal === SKELETON) {
       api.line(tx + 1, ty + 1, tx + 6, ty + 1, pal.shirtSh, 1);
@@ -270,8 +341,18 @@ PF.Chars = (() => {
     if (pal === ORC) api.rect(tx - 1, ty - 1, tx + 3, ty + 1, pal.pantsSh);
 
     // 4. Front leg (in front of torso)
-    api.rect(15 + kb + lF.dx, Y(22 + lF.dy), 17 + kb + lF.dx, Y(27 + lF.dy), pal.pants);
-    api.rect(15 + kb + lF.dx, Y(26 + lF.dy), 17 + kb + lF.dx, Y(27 + lF.dy), pal.boots);
+    sideLeg(15 + kb + lF.dx, Y(22 + lF.dy), pal.pants, pal.boots, lit(pal.boots));
+    /* In profile the boot points forward, so the toe pixel sits one past the
+       shin. It is the only thing that tells a walk cycle which way it faces. */
+    function sideLeg(x, y, cloth, boot, cuff) {
+      api.rect(x, y, x + 2, y + 3, cloth);
+      api.px(x, y, dim(cloth));
+      api.px(x + 1, y + 2, dim(cloth));                        // knee crease
+      api.rect(x, y + 4, x + 2, y + 5, boot);
+      api.rect(x, y + 4, x + 2, y + 4, cuff);
+      api.px(x + 3, y + 5, boot);                              // toe
+      api.rect(x, y + 5, x + 2, y + 5, dim(boot));
+    }
 
     // 5. Head profile (positioned at tx - 1 = 11 + kb). headDy sinks it for
     //    the breathing idle without lifting the feet off the ground.
@@ -279,22 +360,32 @@ PF.Chars = (() => {
 
     // 6. Front arm (attached at front shoulder tx + 4)
     const adx = Math.max(-1, Math.min(3, aF.dx || 0)), ady = aF.dy || 0;
-    const fx = tx + 4 + kb, fy = Y(14);
-    // Shoulder & sleeve (shirt color)
+    const fx = tx + 4, fy = Y(14);          // tx already carries kb
+    /* The near arm lies over the chest, which is the lit face of the torso, so
+       painting the sleeve in the same highlight erased it. Mid-tone sleeve with
+       a dark armpit seam pushes it in front of the body instead. */
     api.rect(fx, fy + ady, fx + 2, fy + ady + 3, pal.shirt);
-    api.rect(fx + 1, fy + ady, fx + 2, fy + ady + 3, pal.shirtHi);
+    api.rect(fx, fy + ady, fx, fy + ady + 3, dim(pal.shirt));
+    api.rect(fx + 2, fy + ady, fx + 2, fy + ady + 2, lit(pal.shirt));
+    api.rect(fx, fy + ady + 3, fx + 2, fy + ady + 3, pal.shirtSh);   // cuff
     // Forearm & hand (skin)
     const hx = fx + 1 + adx, hy = fy + ady + 4;
     api.rect(hx, hy, hx + 1, hy + 2, pal.skin);
     api.px(hx + 1, hy, pal.skinSh);
+    api.px(hx, hy + 2, lit(pal.skin));                               // knuckles
   }
 
   function drawHeadSide(api, hx, hy, pal, cfg) {
     // hx ≈ 11. Head spans hx+1 to hx+9 (9px wide), hy to hy+8 (9px tall). No snout/peg!
-    api.rect(hx + 1, hy, hx + 9, hy + 8, pal.skin);
-    api.rect(hx + 7, hy + 2, hx + 9, hy + 8, pal.skinSh);
+    /* A profile is a brow, a set-back eye socket, a nose and a jaw. Four rows
+       of span do all of it; the 9x9 rectangle it replaces had none of them. */
+    span(api, hx, hy, [[3, 8], [2, 9], [1, 9], [1, 10], [1, 9], [1, 10], [1, 9], [1, 9], [2, 8]], pal.skin);
+    api.rect(hx + 7, hy + 2, hx + 10, hy + 8, pal.skinSh);
+    api.px(hx + 9, hy + 3, pal.skin); api.px(hx + 9, hy + 5, pal.skin);   // lit nose bridge
+    api.rect(hx + 2, hy + 1, hx + 4, hy + 2, lit(pal.skin));              // temple catches light
     // ear
     api.rect(hx + 2, hy + 4, hx + 3, hy + 5, pal.skinSh);
+    api.px(hx + 3, hy + 4, dim(pal.skinSh));
 
     if (pal === SKELETON) {
       api.rect(hx + 5, hy + 3, hx + 8, hy + 5, '#181425');
@@ -305,8 +396,11 @@ PF.Chars = (() => {
 
     // hair
     if (pal.hair) {
-      api.rect(hx, hy - 2, hx + 8, hy + 1, pal.hair);
-      api.rect(hx, hy + 2, hx + 3, hy + 8, pal.hair);
+      span(api, hx, hy - 2, [[2, 7], [1, 8], [0, 9], [0, 9]], pal.hair);
+      // back mass, tapered into the nape — a flat 4x7 block read as a helmet
+      span(api, hx, hy + 2, [[0, 3], [0, 3], [0, 3], [0, 2], [0, 2], [1, 2], [1, 2]], pal.hair);
+      api.rect(hx, hy + 5, hx, hy + 8, pal.hairSh);
+      api.px(hx + 1, hy + 8, pal.hairSh);
       api.rect(hx + 1, hy - 2, hx + 4, hy - 1, pal.hairHi);
       // front fringe / bangs
       api.rect(hx + 6, hy - 1, hx + 8, hy + 2, pal.hair);
@@ -650,26 +744,59 @@ PF.Chars = (() => {
   const Fr = (duration, paint) => ({ duration, paint });
   const ms = fps => Math.round(1000 / fps);
 
+  /* A walk is a pose table, not a sine. The old form sampled sin(i/n) over four
+     frames, which puts frames 0 and 2 at exactly the same phase — the cycle was
+     two poses flickering, which is why every character looked like it was
+     sliding. These are the eight classic beats: contact, down, pass, up, then
+     the same four with the legs swapped.
+
+     `lift` is how far a foot is off the FLOOR, not an offset from the body, so
+     the planted foot stays welded to y27 while the hips drop on the down beat.
+     `bob` is never negative: the painters translate the legs along with the
+     torso, so raising the body would peel the feet off the ground and open a
+     gap at the hip. Zero is the high point of the cycle and 1 is the weight
+     drop — two bounces per stride, which is what a stride actually does. */
+  //                 bob  fwdF liftF  fwdB liftB   armF armB
+  const SIDE_WALK = [[0,   3, 0,   -3, 0,   -3,  3],   // contact
+                     [1,   2, 0,   -2, 0,   -2,  2],   // down (weight lands)
+                     [0,   0, 0,    0, 2,    0,  0],   // pass (rear foot swings under)
+                     [0,  -2, 0,    2, 1,    2, -2],   // up (push off)
+                     [0,  -3, 0,    3, 0,    3, -3],   // contact, legs swapped
+                     [1,  -2, 0,    2, 0,    2, -2],
+                     [0,   0, 2,    0, 0,    0,  0],
+                     [0,   2, 1,   -2, 0,   -2,  2]];
+  //                  bob  dxA liftA  dxB liftB  armL armR
+  const FRONT_WALK = [[0,  -1, 0,    1, 0,    1, -1],
+                      [1,  -1, 0,    1, 0,    1, -1],
+                      [0,   0, 0,    0, 2,    0,  0],
+                      [0,   1, 0,   -1, 1,   -1,  1],
+                      [0,   1, 0,   -1, 0,   -1,  1],
+                      [1,   1, 0,   -1, 0,   -1,  1],
+                      [0,   0, 2,    0, 0,    0,  0],
+                      [0,  -1, 1,    1, 0,    1, -1]];
+  /* Callers still pass whatever frame count their state uses, so resample the
+     eight beats onto n. n === 8 hits every beat exactly; n === 4 lands on the
+     four keys (contact, pass, contact, pass) and still steps. */
+  const beat = (i, n) => Math.round((i / n) * 8) % 8;
+  const sc = (v, amp) => Math.round(v * (amp / 2));
+
   function frontPose(i, n, amp, pal, facing, extra = {}) {
-    // walk/idle leg/arm offsets from sine phase
-    const p = i / n, s = Math.sin(p * Math.PI * 2);
-    const bob = extra.bob !== undefined ? extra.bob : Math.round(-Math.abs(s) * amp);
+    const k = FRONT_WALK[beat(i, n)];
+    const bob = extra.bob !== undefined ? extra.bob : sc(k[0], amp);
     return { pal, facing, bob,
-      /* A leg only ever lifts. The old form was `dy = s * amp`, which on the
-         down half of the sine drove the planted foot *through* the floor while
-         the swinging one stayed put — the cycle read as sliding, not stepping. */
-      legA: { dx: 0, dy: -Math.round(Math.max(0, s) * amp) }, legB: { dx: 0, dy: -Math.round(Math.max(0, -s) * amp) },
-      armL: { dx: 0, dy: Math.round(-s * amp) }, armR: { dx: 0, dy: Math.round(s * amp) },
+      legA: { dx: sc(k[1], amp), dy: -sc(k[2], amp) - bob },
+      legB: { dx: sc(k[3], amp), dy: -sc(k[4], amp) - bob },
+      armL: { dx: 0, dy: sc(k[5], amp) }, armR: { dx: 0, dy: sc(k[6], amp) },
       eye: extra.eye || 'open', mouth: extra.mouth || 'closed', ...extra };
   }
   function sidePose(i, n, amp, pal, extra = {}) {
-    const p = i / n, s = Math.sin(p * Math.PI * 2);
-    const bob = extra.bob !== undefined ? extra.bob : Math.round(-Math.abs(s) * amp);
+    const k = SIDE_WALK[beat(i, n)];
+    const bob = extra.bob !== undefined ? extra.bob : sc(k[0], amp);
     return { pal, facing: 'side', bob,
-      legF: { dx: Math.round(s * amp), dy: Math.round(-Math.max(0, s) * amp) },
-      legB: { dx: Math.round(-s * amp), dy: Math.round(-Math.max(0, -s) * amp) },
-      armF: { dx: Math.round(-s * amp * 0.8), dy: Math.round(Math.abs(s) * -0.5) },
-      armB: { dx: Math.round(s * amp * 0.8), dy: 0 },
+      legF: { dx: sc(k[1], amp), dy: -sc(k[2], amp) - bob },
+      legB: { dx: sc(k[3], amp), dy: -sc(k[4], amp) - bob },
+      armF: { dx: sc(k[5], amp), dy: 0 },
+      armB: { dx: sc(k[6], amp), dy: 0 },
       eye: extra.eye || 'open', mouth: extra.mouth || 'closed', ...extra };
   }
   const paintHero = cfg => (buf, W, H) => {
@@ -699,11 +826,11 @@ PF.Chars = (() => {
     // walk ×3
     for (const [sname, facing] of [['walk_down', 'down'], ['walk_side', 'side'], ['walk_up', 'up']]) {
       const frames = [];
-      for (let i = 0; i < 4; i++) {
-        const cfg = facing === 'side' ? sidePose(i, 4, 2, pal) : frontPose(i, 4, 2, pal, facing);
-        frames.push(Fr(ms(6), paintHero(cfg)));
+      for (let i = 0; i < 8; i++) {
+        const cfg = facing === 'side' ? sidePose(i, 8, 2, pal) : frontPose(i, 8, 2, pal, facing);
+        frames.push(Fr(ms(10), paintHero(cfg)));
       }
-      states.push(D(sname, 6, true, frames));
+      states.push(D(sname, 10, true, frames));
     }
     // run (side, 6f bigger swing + dust)
     {
@@ -876,10 +1003,11 @@ PF.Chars = (() => {
     const N = c => (buf, W, H) => { const api = PF.Pixel.makeApi(buf, W, H); drawHumanoid(api, buf, W, H, c); };
     for (const [sname, facing] of [['idle_down', 'down'], ['idle_side', 'side'], ['walk_down', 'down'], ['walk_side', 'side']]) {
       const frames = [];
-      const n = 4, fps = sname.startsWith('idle') ? 4 : 6;
+      const idle = sname.startsWith('idle');
+      const n = idle ? 4 : 8, fps = idle ? 4 : 10;
       for (let i = 0; i < n; i++) {
         const cfg = facing === 'side' ? sidePose(i, n, 2, pal) : frontPose(i, n, 2, pal, facing === 'walk_down' ? 'down' : facing);
-        if (sname.startsWith('idle')) {
+        if (idle) {
           cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.legF = { dx: 0, dy: 0 };
           cfg.headDy = [0, 1, 1, 0][i]; cfg.bob = 0; cfg.eye = i === 3 ? 'closed' : 'open';
         }
@@ -941,7 +1069,7 @@ PF.Chars = (() => {
     const IDLE_HEAD = [0, 1, 1, 0], IDLE_ARM = [0, 0, 1, 1];
     const amp = 2;
     for (const [sname, facing, n, fps] of [['idle_down', 'down', 4, 4], ['idle_side', 'side', 4, 4], ['idle_up', 'up', 4, 4],
-                                           ['walk_down', 'down', 6, 6], ['walk_side', 'side', 6, 6], ['walk_up', 'up', 6, 6]]) {
+                                           ['walk_down', 'down', 8, 10], ['walk_side', 'side', 8, 10], ['walk_up', 'up', 8, 10]]) {
       const frames = [];
       for (let i = 0; i < n; i++) {
         let cfg;
@@ -953,19 +1081,13 @@ PF.Chars = (() => {
           cfg.armF = { dx: 0, dy: IDLE_ARM[i] }; cfg.armB = { dx: 0, dy: IDLE_ARM[i] };
           cfg.headDy = IDLE_HEAD[i]; cfg.bob = 0; cfg.eye = i === 3 ? 'closed' : 'open';
         } else {
-          /* Six beats with the bob on a quarter-phase cosine: a plain 6-sample
-             sine repeats its magnitude on frames 1/2 and 4/5 and stalls. */
-          const a = i / n * Math.PI * 2;
-          // One row of lift only: two rows sliced headgear off the top of the
-          // frame, since the outline pass cannot draw outside the buffer. The
-          // arms carry the cosine so the six frames stay distinct.
-          const bob = Math.max(-1, Math.min(0, Math.round(-Math.abs(Math.sin(a)) * amp - Math.cos(a) * 0.9)));
-          const aw = Math.round(Math.cos(a) * 2);
-          const dust = (i === 1 || i === 4) ? [[13, 27, '#c0cbdc'], [18, 27, '#8b9bb4']] : null;
-          cfg = facing === 'side' ? sidePose(i, n, amp, pal, { bob, tool: { kind: 'none', dust } })
-                                  : frontPose(i, n, amp, pal, facing, { bob, tool: { kind: 'none', dust } });
-          if (facing === 'side') { cfg.armF = { dx: -aw, dy: 0 }; cfg.armB = { dx: aw, dy: 0 }; }
-          else { cfg.armL = { dx: 0, dy: -aw }; cfg.armR = { dx: 0, dy: aw }; }
+          /* The eight-beat table already carries the weight drop; the old
+             cosine bob here fought it, lifting the body off legs that the
+             lift-compensation had pinned to the floor. Dust puffs land on the
+             two contact beats, where the foot actually strikes. */
+          const dust = (i === 0 || i === 4) ? [[13, 27, '#c0cbdc'], [18, 27, '#8b9bb4']] : null;
+          cfg = facing === 'side' ? sidePose(i, n, amp, pal, { tool: { kind: 'none', dust } })
+                                  : frontPose(i, n, amp, pal, facing, { tool: { kind: 'none', dust } });
         }
         frames.push(Fr(ms(fps), N(cfg)));
       }
