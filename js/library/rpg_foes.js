@@ -39,7 +39,7 @@ PF.RPG.foes = (() => {
       // tail (behind): segments + spade
       api.line(8, Y(21), 2, Y(25), DBASE, 3);
       api.line(2, Y(25), 1, Y(23), DBASE, 2);
-      api.px(1, Y(22), BONE); api.px(0, Y(24), BONE); api.px(2, Y(24), BONE);
+      api.px(1, Y(22), BONE); api.px(1, Y(24), BONE); api.px(2, Y(24), BONE);
       // far wing (folded hint when idle)
       // body
       api.ellipse(6, Y(16), 24, Y(24), DBASE, true);
@@ -48,25 +48,28 @@ PF.RPG.foes = (() => {
       api.rect(6, Y(16), 24, Y(17), DMID);
       // back spikes
       [10, 15, 20].forEach(x => { api.line(x, Y(16), x + 1, Y(12), BONE, 2); api.px(x + 1, Y(12), '#ffffff'); });
-      // legs
-      api.rect(12, Y(23), 15, Y(28), DBASE); api.rect(12, Y(27), 15, Y(28), BONE);
-      api.rect(19, Y(23), 22, Y(28), DBASE); api.rect(19, Y(27), 22, Y(28), BONE);
-      // neck + head
-      api.rect(21, Y(11), 25, Y(19), DBASE);
-      api.rect(22, Y(7), 29, Y(13), DBASE);
-      api.rect(26, Y(9), 31, Y(13), DMID); // snout
-      api.rect(26, Y(12), 31, Y(13), DBELLYSH); // jaw shade
-      api.px(30, Y(10), '#3e2731'); // nostril
+      // legs — one row short of the old y28, which put the outline on y29 and
+      // fused the feet to the engine's shadow row
+      api.rect(12, Y(23), 15, Y(27), DBASE); api.rect(12, Y(26), 15, Y(27), BONE);
+      api.rect(19, Y(23), 22, Y(27), DBASE); api.rect(19, Y(26), 22, Y(27), BONE);
+      /* neck + head, pulled one column inside the frame. The snout used to end
+         on x31, the last column, so the outline pass had nowhere to draw and
+         the head read as sliced off at the right edge of the sheet. */
+      api.rect(20, Y(11), 24, Y(19), DBASE);
+      api.rect(21, Y(7), 28, Y(13), DBASE);
+      api.rect(25, Y(9), 30, Y(13), DMID); // snout
+      api.rect(25, Y(12), 30, Y(13), DBELLYSH); // jaw shade
+      api.px(29, Y(10), '#3e2731'); // nostril
       // horns sweeping back
-      api.line(23, Y(7), 19, Y(3), BONE, 2); api.line(25, Y(7), 22, Y(2), BONE, 2);
+      api.line(22, Y(7), 18, Y(4), BONE, 2); api.line(24, Y(7), 21, Y(3), BONE, 2);
       // eye: angry yellow + brow
-      api.rect(24, Y(9), 25, Y(10), '#fee761'); api.px(24, Y(9), '#181425');
-      api.line(23, Y(8), 26, Y(8), DBASE, 1);
+      api.rect(23, Y(9), 24, Y(10), '#fee761'); api.px(23, Y(9), '#181425');
+      api.line(22, Y(8), 25, Y(8), DBASE, 1);
       // near wing
       const flap = o.flap !== undefined ? o.flap : (o.fold ? -1 : 1);
-      wing(api, 14, Y(14), flap, i);
+      wing(api, 13, Y(14), flap, i);
       if (o.fire !== undefined) dragonFire(api, o.fire);
-      if (o.smoke) { api.px(31, Y(7), '#8b9bb4'); api.px(30, Y(5), '#5a6988'); }
+      if (o.smoke) { api.px(30, Y(7), '#8b9bb4'); api.px(29, Y(5), '#5a6988'); }
       if (o.flash) P().flashWhite(api, W, H, buf);
       finish(buf, W, H);
       if (o.fade) R.fadeOut(buf, W, H, o.fade, 5);
@@ -89,16 +92,17 @@ PF.RPG.foes = (() => {
     void i;
   }
   function dragonFire(api, stage) {
-    // fireball spit at snout (30,11): grow -> fly -> burst
-    if (stage === 0) { api.rect(28, 10, 30, 12, '#fee761'); api.px(29, 11, '#ffffff'); }
-    else if (stage === 1) { api.ellipse(26, 9, 30, 13, '#f77622', true); api.ellipse(27, 10, 29, 12, '#fee761', true); api.px(28, 11, '#ffffff'); }
-    else if (stage === 2) { api.line(29, 11, 31, 11, '#f77622', 2); api.ellipse(27, 8, 31, 13, '#f77622', true); api.ellipse(28, 9, 30, 12, '#fee761', true); api.px(29, 10, '#ffffff'); }
-    else { P().sparks(api, 30, 11, 2, '#fee761', 10, 2, 6); api.ellipse(27, 8, 31, 13, '#ffffff', false); }
+    // fireball spit at snout (29,11): grow -> fly -> burst. Kept one column
+    // inside the frame so the burst keeps its outline instead of being sheared.
+    if (stage === 0) { api.rect(27, 10, 29, 12, '#fee761'); api.px(28, 11, '#ffffff'); }
+    else if (stage === 1) { api.ellipse(25, 9, 29, 13, '#f77622', true); api.ellipse(26, 10, 28, 12, '#fee761', true); api.px(27, 11, '#ffffff'); }
+    else if (stage === 2) { api.line(28, 11, 30, 11, '#f77622', 2); api.ellipse(26, 8, 30, 13, '#f77622', true); api.ellipse(27, 9, 29, 12, '#fee761', true); api.px(28, 10, '#ffffff'); }
+    else { P().sparks(api, 29, 11, 2, '#fee761', 10, 2, 5); api.ellipse(26, 8, 30, 13, '#ffffff', false); }
   }
   function dragonSuite() {
     return { width: 32, height: 32, name: 'rpg-dragon', layers: [{ name: 'Body' }], states: [
       D('idle', 5, true, [0, 1, 2, 3].map(i => Fr(ms(5), dragonFrame({ i, dy: i % 2 ? -1 : 0, fold: true, smoke: i === 3 })))),
-      D('fly', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), dragonFrame({ i, dy: [0, -2, -3, -1][i], flap: [1, 0, 2, 0][i] })))),
+      D('fly', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), dragonFrame({ i, dy: [0, -1, -2, 0][i], flap: [1, 0, 2, 0][i] })))),
       D('fireball', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), dragonFrame({ i, fire: i, fold: true })))),
       D('hurt', 8, true, [Fr(ms(8), dragonFrame({ flash: true, fold: true })), Fr(ms(8), dragonFrame({ dy: 1, fold: true }))]),
       D('death', 6, false, [

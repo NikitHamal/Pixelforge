@@ -286,7 +286,11 @@ PF.UI = (() => {
   }
 
   /* ================= AGENT ================= */
-  PF.Agent.init({ log: $('#agent-log'), input: $('#agent-input'), send: $('#agent-send'), chips: $('#agent-chips') });
+  PF.Agent.init({ log: $('#agent-log'), input: $('#agent-input'), send: $('#agent-send'), chips: $('#agent-chips'),
+    model: $('#agent-model'), status: $('#agent-status'), stop: $('#agent-stop'), mode: $('#agent-mode'), refresh: $('#agent-models-refresh'),
+    connect: { btn: $('#agent-connect'), dlg: $('#dlg-nebian'), login: $('#neb-login'), pass: $('#neb-password'), go: $('#neb-go'), err: $('#neb-error') } });
+  $('#neb-form').addEventListener('submit', e => e.preventDefault());
+  $('#neb-cancel').addEventListener('click', () => $('#dlg-nebian').close());
   $('#agentForm').addEventListener('submit', e => e.preventDefault());
   const mini = $('#agent-tools-mini');
   PF.Tools.list().forEach(t => {

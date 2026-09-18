@@ -2,19 +2,122 @@
    recipe planner, public window.PixelForge API and postMessage bridge for external agents. */
 window.PF = window.PF || {};
 PF.Agent = (() => {
-  let logEl, inputEl, busy = false;
+  let logEl, inputEl, busy = false, aborter = null;
   const MAX_LOG = 200;
+  /* LLM side: Nebians account + live selector + status + history (studio drawer + app cockpit) */
+  let modelSel = null, statusEl = null, stopBtn = null, modeBtn = null, refreshBtn = null, connectUI = null;
+  let aiMode = true, hist = [];
+  const MODEL_KEY = 'pf-agent-model', MODE_KEY = 'pf-agent-mode';
+  const WEAK_MODEL = /yqcloud|chatjimmy|llama-3\.1-8b|tiny|1\.5b|nano|instant/i; // small models get the core toolset
 
   /* ---------- Console ---------- */
-  function init({ log, input, send, chips }) {
+  function init({ log, input, send, chips, model, status, stop, mode, refresh, connect }) {
     logEl = log; inputEl = input;
+    modelSel = model || null; statusEl = status || null; stopBtn = stop || null; modeBtn = mode || null; refreshBtn = refresh || null; connectUI = connect || null;
     send.addEventListener('click', submit);
     input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } });
     chips.addEventListener('click', e => { const b = e.target.closest('[data-prompt]'); if (b) { input.value = b.dataset.prompt; submit(); } });
     PF.Store.on('tool:result', r => logTool(r));
-    say('agent', 'Hi! I\'m the PixelForge agent. Ask me to draw ("make a slime idle animation"), run a tool ("/draw_rect x=2 y=2 width=10 height=6 fill=true color=#ff0044"), or paste JSON tool calls. Type /help for everything.');
+    initModelBar();
+    try { document.querySelectorAll('[data-count="tools"]').forEach(el => { el.textContent = PF.Tools.list().length; }); } catch {}
+    say('agent', 'Hi! I\'m the PixelForge agent. Ask me to draw ("make a slime idle animation"), run a tool ("/draw_rect x=2 y=2 width=10 height=6 fill=true color=#ff0044"), or paste JSON tool calls. Type /help for everything. AI mode needs your Nebians account (Connect button) or dev-server NEBIANS_TOKEN.');
     window.addEventListener('message', onMessage);
   }
+  /* (Re)build selector options from the live Nebians catalog, preserving selection. */
+  function buildModelOptions() {
+    if (!modelSel || !PF.Nebians) return;
+    const prev = modelSel.value;
+    let saved = null;
+    try { saved = localStorage.getItem(MODEL_KEY); } catch {}
+    const groups = {};
+    PF.Nebians.listModels().forEach(m => { (groups[m.providerLabel] = groups[m.providerLabel] || []).push(m); });
+    modelSel.innerHTML = '';
+    if (!Object.keys(groups).length) {
+      const o = document.createElement('option'); o.value = ''; o.textContent = 'Connect Nebians to load models…'; modelSel.appendChild(o);
+    }
+    Object.keys(groups).forEach(g => {
+      const og = document.createElement('optgroup');
+      og.label = `${g} · ${groups[g].length}`;
+      groups[g].forEach(m => { const o = document.createElement('option'); o.value = m.id; o.textContent = m.note ? `${m.label} — ${m.note}` : m.label; og.appendChild(o); });
+      modelSel.appendChild(og);
+    });
+    const want = (prev && PF.Nebians.modelOf(prev) && prev) || (saved && PF.Nebians.modelOf(saved) && saved) || PF.Nebians.DEFAULT_MODEL;
+    modelSel.value = PF.Nebians.modelOf(want) ? want : (modelSel.options[0] ? modelSel.options[0].value : '');
+    setStatus(modelLabel());
+  }
+  async function refreshModelsNow() {
+    if (!PF.Nebians) return;
+    setStatus('refreshing Nebians models…');
+    try {
+      await PF.Nebians.liveModels();
+      buildModelOptions();
+      const all = PF.Nebians.listModels(), fams = new Set(all.map(m => m.family));
+      setStatus(all.length ? `${all.length} models live across ${fams.size} families` : 'No models — sign in first.');
+    } catch (e) {
+      if (e.auth) { setStatus('Nebians sign-in needed — use Connect.'); openConnect(); }
+      else setStatus(modelLabel());
+    }
+  }
+  /* Nebians account wiring: token in localStorage, or dev-server NEBIANS_TOKEN (server key). */
+  function syncConnect() {
+    if (!connectUI || !connectUI.btn || !PF.Nebians) return;
+    const t = PF.Nebians.authed(), s = PF.Nebians.serverAuth(), u = PF.Nebians.user();
+    connectUI.btn.textContent = t ? `● ${u || 'Nebians'}` : s ? '● Server key' : 'Connect';
+    connectUI.btn.classList.toggle('is-on', t || s);
+    connectUI.btn.title = t ? `Signed in as ${u || 'Nebians user'} — click to sign out` : s ? 'Dev server carries NEBIANS_TOKEN — click to use your own account instead' : 'Connect your Nebians account (free LLMs, no PixelForge-side keys)';
+  }
+  function openConnect() {
+    if (!connectUI || !connectUI.dlg) return;
+    if (connectUI.err) connectUI.err.textContent = '';
+    if (connectUI.dlg.showModal) connectUI.dlg.showModal(); else connectUI.dlg.setAttribute('open', '');
+  }
+  function closeConnect() { try { connectUI.dlg.close(); } catch {} }
+  async function submitConnect() {
+    if (!connectUI || !PF.Nebians) return;
+    const id = (connectUI.login.value || '').trim(), pw = connectUI.pass.value || '';
+    if (connectUI.err) connectUI.err.textContent = '';
+    if (!id || !pw) { if (connectUI.err) connectUI.err.textContent = 'Enter your Nebians email/username and password.'; return; }
+    if (connectUI.go) connectUI.go.disabled = true;
+    try {
+      await PF.Nebians.login(id, pw);
+      if (connectUI.pass) connectUI.pass.value = ''; // never keep the password in the DOM
+      closeConnect(); syncConnect();
+      await PF.Nebians.liveModels(); buildModelOptions();
+      setStatus(modelLabel());
+      say('agent', `Connected to Nebians as ${PF.Nebians.user()}. ${PF.Nebians.listModels().length} free models ready — pick one above and just ask.`);
+    } catch (e) {
+      if (connectUI.err) connectUI.err.textContent = e.message;
+    } finally { if (connectUI.go) connectUI.go.disabled = false; }
+  }
+  function initModelBar() {
+    try { aiMode = (localStorage.getItem(MODE_KEY) || 'ai') === 'ai'; } catch { aiMode = true; }
+    if (modelSel && PF.Nebians) {
+      buildModelOptions();
+      modelSel.addEventListener('change', () => { try { localStorage.setItem(MODEL_KEY, modelSel.value); } catch {} setStatus(modelLabel()); });
+      // Background: probe auth state, then pull the live catalog when possible.
+      PF.Nebians.refreshAuth().then(() => { syncConnect(); return PF.Nebians.liveModels(); }).then(all => { if (all.length) buildModelOptions(); syncConnect(); }).catch(() => syncConnect());
+    }
+    if (modeBtn) { syncModeBtn(); modeBtn.addEventListener('click', () => { aiMode = !aiMode; try { localStorage.setItem(MODE_KEY, aiMode ? 'ai' : 'local'); } catch {} syncModeBtn(); setStatus(modelLabel()); }); }
+    if (refreshBtn) refreshBtn.addEventListener('click', refreshModelsNow);
+    if (connectUI && connectUI.btn) connectUI.btn.addEventListener('click', () => {
+      if (PF.Nebians && PF.Nebians.authed()) { PF.Nebians.logout(); syncConnect(); buildModelOptions(); setStatus('Signed out — local recipes only.'); }
+      else if (PF.Nebians && PF.Nebians.serverAuth()) { openConnect(); }
+      else openConnect();
+    });
+    if (connectUI && connectUI.go) connectUI.go.addEventListener('click', submitConnect);
+    if (connectUI && connectUI.pass) connectUI.pass.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submitConnect(); } });
+    if (stopBtn) { stopBtn.classList.add('hidden'); stopBtn.addEventListener('click', () => { if (aborter) aborter.abort(); }); }
+    setStatus(modelLabel());
+  }
+  const curModel = () => (modelSel && modelSel.value) || (PF.Nebians ? PF.Nebians.DEFAULT_MODEL : 'local');
+  const modelLabel = () => {
+    if (!aiMode) return 'Local recipes';
+    const m = PF.Nebians && PF.Nebians.listModels().find(x => x.id === curModel());
+    return m ? `${m.providerLabel} · ${m.label}` : (curModel() || 'Nebians');
+  };
+  function syncModeBtn() { if (modeBtn) { modeBtn.textContent = aiMode ? 'AI' : 'Local'; modeBtn.classList.toggle('is-on', aiMode); modeBtn.title = aiMode ? 'AI mode (free Nebians models) — click for local recipes' : 'Local recipes — click for AI mode'; } }
+  function setStatus(t) { if (statusEl) statusEl.textContent = t || ''; }
+  function cancel() { if (aborter) aborter.abort(); }
   function say(role, text) {
     if (!logEl) return; const el = document.createElement('div'); el.className = `msg msg--${role}`; el.textContent = text; logEl.appendChild(el); trim(); logEl.scrollTop = logEl.scrollHeight; return el;
   }
@@ -32,15 +135,43 @@ PF.Agent = (() => {
   async function submit() {
     const text = inputEl.value.trim(); if (!text || busy) return;
     inputEl.value = ''; say('user', text); busy = true;
+    aborter = new AbortController();
+    if (stopBtn) stopBtn.classList.remove('hidden');
+    const t0 = Date.now();
+    const tick = setInterval(() => { if (busy) setStatus(`thinking… ${Math.round((Date.now() - t0) / 1000)}s`); }, 500);
     try { await handle(text); } catch (e) { say('agent', `Error: ${e.message}`); }
-    busy = false;
+    clearInterval(tick); busy = false; aborter = null;
+    if (stopBtn) stopBtn.classList.add('hidden');
+    setStatus(modelLabel());
   }
 
   /* ---------- Command handling ---------- */
   async function handle(text) {
     if (text[0] === '{' || text[0] === '[') { const calls = [].concat(JSON.parse(text)); return run(calls.map(c => ({ tool: c.tool || c.name, args: c.args || c.arguments || {} }))); }
     if (text[0] === '/') return slash(text);
+    if (aiMode && PF.Nebians && PF.Harness) return ai(text);
     return natural(text);
+  }
+  /* LLM turn: Hermes text-protocol harness over Nebians sessions, with
+     automatic fallback to local recipes when the network path fails. */
+  async function ai(text) {
+    const gate = PF.Nebians ? await PF.Nebians.refreshAuth().catch(() => null) : null;
+    const authed = PF.Nebians && (PF.Nebians.authed() || PF.Nebians.serverAuth());
+    if (!gate || !gate.pipe) { say('agent', 'AI needs the dev server pipe to Nebians: run `node scripts/serve.js` and reload — falling back to local recipes.'); return natural(text); }
+    if (!authed) { say('agent', 'AI needs your Nebians account (free LLMs). Use Connect above, or set NEBIANS_TOKEN for the dev server — falling back to local recipes for now.'); return natural(text); }
+    const model = curModel();
+    if (!PF.Nebians.modelOf(model)) { say('agent', 'Pick a model from the selector first (use the sync button to reload the live list) — falling back to local recipes.'); return natural(text); }
+    setStatus(`thinking via ${modelLabel()}…`);
+    const r = await PF.Harness.runGoal({ model, goal: text, history: hist, fullTools: !WEAK_MODEL.test(model),
+      signal: aborter ? aborter.signal : null, onEvent: ev => { if (ev.type === 'turn') setStatus(`turn ${ev.turn} · ${modelLabel()}…`); } });
+    if (r.status === 'cancelled') { say('agent', 'Stopped.'); return; }
+    if (r.status === 'error') {
+      say('agent', r.auth ? `${r.error} — use Connect to sign in again. Falling back to local recipes.` : `${r.error} — falling back to local recipes.`);
+      return natural(text);
+    }
+    hist.push({ role: 'user', content: text }, { role: 'assistant', content: (r.final || r.question || '').slice(0, 2000) });
+    hist = hist.slice(-12);
+    say('agent', r.status === 'needs-input' ? `A question before I continue: ${r.question}` : (r.final || 'Done.'));
   }
   function slash(text) {
     const [cmd, ...rest] = text.slice(1).trim().split(/\s+/);
@@ -53,7 +184,7 @@ PF.Agent = (() => {
   const coerce = v => { if (/^".*"$|^'.*'$/.test(v)) return v.slice(1, -1); if (v === 'true') return true; if (v === 'false') return false;
     if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v); if (/^[\[{]/.test(v)) { try { return JSON.parse(v); } catch { return v; } } return v; };
   function help() {
-    say('agent', `Ways to drive PixelForge:\n• Templates: "open the male hero", "add a slime", "dungeon tileset", "weapons rack" — 32 animated assets (/list_templates to browse, /load_template id=hero_male to open, /append_template_states to merge).\n• Projects: /new_project, /open_project, /list_projects, /save_project, /duplicate_project, /delete_project.\n• Quick recipes: "make a slime idle animation", "spinning coin", "hero walk cycle", "add outline", "flip x", "export gif", "add walk state", "new 64x64 canvas", "play", "undo", "clear".\n• Slash tools: /draw_rect x=0 y=0 width=8 height=8 fill=true color=#ff0044   (/tools lists ${PF.Tools.list().length} tools, /schema <tool> shows arguments)\n• JSON: {"tool":"paint_rows","args":{"rows":["GG","GG"],"legend":{"G":"#63c74d"}}} or an array of calls.\n• From code: window.PixelForge.call("fill",{x:0,y:0,color:"#000"}) or postMessage({type:"pf:call",id,tool,args}).\n• MCP: see the MCP section for the manifest & bridge.`);
+    say('agent', `Ways to drive PixelForge:\n• Templates: "open the male hero", "add a slime", "dungeon tileset", "weapons rack" — 32 animated assets (/list_templates to browse, /load_template id=hero_male to open, /append_template_states to merge).\n• Projects: /new_project, /open_project, /list_projects, /save_project, /duplicate_project, /delete_project.\n• Quick recipes: "make a slime idle animation", "spinning coin", "hero walk cycle", "add outline", "flip x", "export gif", "add walk state", "new 64x64 canvas", "play", "undo", "clear".\n• Slash tools: /draw_rect x=0 y=0 width=8 height=8 fill=true color=#ff0044   (/tools lists ${PF.Tools.list().length} tools, /schema <tool> shows arguments)\n• JSON: {"tool":"paint_rows","args":{"rows":["GG","GG"],"legend":{"G":"#63c74d"}}} or an array of calls.\n• From code: window.PixelForge.call("fill",{x:0,y:0,color:"#000"}) or postMessage({type:"pf:call",id,tool,args}).\n• MCP: see the MCP section for the manifest & bridge.\n• AI mode (default): plain English goes to Nebians free LLMs from the selector — connect your Nebians account (Connect button, token stays in this browser) or set NEBIANS_TOKEN for the dev server. It calls these same tools and shows each call live. Toggle AI/Local to use offline recipes.`);
   }
 
   /* Execute a plan step by step (visible in the log) */
@@ -166,6 +297,9 @@ PF.Agent = (() => {
     version: '1.0.0',
     call: (tool, args) => PF.Tools.call(tool, args),
     tools: () => PF.Tools.list(),
+    models: () => (PF.Nebians ? PF.Nebians.listModels() : []),
+    setModel: id => { if (modelSel && PF.Nebians && PF.Nebians.modelOf(id)) { modelSel.value = id; try { localStorage.setItem(MODEL_KEY, id); } catch {} setStatus(modelLabel()); return true; } return false; },
+    cancel,
     describeUI: f => PF.UI.describe(f),
     clickUI: (id, v) => PF.UI.click(id, v),
     run: plan => run(plan, { delay: 0 }),
@@ -174,5 +308,5 @@ PF.Agent = (() => {
     on: (ev, fn) => PF.Store.on(ev, fn),
     document: () => PF.Store.summary()
   };
-  return { init, say, run, handle, RECIPES };
+  return { init, say, run, handle, cancel, curModel, RECIPES };
 })();

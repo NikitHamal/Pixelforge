@@ -10,34 +10,56 @@ PF.Monsters = (() => {
   const finish = (buf, W, H) => buf.set(PF.Raster.outline(buf, W, H, C('#181425')));
 
   /* ---------- SLIME ---------- */
-  function slimeFrame(w, h, squash, blink, hurt) {
+  /* Same creature as the landing page hero demo, from the same row maps — the
+     library version used to be a symmetric ellipse with tall black eyes and a
+     mouth, which is a different character. The dome narrows to a 4px crown, the
+     eyes are 2px dark green (not outline black), the glint is the stacked
+     L/WW pair upper-left, and the base is its own shade band. No mouth. */
+  const SLIME_A = ['......GGGG......', '....GGGGGGGG....', '...GGGGGGGGGG...', '..GGLLGGGGGGGG..',
+    '..GLWWGGGGGGGG..', '.GGLWWGGGGGGGGG.', '.GGGGGOOGGOOGGG.', '.GGGGGOOGGOOGGG.',
+    '.GGGGGGGGGGGGGG.', '.GGGGGGGGGGGGGG.', '..DDDDDDDDDDDD..'];
+  const SLIME_B = ['.....GGGGGG.....', '...GGGGGGGGGG...', '..GGLLGGGGGGGG..', '.GGLWWGGGGGGGGG.',
+    '.GGLWWGGGGGGGGG.', 'GGGGGGOOGGOOGGGG', 'GGGGGGOOGGOOGGGG', 'GGGGGGGGGGGGGGGG', '.DDDDDDDDDDDDDD.'];
+  const SLIME_C = ['....GGGGGG....', '...GGGGGGGG...', '..GGLLGGGGGG..', '..GLWWGGGGGG..', '.GGLWWGGGGGGG.',
+    '.GGGOOGGOOGG.', '.GGGOOGGOOGG.', '.GGGGGGGGGGG.', '.GGGGGGGGGGG.', '..GGGGGGGGG..', '..GGGGGGGGG..', '...GGGGGGG...', '..DDDDDDDDD..'];
+  const SLIME_E = ['......GGGGGG......', '....GGGGGGGGGG....', '..GGLLGGGGGGGGGG..', '.GGLWWGGGGGGGGGGG.',
+    'GGGGGOOGGOOGGGGGGG', '.DDDDDDDDDDDDDDDD.'];
+  const SLIME_F = ['.......GGGGGGGG.......', '.....GGGGGGGGGGGG.....', '...GGGGGGGGGGGGGGGGG...', '....DDDDDDDDDDDDDDDD....'];
+  const SLIME_PAL = { G: '#63c74d', L: '#a8f28a', W: '#ffffff', O: '#265c42', D: '#3e8948' };
+  const SLIME_FLASH = { G: '#ffffff', L: '#f2f2f2', W: '#ffffff', O: '#bfe8b8', D: '#e6e6e6' };
+
+  /* Close the eyes without moving them: wipe every O cell back to body green,
+     then keep the single middle row so the blink is a slit in the same place. */
+  function slimeRows(rows, blink) {
+    if (!blink) return rows;
+    const eyeRows = rows.reduce((n, r) => n + (r.includes('O') ? 1 : 0), 0);
+    const mid = rows.findIndex(r => r.includes('O')) + (eyeRows >> 1);
+    return rows.map((r, i) => i === mid ? r : r.replace(/O/g, 'G'));
+  }
+  function slimeFrame(rows, o = {}) {
     return (buf, W, H) => {
-      const api = apiFor(buf, W, H), cx = 16, gy = 26;
-      // body ellipse: volume-preserving squash
-      const bw = Math.round(w * (squash ? 1.18 : 1)), bh = Math.round(h * (squash ? 0.82 : 1));
-      const x0 = cx - bw / 2, x1 = cx + bw / 2, y1 = gy, y0 = gy - bh;
-      const G = hurt ? '#ffffff' : '#63c74d', Dk = hurt ? '#e8e8e8' : '#3e8948', L = '#a8f28a';
-      api.ellipse(x0, y0, x1, y1, G, true);
-      api.ellipse(x0 + 2, y0 + 1, x0 + 5, y0 + 5, L, true); // highlight
-      api.rect(x0 + 1, y1 - 2, x1 - 1, y1, Dk); // base shade
-      // face
-      const ey = y0 + bh * 0.45;
-      if (blink) { api.line(x0 + 4, ey + 2, x0 + 6, ey + 2, '#181425', 1); api.line(x1 - 6, ey + 2, x1 - 4, ey + 2, '#181425', 1); }
-      else {
-        api.rect(x0 + 4, ey, x0 + 6, ey + 3, '#181425'); api.rect(x1 - 6, ey, x1 - 4, ey + 3, '#181425');
-        api.px(x0 + 4, ey, '#ffffff'); api.px(x1 - 6, ey, '#ffffff');
-      }
-      api.line(x0 + 6, ey + 5, x1 - 6, ey + 5, Dk, 1); // mouth
+      const api = apiFor(buf, W, H);
+      const src = slimeRows(rows, o.blink);
+      /* Pad every row to the map's own width before centring. The stretch maps
+         were authored with ragged rows, so measuring only the widest one left
+         the narrower rows offset by a pixel and the slime leaned. */
+      const w = src.reduce((m, r) => Math.max(m, r.length), 0);
+      const map = src.map(r => { const pad = w - r.length, l = pad >> 1; return '.'.repeat(l) + r + '.'.repeat(pad - l); });
+      // seat the base band on y26 so the outline lands on y27, clear of the
+      // shadow row the engine draws at y29; lift raises airborne frames off it
+      PF.Raster.paintRows(buf, W, H, map, o.hurt ? SLIME_FLASH : SLIME_PAL, Math.round((W - w) / 2), 27 - map.length - (o.lift || 0));
       finish(buf, W, H);
     };
   }
   function slimeSuite() {
     return { width: 32, height: 32, name: 'slime', layers: [{ name: 'Body' }], states: [
-      D('idle', 5, true, [Fr(ms(5), slimeFrame(16, 12, false)), Fr(ms(5), slimeFrame(16, 12, true)), Fr(ms(5), slimeFrame(16, 11, false, true)), Fr(ms(5), slimeFrame(16, 12, true))]),
-      D('walk', 6, true, [Fr(ms(6), slimeFrame(15, 12, false)), Fr(ms(6), slimeFrame(17, 10, true)), Fr(ms(6), slimeFrame(15, 13, false)), Fr(ms(6), slimeFrame(17, 10, true))]),
-      D('jump', 10, true, [Fr(ms(10), slimeFrame(14, 12, false)), Fr(ms(10), slimeFrame(13, 15, false)), Fr(ms(10), slimeFrame(14, 12, false)), Fr(ms(10), slimeFrame(17, 10, true))]),
-      D('hurt', 8, true, [Fr(ms(8), slimeFrame(16, 12, false, false, true)), Fr(ms(8), slimeFrame(16, 11, true))]),
-      D('death', 8, false, [Fr(ms(8), slimeFrame(16, 12, false, false, true)), Fr(ms(8), slimeFrame(18, 8, true)), Fr(ms(8), slimeFrame(20, 5, true)), Fr(ms(8), slimeFrame(22, 3, true))])
+      D('idle', 5, true, [Fr(ms(5), slimeFrame(SLIME_A)), Fr(ms(5), slimeFrame(SLIME_B)), Fr(ms(5), slimeFrame(SLIME_A, { blink: true })), Fr(ms(5), slimeFrame(SLIME_B))]),
+      D('walk', 6, true, [Fr(ms(6), slimeFrame(SLIME_A)), Fr(ms(6), slimeFrame(SLIME_B)), Fr(ms(6), slimeFrame(SLIME_C)), Fr(ms(6), slimeFrame(SLIME_B))]),
+      // the apex rises rather than blinking: two identical maps with a few eye
+      // pixels removed is a 4px delta, which is a stall, not a jump
+      D('jump', 10, true, [Fr(ms(10), slimeFrame(SLIME_B)), Fr(ms(10), slimeFrame(SLIME_C)), Fr(ms(10), slimeFrame(SLIME_C, { lift: 3 })), Fr(ms(10), slimeFrame(SLIME_E))]),
+      D('hurt', 8, true, [Fr(ms(8), slimeFrame(SLIME_C, { hurt: true })), Fr(ms(8), slimeFrame(SLIME_E, { hurt: true }))]),
+      D('death', 8, false, [Fr(ms(8), slimeFrame(SLIME_C, { hurt: true })), Fr(ms(8), slimeFrame(SLIME_B)), Fr(ms(8), slimeFrame(SLIME_E)), Fr(ms(8), slimeFrame(SLIME_F))])
     ] };
   }
 
@@ -282,47 +304,217 @@ PF.Monsters = (() => {
   }
 
   /* ---------- BOAR ---------- */
-  function boarFrame(step, hurt, attack, lying) {
+  /* A low, forward-leaning hunchback: shoulder mass higher than the rump, a
+     spiky bristle crest running the whole back, a long pale muzzle and an
+     upturned bone tusk. Built from overlapping ellipses rather than one
+     symmetric body, because a symmetric body reads as a pig.
+     Two house rules still bind it: legs are painted BEFORE the body and start
+     above the body's underside at their own x (an ellipse curves up at its
+     edges, so legs begun at the centre line hang free of the shoulders), and
+     the bob only ever LIFTS, or the hooves walk through the floor line into the
+     engine's shadow row and the outline pass fuses them to it. */
+  const BOAR_PAL = {
+    hide: '#7a4230', hi: '#9c5a3c', sh: '#4a2418', rust: '#8f3f26', legFar: '#5a2f20',
+    bristle: '#241a22', hoof: '#241318', muzzle: '#c9b6a8', tusk: '#f2ece0', eye: '#f6f0e0'
+  };
+  const BOAR_FLASH = {
+    hide: '#ffffff', hi: '#f4f4f4', sh: '#d8d8d8', rust: '#ececec', legFar: '#e4e4e4',
+    bristle: '#c4c4c4', hoof: '#b8b8b8', muzzle: '#ffffff', tusk: '#ffffff', eye: '#181425'
+  };
+  function boarFrame(o = {}) {
+    const c = o.hurt ? BOAR_FLASH : BOAR_PAL;
     return (buf, W, H) => {
-      const api = apiFor(buf, W, H), cx = 16;
-      if (lying) {
-        api.ellipse(8, 20, 24, 27, '#733e39', true);
-        api.px(22, 19, '#181425');
-        api.px(24, 21, '#ffffff');
+      const api = apiFor(buf, W, H);
+      if (o.lying) {
+        api.ellipse(7, 20, 22, 26, c.hide, true);
+        api.ellipse(13, 19, 23, 23, c.hi, true);
+        api.rect(23, 20, 29, 24, c.hide);                     // head slumped down
+        api.rect(27, 22, 30, 24, c.muzzle);
+        api.px(25, 21, c.bristle); api.px(26, 21, c.eye);
+        api.line(28, 24, 30, 22, c.tusk, 1);                  // tusk still hooked
+        for (let x = 9; x <= 20; x++) api.px(x, 19, c.bristle);            // crest, unbroken
+        api.px(12, 18, c.bristle); api.px(16, 18, c.bristle); api.px(19, 18, c.bristle);
+        api.px(6, 21, c.bristle); api.px(5, 20, c.bristle);
         finish(buf, W, H); return;
       }
-      const bY = step !== undefined ? Math.round(Math.sin(step * Math.PI * 2) * -1.5) : 0;
-      const s = step !== undefined ? Math.sin(step * Math.PI * 2) : 0;
-      const Y = y => y + bY;
-      const F = hurt ? '#ffffff' : '#733e39', Dk = hurt ? '#e8e8e8' : '#3e2731', snout = '#e8b796';
-      // legs
-      const l1 = Math.round(s * 3), l2 = Math.round(-s * 3);
-      api.rect(8 + l1, Y(23), 10 + l1, Y(27), Dk); api.rect(13 + l2, Y(23), 15 + l2, Y(27), F);
-      api.rect(18 + l2, Y(23), 20 + l2, Y(27), F); api.rect(23 + l1, Y(23), 25 + l1, Y(27), Dk);
-      // body
-      api.ellipse(6, Y(14), 24, Y(23), F, true);
-      api.rect(8, Y(11), 16, Y(14), Dk);
-      // tail
-      api.line(6, Y(17), 4, Y(15), Dk, 1); api.px(5, Y(14), Dk);
-      // head
-      const hx = attack ? 24 : 22, hy = attack ? Y(14) : Y(12);
-      api.rect(hx - 2, hy - 1, hx + 5, hy + 6, F);
-      api.px(hx, hy - 2, Dk); api.px(hx + 1, hy - 3, Dk);
-      api.px(hx + 2, hy + 1, '#181425'); api.px(hx + 2, hy, '#ffffff');
-      api.rect(hx + 5, hy + 2, hx + 7, hy + 5, snout);
-      api.px(hx + 7, hy + 3, '#181425');
-      api.line(hx + 5, hy + 5, hx + 7, hy + 2, '#ffffff', 1);
-      if (attack) PF.Pixel.sparks(api, hx + 8, hy + 4, 1, '#fee761', 4);
+      const bob = o.bob || 0, hd = o.headDy || 0, br = o.bristle || 0;
+      const Y = y => y + bob;
+      const ph = o.phase;
+      /* A leg LIFTS; it never slides sideways out from under the shoulder that
+         owns it. Each of the four carries its own phase offset — a four-beat
+         gallop — because two legs sharing a phase quantises to the same lift on
+         frames 1 and 2 and stalls the cycle. */
+      const lift = k => ph === undefined ? 0 : -Math.round(Math.max(0, Math.sin((ph + k) * Math.PI * 2)) * 2);
+      const leg = (x, dy, near) => {
+        api.rect(x, Y(18 + dy), x + 2, Y(24 + dy), near ? c.hide : c.legFar);
+        api.rect(x, Y(25 + dy), x + 2, Y(26 + dy), c.hoof);
+      };
+      leg(8, lift(0), true); leg(12, lift(0.75), false);
+      leg(17, lift(0.5), true); leg(21, lift(0.25), false);
+      // two masses, not one: the rump sits low, the shoulders carry the hump
+      api.ellipse(6, Y(15), 15, Y(22), c.hide, true);
+      api.ellipse(11, Y(12), 24, Y(22), c.hide, true);
+      api.ellipse(13, Y(12), 22, Y(16), c.hi, true);          // sunlit shoulder cap
+      api.rect(9, Y(20), 22, Y(22), c.sh);                    // belly shadow
+      if (o.saddle) {
+        // War-mount blanket over the shoulders. Drawn BEFORE the crest so the
+        // bristles still poke out of its top edge — a saddle that buries the
+        // ridge loses the silhouette that makes this a boar at all. It has to
+        // flash with the hide, or a hurt frame leaves red patches on a white
+        // silhouette and the frame stops reading as one lit body.
+        const sad = o.hurt ? '#ffffff' : o.saddle, sadSh = o.hurt ? '#e0e0e0' : (o.saddleSh || '#3b1a1a');
+        api.rect(12, Y(12), 21, Y(18), sad);
+        api.rect(12, Y(18), 21, Y(19), sadSh);
+        api.px(13, Y(17), sadSh); api.px(20, Y(17), sadSh);
+      }
+      // bristle crest: follows the real back line, rump to neck
+      const backY = x => (x <= 17 ? 16 - (x - 7) * 0.4 : 12 + (x - 17) * 0.25) + bob - br;
+      for (let x = 8; x <= 23; x++) {
+        api.px(x, Math.round(backY(x)), c.rust);
+        api.px(x, Math.round(backY(x)) - 1, c.bristle);
+        if ((x & 1) === 0) api.px(x, Math.round(backY(x)) - 2, c.bristle);
+      }
+      api.px(6, Y(16), c.bristle); api.px(5, Y(15), c.bristle); api.px(5, Y(13), c.bristle); // curled tail
+      // head: low and forward, so the shoulder hump stays the highest point.
+      // A head level with the back has no neck and reads as a pig.
+      const hY = y => y + bob + hd + (o.attack ? 1 : 0);
+      api.rect(20, hY(15), 27, hY(21), c.hide);                        // skull wedge
+      api.rect(21, hY(14), 25, hY(14), c.hi);                           // brow
+      api.rect(22, hY(12), 24, hY(13), c.bristle);                      // ear
+      api.px(24, hY(17), c.eye); api.px(25, hY(17), c.bristle);         // eye + pupil
+      api.rect(26, hY(18), 29, hY(20), c.muzzle);                       // pale muzzle
+      api.px(29, hY(18), c.bristle);                                    // nostril
+      api.line(26, hY(21), 29, hY(17), c.tusk, 1);                      // upturned tusk
+      api.px(29, hY(16), c.tusk); api.px(30, hY(16), c.tusk);
+      if (o.dust) {
+        // Earth, not the default slate: a boar turns up soil, and the cold tint
+        // read as sparks flying off the tusks.
+        const EARTH = '#8a6a4a';
+        PF.Pixel.dustPuff(api, 10, 26, o.seed || 1, o.dust, EARTH);
+        PF.Pixel.dustPuff(api, 21, 26, (o.seed || 1) + 7, o.dust, EARTH);
+      }
+      if (o.impact) PF.Pixel.impactStar(api, 30, hY(17), o.impact, ['#ffffff', '#c0cbdc']);
+      // The rider paints into this same buffer BEFORE the outline pass, so one
+      // pass traces both silhouettes and keeps the goblin readable against the
+      // beast instead of smearing into it.
+      if (o.rider) o.rider(api, o);
       finish(buf, W, H);
     };
   }
+  /* ---------- GOBLIN BOAR-RIDER ---------- */
+  /* The mount is the boar above, unchanged, plus a war saddle; the rider is a
+     goblin in the same green as rpg_goblin so the two read as one faction.
+     Everything is painted into one buffer and outlined once, which is what
+     keeps the goblin's silhouette separate from the beast's instead of the pair
+     merging into a brown-green blob. */
+  const RIDER = {
+    skin: '#63c74d', skinSh: '#3e8948', skinHi: '#a8f28a', cloth: '#733e39', clothSh: '#3e2731',
+    strap: '#262b44', eye: '#181425', shaft: '#8a6a4a', steel: '#c0cbdc', steelHi: '#f2ece0'
+  };
+  const RIDER_FLASH = {
+    skin: '#ffffff', skinSh: '#f0f0f0', skinHi: '#ffffff', cloth: '#e8e8e8', clothSh: '#d4d4d4',
+    strap: '#c8c8c8', eye: '#181425', shaft: '#f0f0f0', steel: '#ffffff', steelHi: '#ffffff'
+  };
+  const SADDLE = '#8f2f2a', SADDLE_SH = '#4a1512';
+
+  function drawRider(api, c, o) {
+    /* The rider absorbs the deepest of the mount's bounces. Riding the full -2
+       lift put the spearhead and the ear on row 0, where the canvas slices them
+       and the outline pass has nowhere to draw — a tip that reads as cut off
+       once the sprite is composited into a game. */
+    const ry = Math.max(-1, o.bob || 0);
+    // The head has its own clamp: on the hurt frame bob -1 stacks with headDy -1
+    // and the ear tip walks off the top even though the body is inside budget.
+    const hy = Math.max(-1, (o.bob || 0) + (o.headDy || 0));
+    const Y = y => y + ry, HY = y => y + hy;
+    // Legs drape over the flank in CLOTH, not skin: a bare green shin across the
+    // red saddle read as a stripe laid on the boar rather than a rider's leg.
+    api.rect(13, Y(12), 17, Y(14), c.cloth);
+    api.rect(14, Y(15), 15, Y(18), c.clothSh);
+    api.rect(13, Y(18), 16, Y(19), c.strap);
+    // torso, hunched forward over the neck
+    api.rect(14, Y(6), 19, Y(12), c.skin);
+    api.rect(14, Y(6), 15, Y(12), c.skinSh);
+    api.rect(15, Y(9), 19, Y(10), c.strap);                 // shoulder strap
+    api.rect(13, Y(11), 18, Y(13), c.cloth);                // loincloth
+    // head, low and thrust forward: a big ear sweeping back sells the goblin
+    api.rect(16, HY(2), 21, HY(6), c.skin);
+    api.rect(21, HY(4), 22, HY(5), c.skinSh);               // jaw
+    api.line(16, HY(3), 13, HY(2), c.skin, 1);               // ear
+    api.px(19, HY(3), c.eye); api.px(18, HY(3), c.skinHi);   // eye + glint
+    api.px(20, HY(5), c.eye);                                // nostril
+    // arm out to the grip
+    api.line(18, HY(8), 21, HY(10), c.skin, 1);
+    // spear: shaft pivots on the grip, so the thrust is an angle, not a redraw
+    const a = o.spear === undefined ? -0.75 : o.spear, gx = 21, gy = HY(10);
+    const len = 8, back = 4;
+    const x0 = gx - Math.cos(a) * back, y0 = gy - Math.sin(a) * back;
+    const x1 = gx + Math.cos(a) * len, y1 = gy + Math.sin(a) * len;
+    api.line(x0, y0, x1, y1, c.shaft, 1);
+    api.line(x1 - Math.cos(a) * 3, y1 - Math.sin(a) * 3, x1 + 1, y1, c.steel, 1);
+    api.px(x1 + 1, y1, c.steelHi);
+    if (o.impact) PF.Pixel.impactStar(api, x1 + 1, y1, o.impact, ['#ffffff', '#c0cbdc']);
+  }
+
+  function goblinRiderSuite() {
+    const HEAD = [0, 1, 1, 0], BR = [0, 0, 1, 1];
+    const mk = o => boarFrame({ ...o, saddle: SADDLE, saddleSh: SADDLE_SH,
+      rider: (api, opts) => drawRider(api, opts.hurt ? RIDER_FLASH : RIDER, opts) });
+    const idle = [];
+    for (let i = 0; i < 4; i++) idle.push(Fr(ms(4), mk({ headDy: HEAD[i], bristle: BR[i], spear: -0.75 })));
+    const trot = [];
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      trot.push(Fr(ms(6), mk({ phase: i / 6, headDy: i === 3 ? 1 : 0, spear: -0.75 + Math.sin(a) * 0.09,
+        bob: Math.min(0, Math.round(-Math.abs(Math.sin(a)) - Math.cos(a) * 0.6)) })));
+    }
+    // charge — the lance drops from raised to level in one fast frame, which is
+    // the whole read of a mounted thrust.
+    const SP = [-0.95, -1.05, 0.05, 0.12, -0.35, -0.8];
+    const charge = [];
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      charge.push(Fr(ms(12), mk({ attack: true, phase: i / 6, seed: i, spear: SP[i],
+        bob: Math.min(0, Math.round(-Math.abs(Math.sin(a)) * 2)),
+        dust: i === 0 || i === 3 ? 0.35 : i === 1 || i === 4 ? 0.8 : 0,
+        impact: i === 2 || i === 3 ? 0.2 : 0 })));
+    }
+    return { width: 32, height: 32, name: 'goblin-rider', layers: [{ name: 'Body' }], states: [
+      D('idle', 4, true, idle),
+      D('trot', 6, true, trot),
+      D('charge', 12, true, charge),
+      D('hurt', 8, true, [Fr(60, mk({ hurt: true, bob: -1, spear: -1.05, headDy: -1 })), Fr(120, mk({ spear: -0.9 }))]),
+      D('death', 8, false, [
+        Fr(70, mk({ hurt: true, spear: -1.05, headDy: -1 })),
+        Fr(130, mk({ headDy: 2, spear: 0.5 })),
+        Fr(190, boarFrame({ lying: true }))
+      ])
+    ] };
+  }
   function boarSuite() {
+    const HEAD = [0, 1, 1, 0], BR = [0, 0, 1, 1];
+    const idle = [];
+    for (let i = 0; i < 4; i++) idle.push(Fr(ms(4), boarFrame({ headDy: HEAD[i], bristle: BR[i] })));
+    const trot = [];
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      trot.push(Fr(ms(6), boarFrame({ phase: i / 6, headDy: i === 3 ? 1 : 0,
+        bob: Math.min(0, Math.round(-Math.abs(Math.sin(a)) - Math.cos(a) * 0.6)) })));
+    }
+    const charge = [];
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      charge.push(Fr(ms(12), boarFrame({ attack: true, phase: i / 6, seed: i,
+        bob: Math.min(0, Math.round(-Math.abs(Math.sin(a)) * 2)),
+        dust: i === 0 || i === 3 ? 0.35 : i === 1 || i === 4 ? 0.8 : 0,
+        impact: i === 2 ? 0.2 : 0 })));
+    }
     return { width: 32, height: 32, name: 'boar', layers: [{ name: 'Body' }], states: [
-      D('idle', 4, true, [0, 0.06, 0, -0.06].map(g => Fr(ms(4), boarFrame(g)))),
-      D('trot', 6, true, [0, 1, 2, 3].map(i => Fr(ms(6), boarFrame(i / 4)))),
-      D('charge', 10, true, [0, 1, 2, 3].map(i => Fr(ms(10), boarFrame(i / 4, false, true)))),
-      D('hurt', 8, true, [Fr(ms(8), boarFrame(undefined, true)), Fr(ms(8), boarFrame(0))]),
-      D('death', 8, false, [Fr(ms(8), boarFrame(undefined, true)), Fr(ms(8), boarFrame(undefined, false, false, true))])
+      D('idle', 4, true, idle),
+      D('trot', 6, true, trot),
+      D('charge', 12, true, charge),
+      D('hurt', 8, true, [Fr(60, boarFrame({ hurt: true, bob: -1 })), Fr(120, boarFrame({}))]),
+      D('death', 8, false, [Fr(70, boarFrame({ hurt: true })), Fr(130, boarFrame({ headDy: 2 })), Fr(190, boarFrame({ lying: true }))])
     ] };
   }
 
@@ -374,6 +566,6 @@ PF.Monsters = (() => {
     ] };
   }
 
-  return { slimeSuite, batSuite, ghostSuite, mushroomSuite, golemSuite, chickenSuite, wolfSuite, boarSuite, drakeSuite };
+  return { slimeSuite, batSuite, ghostSuite, mushroomSuite, golemSuite, chickenSuite, wolfSuite, boarSuite, goblinRiderSuite, drakeSuite };
 })();
 

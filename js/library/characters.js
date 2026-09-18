@@ -37,10 +37,28 @@ PF.Chars = (() => {
   function drawHumanoid(api, buf, W, H, cfg) {
     const pal = cfg.pal, bob = cfg.bob || 0;
     if (cfg.lying) { drawLying(api, buf, W, H, cfg); return finish(buf, W, H, pal); }
+    if (cfg.sitting) {
+      drawSitting(api, buf, W, H, cfg);
+      /* A seated hand rests on the thigh, which is a fixed point relative to the
+         seat, so the standing grip formula still works with the offset that puts
+         it there. This is what lets the fisher hold a rod while sitting. */
+      if (cfg.tool) {
+        const dy = (cfg.seatY || 22) - 22;
+        drawTool(api, buf, W, H, { ...cfg, bob: 0,
+          armF: cfg.armF || { dx: 1, dy }, armR: cfg.armR || { dx: -2, dy } });
+      }
+      if (cfg.flash) P().flashWhite(api, W, H, buf);
+      return finish(buf, W, H, pal);
+    }
     const kb = cfg.kb || 0; // knockback x offset
-    if ((cfg.facing || 'down') === 'side') drawSide(api, buf, W, H, { ...cfg, kb, bob });
-    else drawFrontBack(api, buf, W, H, { ...cfg, kb, bob });
-    drawTool(api, buf, W, H, cfg);
+    const body = () => ((cfg.facing || 'down') === 'side')
+      ? drawSide(api, buf, W, H, { ...cfg, kb, bob })
+      : drawFrontBack(api, buf, W, H, { ...cfg, kb, bob });
+    /* tool.behind drops the weapon under the torso. On a swing's recovery the
+       blade has travelled past the body, so occluding it is what sells the
+       arc — drawn on top it reads as the sword hovering in front of the chest. */
+    if (cfg.tool && cfg.tool.behind) { drawTool(api, buf, W, H, cfg); body(); }
+    else { body(); drawTool(api, buf, W, H, cfg); }
     if (cfg.flash) P().flashWhite(api, W, H, buf);
     finish(buf, W, H, pal);
   }
@@ -337,12 +355,49 @@ PF.Chars = (() => {
   }
 
   /* Tools overlay (uses hand positions approx) */
+  // Steel dark->light->hot: the tail of a swing is in shadow, the head is not.
+  const STEEL = ['#5a6988', '#c0cbdc', '#ffffff'];
+  const HOT = ['#ffffff', '#c0cbdc'];
+  /* Farming / fishing / smithing props held in the hand. Shared between the
+     side and front branches because the grip point differs but the art does
+     not. Drawn inside drawTool, so they pick up the silhouette outline the
+     same way a sword does — a post-hook prop would have no rim. */
+  function lifeTool(api, t, hx, hy, front) {
+    const d = front ? -1 : 1;
+    if (t.kind === 'rod') {
+      api.line(hx - d, hy + 3, hx + d * 9, hy - 9, '#8a6a4a', 1);
+      api.line(hx + d * 9, hy - 9, hx + d * 9, hy + 1, '#e8ecf5', 1);
+      api.px(hx + d * 9, hy + 2, '#e43b44');
+    } else if (t.kind === 'can') {
+      // small enough to read as held: a 6x6 body swallowed the whole forearm
+      api.rect(hx, hy - 2, hx + 3, hy + 2, '#8b9bb4');
+      api.line(hx + 3, hy - 1, hx + 6, hy - 3, '#8b9bb4', 1);
+      api.px(hx + 1, hy - 3, '#5a6988'); api.px(hx + 2, hy - 3, '#5a6988');
+      api.px(hx, hy + 1, '#5a6988');
+    } else if (t.kind === 'seedbag') {
+      api.rect(hx - 2, hy - 2, hx + 3, hy + 3, '#b86f50');
+      api.rect(hx - 2, hy - 2, hx + 3, hy - 1, '#733e39');
+      api.px(hx, hy + 1, '#fee761'); api.px(hx + 2, hy + 2, '#fee761');
+    } else if (t.kind === 'sickle') {
+      // haft, blade out, tip hooked back — a 3px sliver of steel read as a
+      // splinter rather than a harvesting tool
+      api.line(hx, hy + 3, hx + d, hy - 2, '#733e39', 2);
+      api.line(hx + d, hy - 2, hx + d * 4, hy - 4, '#c0cbdc', 2);
+      api.line(hx + d * 4, hy - 4, hx + d * 3, hy - 7, '#c0cbdc', 1);
+      api.px(hx + d * 3, hy - 8, '#ffffff');
+    } else return false;
+    return true;
+  }
   function drawTool(api, buf, W, H, cfg) {
     const t = cfg.tool; if (!t) return;
     const P = PF.Pixel;
     if (cfg.facing === 'side') {
       const hx = 18 + (cfg.kb || 0) + ((cfg.armF || {}).dx || 0), hy = 19 + (cfg.bob || 0) + ((cfg.armF || {}).dy || 0);
-      if (t.kind === 'sword') P.sword(api, hx, hy, t.angle, SWORD_PAL);
+      // t.draw: a pack-local tool painted at the grip. Needed when the shared
+      // primitives are sized for a bigger cell — a 14-unit spear from this hand
+      // runs off the frame, and an outline pass cannot rim pixels it never saw.
+      if (t.draw) t.draw(api, hx, hy, t, cfg);
+      else if (t.kind === 'sword') P.sword(api, hx, hy, t.angle, SWORD_PAL);
       else if (t.kind === 'shield') P.shield(api, hx + 1, hy - 1, '#b86f50', '#8b9bb4');
       else if (t.kind === 'kiteShield') P.kiteShield(api, hx + 1, hy - 1, t.base, t.rim, t.cross);
       else if (t.kind === 'mace') P.mace(api, hx, hy, t.angle, t.pal);
@@ -361,17 +416,21 @@ PF.Chars = (() => {
         api.px(hx + 8, hy - 6, '#fee761'); api.px(hx + 7, hy - 7, '#fee761');
       }
       else if (t.kind === 'box') { api.rect(hx - 2, hy - 1, hx + 2, hy + 3, '#b86f50'); api.rect(hx - 2, hy - 1, hx + 2, hy, '#733e39'); }
+      else lifeTool(api, t, hx, hy, false);
       // glow was only wired into the front branch, so every side-view cast
       // (hero cast, wizard cast_arcane) rendered four identical frames
       if (t.glow !== undefined) P.particles(api, hx + 3, hy - 9, 7, t.glow, ['#fee761', '#ffffff', '#2ce8f5']);
       if (t.slash) P.slash(api, hx + 2, hy - 4, 9, t.slash[0], t.slash[1], '#ffffff', 2);
+      if (t.arc) P.arcTrail(api, hx, hy, t.arc[2] || 10, t.arc[0], t.arc[1], STEEL);
+      if (t.impact) P.impactStar(api, hx + t.impact[0], hy + t.impact[1], t.impact[2], HOT);
       if (t.sparks) P.sparks(api, t.sparks[0], t.sparks[1], t.seed || 0, '#fee761');
       if (t.dust) dust(api, t.dust);
     } else {
       // front view: sword on right side
       const hx = 23 + (cfg.kb || 0) + ((cfg.armR || {}).dx || 0), hy = 19 + (cfg.bob || 0) + ((cfg.armR || {}).dy || 0);
       const hlx = 9 + (cfg.kb || 0) + ((cfg.armL || {}).dx || 0), hly = 19 + (cfg.bob || 0) + ((cfg.armL || {}).dy || 0);
-      if (t.kind === 'sword') P.sword(api, hx, hy, t.angle, SWORD_PAL);
+      if (t.draw) t.draw(api, hx, hy, t, cfg);
+      else if (t.kind === 'sword') P.sword(api, hx, hy, t.angle, SWORD_PAL);
       else if (t.kind === 'mace') P.mace(api, hx, hy, t.angle, t.pal);
       else if (t.kind === 'spear') P.spear(api, hx, hy, t.angle, t.pal);
       else if (t.kind === 'hammer') P.hammer(api, hx, hy, t.angle, t.pal);
@@ -391,10 +450,158 @@ PF.Chars = (() => {
         api.line(hx + 2, hy - 1, hx + 6, hy - 6, '#733e39', 2);
         api.px(hx + 6, hy - 6, '#fee761');
       }
+      // front branch keeps the prop on the sword side, so it extends out from
+      // the right hand rather than back across the torso
+      else lifeTool(api, t, hx, hy, false);
       if (t.slash) P.slash(api, 16 + (cfg.kb || 0), 16 + (cfg.bob || 0), 11, t.slash[0], t.slash[1], '#ffffff', 2);
+      // Square-on arcs pivot off the torso, not the hand: at x23 a 10px radius
+      // would run the smear off the sprite sheet.
+      if (t.arc) P.arcTrail(api, 18 + (cfg.kb || 0), 16 + (cfg.bob || 0), t.arc[2] || 9, t.arc[0], t.arc[1], STEEL);
+      if (t.impact) P.impactStar(api, hx + t.impact[0], hy + t.impact[1], t.impact[2], HOT);
       if (t.sparks) P.sparks(api, t.sparks[0], t.sparks[1], t.seed || 0, '#fee761');
       if (t.dust) dust(api, t.dust);
       if (t.glow) P.particles(api, 16 + (cfg.kb || 0), 12 + (cfg.bob || 0), 8, t.glow, ['#fee761', '#ffffff', '#2ce8f5']);
+    }
+  }
+  /* Seated pose. Deliberately NOT the standing rig with bent limbs: the hip line
+     becomes the anchor and the head, torso and seat all measure up from it, or a
+     sitting figure keeps the standing head height and floats above its chair.
+     cfg.seatY  surface the hips rest on (22 chair/ledge, 25 floor)
+     cfg.legs   'dangle' (shins to the floor) | 'fold' (cross-legged) | 'knees' (up, hugged)
+     cfg.arms   'lap' | 'crossed' | 'knees' | 'mug' | 'cheeks' | 'none'
+     cfg.lean   -1 reclined, 0 upright, 1 hunched forward
+     Feet stay within y25..27 at both seat heights so the engine's shadow row 29
+     is never touched, and the head never rises above its standing row. */
+  function drawSitting(api, buf, W, H, cfg) {
+    const pal = cfg.pal, kb = cfg.kb || 0, lean = cfg.lean || 0;
+    // The seat never moves: bob is breath, and breath that lifts the hips puts
+    // the figure an inch above its stool every other frame.
+    const sy = cfg.seatY || 22, hd = cfg.headDy || 0, bob = cfg.bob || 0;
+    const LX = x => x + kb + lean, B = y => y + bob;
+    const sh = pal.shirt, shS = pal.shirtSh, shH = pal.shirtHi, pn = pal.pants, pnS = pal.pantsSh, sk = pal.skin, skS = pal.skinSh;
+    const legs = cfg.legs || 'dangle';
+    if (cfg.facing !== 'side') return sitFront(api, cfg, pal, sy, bob, hd, kb + lean);
+    if (legs === 'dangle') {
+      // cfg.shin kicks the lower leg forward — the toe-tap of someone leaning
+      // back in a chair, which no amount of torso motion can stand in for
+      const sn = cfg.shin || 0;
+      api.rect(LX(13), sy - 1, LX(20), sy + 1, pn);
+      api.rect(LX(18 + sn), sy + 2, LX(20 + sn), sy + 4, pn);
+      api.rect(LX(17 + sn), sy + 5, LX(20 + sn), sy + 5, pal.boots);
+      api.rect(LX(15), sy, LX(20), sy, pnS);
+    } else if (legs === 'knees') {
+      api.rect(LX(12), sy - 1, LX(22), sy, pnS);
+      // knees need a lit edge or they merge into the torso above them
+      api.rect(LX(16), sy - 6, LX(19), sy - 1, pn);
+      api.px(LX(16), sy - 6, shH); api.px(LX(17), sy - 6, shH);
+      api.rect(LX(19), sy - 3, LX(22), sy - 1, pal.boots);
+      api.px(LX(16), sy - 6, shH);
+    } else {
+      api.rect(LX(12), sy - 2, LX(21), sy, pn);
+      api.rect(LX(12), sy - 2, LX(21), sy - 2, pnS);
+      api.rect(LX(19), sy - 3, LX(21), sy - 1, pal.boots);
+      api.px(LX(13), sy - 3, skS);
+    }
+    // torso from the seat up; the lean slides the whole upper body as one mass
+    const ty = B(sy - 9);
+    api.rect(LX(11), ty, LX(17), B(sy - 1), sh);
+    api.rect(LX(11), ty, LX(12), B(sy - 1), shS);
+    api.rect(LX(16), ty, LX(17), B(sy - 1), shH);
+    api.rect(LX(11), B(sy - 3), LX(17), B(sy - 2), pal.belt);
+    api.rect(LX(13), B(sy - 3), LX(14), B(sy - 2), pal.buckle);
+    drawHeadSide(api, LX(10), ty - 5 + hd, pal, cfg);
+    // arms: a two-segment limb, because a seated arm always bends somewhere
+    const sx = LX(14), syy = ty + 1;
+    const arm = (ex, ey, hx2, hy2, sleeve) => {
+      api.line(sx, syy, ex, ey, sleeve ? sh : shS, 2);
+      api.line(ex, ey, hx2, hy2, sk, 2);
+      api.rect(hx2 - 1, hy2 - 1, hx2 + 1, hy2 + 1, sk);
+    };
+    const a = cfg.arms || 'lap';
+    if (a === 'lap') arm(LX(16), B(sy - 5), LX(19), B(sy - 3), true);
+    else if (a === 'knees') { arm(LX(15), B(sy - 5), LX(18), B(sy - 5), true); api.line(LX(14), B(sy - 6), LX(19), B(sy - 7), sk, 1); }
+    else if (a === 'crossed') {
+      api.rect(LX(11), B(sy - 7), LX(18), B(sy - 5), shS);
+      api.rect(LX(11), B(sy - 7), LX(13), B(sy - 5), sk);
+      api.rect(LX(16), B(sy - 7), LX(18), B(sy - 5), sk);
+      api.rect(LX(11), B(sy - 7), LX(18), B(sy - 7), shH);
+    } else if (a === 'mug') {
+      arm(LX(16), B(sy - 6), LX(17), ty + 3, true);
+      api.rect(LX(17), ty + 2, LX(20), ty + 5, '#b86f50');
+      api.rect(LX(17), ty + 2, LX(20), ty + 2, '#e4a672');
+      api.px(LX(20), ty + 4, '#733e39');
+    } else if (a === 'cheeks') {
+      arm(LX(13), B(sy - 6), LX(12), ty + 2, false);
+      api.line(LX(16), B(sy - 6), LX(18), ty + 2, sk, 2);
+      api.rect(LX(17), ty + 1, LX(19), ty + 3, sk);
+    }
+  }
+  /* Front / back view of the seated pose. The knees come toward the camera as
+     two blocks and the shins drop behind them, which is the only read that
+     separates "sitting" from "standing very close to a wall" at this size.
+     Reuses drawHeadFront/drawHeadBack so a seated character has the same face
+     as the standing one rather than a second, drifting head style. */
+  function sitFront(api, cfg, pal, sy, bob, hd, off) {
+    const back = cfg.facing === 'up', legs = cfg.legs || 'dangle';
+    /* Head and torso sit three rows lower than the standing rig. This rig has
+       short legs and a big head, so a seated figure can only be a few pixels
+       shorter than a standing one — but those few pixels are the entire read:
+       at the standing height the pose looked like a person squeezed into a
+       doorway, not a person on a stool. */
+    const tx = 10 + off, ty = sy - 6 + bob, hy = sy - 15 + hd;
+    const sh = pal.shirt, shS = pal.shirtSh, shH = pal.shirtHi;
+    const pn = pal.pants, pnS = pal.pantsSh, sk = pal.skin, skS = pal.skinSh;
+    if (legs === 'dangle') {
+      // Thighs as one mass across the seat, knees at its lower edge, shins
+      // dropping behind them. Two parallel leg columns read as standing; the
+      // horizontal block is what says the legs are coming toward the camera.
+      api.rect(tx + 1, sy - 2, tx + 10, sy + 1, pn);
+      api.rect(tx + 1, sy - 2, tx + 10, sy - 2, pnS);
+      api.rect(tx + 2, sy + 1, tx + 4, sy + 3, pn);
+      api.rect(tx + 7, sy + 1, tx + 9, sy + 3, pnS);
+      api.rect(tx + 1, sy + 4, tx + 4, sy + 5, pal.boots);   // feet at y27
+      api.rect(tx + 6, sy + 4, tx + 9, sy + 5, pal.boots);
+      api.px(tx + 3, sy + 1, shH); api.px(tx + 8, sy + 1, shH);
+    } else {
+      api.rect(tx + 1, sy - 3, tx + 10, sy, pn);             // folded legs as one mass
+      api.rect(tx + 1, sy - 3, tx + 10, sy - 3, pnS);
+      api.rect(tx + 2, sy - 5, tx + 5, sy - 1, legs === 'knees' ? pn : pnS);
+      api.rect(tx + 6, sy - 5, tx + 9, sy - 1, legs === 'knees' ? pn : pnS);
+      api.px(tx + 3, sy - 5, sk); api.px(tx + 8, sy - 5, sk);
+    }
+    api.rect(tx, ty, tx + 11, sy - 2 + bob, sh);
+    api.rect(tx, ty, tx + 1, sy - 2 + bob, shS);
+    api.rect(tx + 10, ty, tx + 10, sy - 2 + bob, shH);
+    api.rect(tx, sy - 4 + bob, tx + 11, sy - 3 + bob, pal.belt);
+    api.rect(tx + 5, sy - 4 + bob, tx + 6, sy - 3 + bob, pal.buckle);
+    if (back) drawHeadBack(api, tx, hy, pal, cfg); else drawHeadFront(api, tx, hy, pal, cfg);
+    // arms bend at the elbow and rest where the torso is, so they are keyed off
+    // ty — the seat line sits well below the chest on this rig
+    const a = cfg.arms || 'lap';
+    if (a === 'crossed') {
+      api.rect(tx + 1, ty + 1, tx + 10, ty + 3, shS);
+      api.rect(tx + 1, ty + 1, tx + 3, ty + 3, sk);
+      api.rect(tx + 8, ty + 1, tx + 10, ty + 3, sk);
+      api.rect(tx + 1, ty + 1, tx + 10, ty + 1, shH);
+    } else if (a === 'cheeks') {
+      // hands at the temples, elbows dropped — the head-in-hands read
+      api.rect(tx, ty - 1, tx + 2, ty + 2, sh);
+      api.rect(tx + 9, ty - 1, tx + 11, ty + 2, sh);
+      api.line(tx + 1, ty, tx + 1, hy + 7, sk, 2);
+      api.line(tx + 10, ty, tx + 10, hy + 7, sk, 2);
+      api.rect(tx - 1, hy + 4, tx + 1, hy + 7, sk);
+      api.rect(tx + 10, hy + 4, tx + 12, hy + 7, sk);
+    } else if (a === 'mug') {
+      api.rect(tx + 1, ty, tx + 3, ty + 3, sh);
+      api.rect(tx + 8, ty, tx + 10, ty + 3, sh);
+      api.rect(tx + 4, ty + 1, tx + 7, ty + 4, '#b86f50');
+      api.rect(tx + 4, ty + 1, tx + 7, ty + 1, '#e4a672');
+      api.px(tx + 3, ty + 2, sk); api.px(tx + 8, ty + 2, sk);
+    } else {
+      api.rect(tx, ty + 1, tx + 2, sy - 4 + bob, sh);
+      api.rect(tx + 9, ty + 1, tx + 11, sy - 4 + bob, sh);
+      api.rect(tx, sy - 4 + bob, tx + 2, sy - 2 + bob, sk);
+      api.rect(tx + 9, sy - 4 + bob, tx + 11, sy - 2 + bob, sk);
     }
   }
   function dust(api, pts) {
@@ -448,7 +655,10 @@ PF.Chars = (() => {
     const p = i / n, s = Math.sin(p * Math.PI * 2);
     const bob = extra.bob !== undefined ? extra.bob : Math.round(-Math.abs(s) * amp);
     return { pal, facing, bob,
-      legA: { dx: 0, dy: Math.round(s * amp) }, legB: { dx: 0, dy: Math.round(-s * amp) },
+      /* A leg only ever lifts. The old form was `dy = s * amp`, which on the
+         down half of the sine drove the planted foot *through* the floor while
+         the swinging one stayed put — the cycle read as sliding, not stepping. */
+      legA: { dx: 0, dy: -Math.round(Math.max(0, s) * amp) }, legB: { dx: 0, dy: -Math.round(Math.max(0, -s) * amp) },
       armL: { dx: 0, dy: Math.round(-s * amp) }, armR: { dx: 0, dy: Math.round(s * amp) },
       eye: extra.eye || 'open', mouth: extra.mouth || 'closed', ...extra };
   }
@@ -729,42 +939,69 @@ PF.Chars = (() => {
     // All six facings: top-down games drive `walk_<facing>` for any direction,
     // and a missing up-facing used to silently fall back to idle_down.
     const IDLE_HEAD = [0, 1, 1, 0], IDLE_ARM = [0, 0, 1, 1];
+    const amp = 2;
     for (const [sname, facing, n, fps] of [['idle_down', 'down', 4, 4], ['idle_side', 'side', 4, 4], ['idle_up', 'up', 4, 4],
-                                           ['walk_down', 'down', 4, 6], ['walk_side', 'side', 4, 6], ['walk_up', 'up', 4, 6]]) {
+                                           ['walk_down', 'down', 6, 6], ['walk_side', 'side', 6, 6], ['walk_up', 'up', 6, 6]]) {
       const frames = [];
       for (let i = 0; i < n; i++) {
-        const cfg = facing === 'side' ? sidePose(i, n, 2, pal) : frontPose(i, n, 2, pal, facing);
+        let cfg;
         if (sname.startsWith('idle')) {
+          cfg = facing === 'side' ? sidePose(i, n, 0, pal) : frontPose(i, n, 0, pal, facing);
           // zero every limb pair (front uses legA/armL/armR, side uses legF/armF/armB)
           cfg.legA = { dx: 0, dy: 0 }; cfg.legB = { dx: 0, dy: 0 }; cfg.legF = { dx: 0, dy: 0 };
           cfg.armL = { dx: 0, dy: IDLE_ARM[i] }; cfg.armR = { dx: 0, dy: IDLE_ARM[i] };
           cfg.armF = { dx: 0, dy: IDLE_ARM[i] }; cfg.armB = { dx: 0, dy: IDLE_ARM[i] };
           cfg.headDy = IDLE_HEAD[i]; cfg.bob = 0; cfg.eye = i === 3 ? 'closed' : 'open';
+        } else {
+          /* Six beats with the bob on a quarter-phase cosine: a plain 6-sample
+             sine repeats its magnitude on frames 1/2 and 4/5 and stalls. */
+          const a = i / n * Math.PI * 2;
+          // One row of lift only: two rows sliced headgear off the top of the
+          // frame, since the outline pass cannot draw outside the buffer. The
+          // arms carry the cosine so the six frames stay distinct.
+          const bob = Math.max(-1, Math.min(0, Math.round(-Math.abs(Math.sin(a)) * amp - Math.cos(a) * 0.9)));
+          const aw = Math.round(Math.cos(a) * 2);
+          const dust = (i === 1 || i === 4) ? [[13, 27, '#c0cbdc'], [18, 27, '#8b9bb4']] : null;
+          cfg = facing === 'side' ? sidePose(i, n, amp, pal, { bob, tool: { kind: 'none', dust } })
+                                  : frontPose(i, n, amp, pal, facing, { bob, tool: { kind: 'none', dust } });
+          if (facing === 'side') { cfg.armF = { dx: -aw, dy: 0 }; cfg.armB = { dx: aw, dy: 0 }; }
+          else { cfg.armL = { dx: 0, dy: -aw }; cfg.armR = { dx: 0, dy: aw }; }
         }
         frames.push(Fr(ms(fps), N(cfg)));
       }
       states.push(D(sname, fps, true, frames));
     }
-    // attack side
+    // attack side — held windup, one fast strike frame carrying the arc, an
+    // impact, then the blade through and behind the body.
     {
-      const frames = [], angles = [-1.9, -0.9, 0.1, 0.7, 0.2];
-      for (let i = 0; i < 5; i++) {
-        const cfg = sidePose(i, 5, 1, pal, { tool: kind === 'archer' ? { kind: 'bow', pull: [0, 0.5, 1, 0.5, 0][i] } : { kind: 'sword', angle: angles[i], slash: i === 2 ? [-0.6, 0.9] : null } });
-        cfg.armF = { dx: 2, dy: -2 };
-        frames.push(Fr(ms(10), N(cfg)));
+      const frames = [], angles = [-2.3, -2.6, -0.3, 0.55, 0.6, 0.25];
+      const dur = [200, 120, 50, 75, 130, 165], arm = [-3, -4, -2, -2, -2, -1];
+      for (let i = 0; i < 6; i++) {
+        const tool = kind === 'archer'
+          ? { kind: 'bow', pull: [0, 0.45, 0.85, 1, 0.05, 0][i], arrow: i > 0 && i < 4 }
+          : { kind: 'sword', angle: angles[i], arc: i === 2 || i === 3 ? [angles[i] - 1.15, angles[i], 10] : (i === 4 ? [angles[i] - 0.7, angles[i], 9] : null),
+              impact: i === 3 ? [3, 2, 0.2] : null, behind: i >= 4 };
+        const cfg = sidePose(i, 6, 1, pal, { tool, headDy: kind === 'archer' && i === 5 ? 1 : 0 });
+        cfg.armF = { dx: 2, dy: arm[i] };
+        cfg.kb = kind === 'archer' ? (i === 4 ? 1 : 0) : [0, 1, 2, 2, 1, 0][i];
+        frames.push(Fr(dur[i], N(cfg)));
       }
       states.push(D(kind === 'archer' ? 'bow_side' : 'attack_side', 12, true, frames));
     }
     states.push(D('hurt', 8, true, [
-      Fr(ms(8), N({ pal, facing: 'down', kb: -2, eye: 'hurt', flash: true })),
-      Fr(ms(8), N({ pal, facing: 'down', kb: -2, eye: 'hurt' }))
+      Fr(60, N({ pal, facing: 'down', kb: -3, eye: 'hurt', flash: true, tool: { kind: 'none', impact: [-4, -4, 0.15] } })),
+      Fr(95, N({ pal, facing: 'down', kb: -2, bob: -1, eye: 'hurt' })),
+      Fr(150, N({ pal, facing: 'down', kb: -1, eye: 'hurt' }))
     ]));
     states.push(D('death', 8, false, [
-      Fr(ms(8), N({ pal, facing: 'down', kb: -2, eye: 'hurt', flash: true })),
-      Fr(ms(8), N({ pal, facing: 'down', bob: 3, eye: 'hurt' })),
-      Fr(ms(8), N({ pal, lying: true, eye: 'hurt' })),
-      Fr(ms(8), N({ pal, lying: true, eye: 'dead' })),
-      Fr(ms(8), N({ pal, lying: true, eye: 'dead', dither: true }))
+      Fr(60, N({ pal, facing: 'down', kb: -3, eye: 'hurt', flash: true, tool: { kind: 'none', impact: [-4, -4, 0.2] } })),
+      // Loss of balance reads through the head and the lean, not a body sunk
+      // through the floor: the old `bob: 3` drove the feet to y30, into the
+      // engine's shadow row, where the outline pass fused them to it.
+      Fr(120, N({ pal, facing: 'down', kb: -4, headDy: 2, eye: 'hurt', tool: { kind: 'none', dust: [[12, 27, '#c0cbdc'], [19, 27, '#8b9bb4']] } })),
+      Fr(150, N({ pal, lying: true, eye: 'hurt' })),
+      Fr(170, N({ pal, lying: true, eye: 'dead' })),
+      Fr(220, N({ pal, lying: true, eye: 'dead', dither: true }))
     ]));
     return { width: 32, height: 32, name: label, layers: [{ name: 'Body' }], states };
   }

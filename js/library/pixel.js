@@ -205,6 +205,62 @@ PF.Pixel = (() => {
     }
     api.px(cx, cy, '#ffffff');
   }
+  /* ---- Motion-read primitives (ADDITIVE — nothing above is touched) ----
+     What separates a swing that reads from a swing that mushes is mass and
+     decay: the blade head carries the weight, the tail thins out and breaks
+     apart. slash() draws an even ring, which looks like a halo. These three
+     are for the strike, the footfall and the impact respectively. */
+  // Swept blade arc from tail angle a0 to head angle a1. k=0 is the tail.
+  // The fade is carried entirely by width and colour, never by dropping
+  // pixels: a lone pixel left in the band picks up a dark ring from the
+  // outline pass, which turns a dissolving tail into a speckled wing.
+  function arcTrail(api, cx, cy, r, a0, a1, colors, o = {}) {
+    /* Sampling follows arc length, not a fixed count: a 2.5rad sweep at r=9 is
+       22px of curve, and 16 samples through that leaves gaps wide enough for
+       the outline pass to rim every pixel into its own bead. */
+    const span = Math.abs(a1 - a0) * r;
+    const steps = o.steps || Math.max(12, Math.round(span * 2)), width = o.width || 3;
+    const lo = colors[0], mid = colors.length > 1 ? colors[1] : colors[0], hi = colors.length > 2 ? colors[2] : mid;
+    for (let i = 0; i <= steps; i++) {
+      const k = i / steps, a = a0 + (a1 - a0) * k;
+      const w = Math.max(1, Math.round(width * (0.34 + 0.66 * k * k)));
+      const c = k > 0.86 ? hi : (k > 0.5 ? mid : lo);
+      const inner = r - (w >> 1);
+      for (let t = 0; t < w; t++) api.px(cx + Math.cos(a) * (inner + t), cy + Math.sin(a) * (inner + t), c);
+    }
+    // Tip: a hot core running along the tangent, not a plus-sign, so it reads
+    // as the blade moving rather than a star sitting still.
+    const hx = cx + Math.cos(a1) * r, hy = cy + Math.sin(a1) * r, ta = a1 + Math.PI / 2;
+    api.px(hx, hy, '#ffffff');
+    api.px(hx + Math.cos(ta), hy + Math.sin(ta), hi);
+    api.px(hx - Math.cos(ta), hy - Math.sin(ta), hi);
+  }
+  // Contact dust rising off a planted foot, t = 0..1 lifetime. Hugs the ground
+  // line first and only then lifts; drawn above groundY so the engine shadow
+  // row stays clear. Drawn as touching pairs for the same reason the arc avoids
+  // dithers — one rimed pixel reads as grit, not puff.
+  function dustPuff(api, cx, groundY, seed, t, color = '#8b9bb4', n = 6) {
+    const spread = 1.5 + t * 3, lift = t * 3;
+    for (let i = 0; i < n; i++) {
+      const x = cx + Math.round((api.hash(i, seed, 11) - 0.5) * spread * 2);
+      const y = groundY - Math.round(api.hash(i, seed, 23) * lift);
+      api.px(x, y, color); api.px(x + 1, y, color);
+    }
+  }
+  // Impact star for the contact frame: long cardinals, short diagonals. Small
+  // on purpose — at 32px a star wider than the head reads as an explosion and
+  // steals the swing it belongs to.
+  function impactStar(api, cx, cy, t, colors, r = 5) {
+    const hi = colors[0], mid = colors.length > 1 ? colors[1] : colors[0];
+    const len = easeOut(Math.min(1, t * 1.35)) * r;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU, l = (i & 1) ? len * 0.5 : len;
+      const c = (i & 1) ? mid : hi;
+      if (t < 0.65) api.line(cx + Math.cos(a) * 1.2, cy + Math.sin(a) * 1.2, cx + Math.cos(a) * l, cy + Math.sin(a) * l, c, 1);
+      else api.px(cx + Math.cos(a) * l, cy + Math.sin(a) * l, c);
+    }
+    if (t < 0.4) api.px(cx, cy, hi);
+  }
   /* Floating dust / magic particles on circle */
   function particles(api, cx, cy, r, t, colors, n = 6) {
     for (let i = 0; i < n; i++) {
@@ -247,5 +303,6 @@ PF.Pixel = (() => {
   }
 
   return { C, frame, makeApi, offsetApi, clamp, lerp, easeOut, easeInOut, TAU, finishSelective,
-    sword, pickaxe, axe, mace, spear, hammer, shield, kiteShield, bow, bowFront, slash, sparks, particles, shadowFlat, flashWhite };
+    sword, pickaxe, axe, mace, spear, hammer, shield, kiteShield, bow, bowFront, slash, sparks, particles, shadowFlat, flashWhite,
+    arcTrail, dustPuff, impactStar };
 })();

@@ -34,6 +34,7 @@ PF.Library = (() => {
     add('golem', 'Stone Golem', 'Enemies', 'Heavy rock brute with crystal core, moss and crack detail.', ['enemy', 'boss'], () => M().golemSuite(), { w: 32, h: 32 });
     add('wolf', 'Dire Wolf', 'Animals', 'Quadruped gallop cycle, lunge attack, hurt and death.', ['animal', 'mount', 'forest'], () => M().wolfSuite(), { w: 32, h: 32 });
     add('boar', 'Wild Boar', 'Animals', 'Trot, charge with tusk thrust, dust kick, hurt and comical death.', ['animal', 'forest', 'survival'], () => M().boarSuite(), { w: 32, h: 32, featured: true });
+    add('goblin_rider', 'Goblin Boar-rider', 'Enemies', 'Charging goblin on a war boar: trot, lowered lance thrust with impact, hurt and death. Reuses the boar mount with a red war saddle.', ['enemy', 'mount', 'cavalry', 'goblin'], () => M().goblinRiderSuite(), { w: 32, h: 32, featured: true });
     add('chicken', 'Chicken', 'Animals', 'Hop walk, wing flap, peck and comical death. Survival food source.', ['animal', 'farm'], () => M().chickenSuite(), { w: 32, h: 32 });
     // World
     add('tileset', 'Starter Tileset 4×4', 'World', '16 tiles on a 64×64 sheet: grass, flowers, dirt, stone, brick, planks, sand, lava, ice, fence, water edge + more.', ['tiles', 'grass', 'dungeon'], () => W().tilesetSuite(), { w: 64, h: 64, featured: true });
@@ -122,12 +123,21 @@ PF.Library = (() => {
     add('rpg_castle', 'Castle Keep', 'World', 'Medieval fortress and dungeon keep fixtures — 8 states / 27 frames: winched iron portcullis, roaring brazier, royal lion throne, armory weapon rack, pillory stocks, council war table, heraldic lion banner, wheel chandelier.', ['castle', 'interior', 'props', 'medieval'], () => RM().castleSuite(), { w: 32, h: 32, featured: true });
     // ---- Tiny Muster: original RTS-style squad (sword/spear/bow/friar/worker) ----
     const RT = () => R().tiny;
-    add('tiny_blade', 'Tiny Blade', 'Heroes', 'Militia swordfighter with kettle helm and shield — 15 states: idle/walk/run x3, sword arcs x3, block, hurt, death.', ['militia', 'sword', 'rts', 'tiny'], () => RT().bladeSuite(), { w: 32, h: 32 });
-    add('tiny_pike', 'Tiny Pike', 'Heroes', 'Defensive spear guard with morion helm — 15 states: idle/walk/run x3, spear thrusts x3, block, hurt, death.', ['spear', 'guard', 'rts', 'tiny'], () => RT().pikeSuite(), { w: 32, h: 32 });
-    add('tiny_bow', 'Tiny Bow', 'Heroes', 'Hooded shortbow skirmisher — 14 states: idle/walk/run x3, bow draw x3, sneaky stride, hurt, death.', ['archer', 'bow', 'rts', 'tiny'], () => RT().bowSuite(), { w: 32, h: 32 });
-    add('tiny_friar', 'Tiny Friar', 'Heroes', 'Wool-robed healer with mend cast — 16 states: idle/walk/run x3, staff strikes, cast front and side, hurt, death.', ['healer', 'monk', 'rts', 'tiny'], () => RT().friarSuite(), { w: 32, h: 32 });
-    add('tiny_drudge', 'Tiny Drudge', 'NPCs', 'Worker pawn with axe chop and crate-carry loop — idle/walk/run, axe gather, carry, hurt, death.', ['worker', 'pawn', 'rts', 'tiny'], () => RT().drudgeSuite(), { w: 32, h: 32 });
+    add('tiny_blade', 'Tiny Blade', 'Heroes', 'Militia swordfighter with kettle helm and shield — 67 states / 324 frames: idle/walk/run/attack/ready/parry/evade/bash across all 8 facings, block, hurt, death.', ['militia', 'sword', 'rts', 'tiny'], () => RT().bladeSuite(), { w: 32, h: 32 });
+    add('tiny_pike', 'Tiny Pike', 'Heroes', 'Defensive spear guard with morion helm — 67 states / 324 frames: eight-facing locomotion, spear thrusts, ready/parry/evade/bash, block, hurt, death.', ['spear', 'guard', 'rts', 'tiny'], () => RT().pikeSuite(), { w: 32, h: 32 });
+    add('tiny_bow', 'Tiny Bow', 'Heroes', 'Hooded shortbow skirmisher — 59 states / 286 frames: eight-facing locomotion, six-frame draw with a held anchor and fast release, sneaky stride, ready/parry/evade, hurt, death.', ['archer', 'bow', 'rts', 'tiny'], () => RT().bowSuite(), { w: 32, h: 32 });
+    add('tiny_friar', 'Tiny Friar', 'Heroes', 'Wool-robed healer with mend cast — 60 states / 288 frames: eight-facing locomotion, staff strikes, upright cast front and side, ready/parry/evade, hurt, death.', ['healer', 'monk', 'rts', 'tiny'], () => RT().friarSuite(), { w: 32, h: 32 });
+    add('tiny_drudge', 'Tiny Drudge', 'NPCs', 'Worker pawn with hatchet chop and crate-carry loop — 59 states / 284 frames: idle/walk/run/attack/ready/parry/evade x8 facings, gather, carry, hurt, death.', ['worker', 'pawn', 'rts', 'tiny'], () => RT().drudgeSuite(), { w: 32, h: 32 });
+    // ---- Life & Labour: original tool-action cycles (smith / farm / fish / climb) ----
+    const RL = () => R().life;
+    add('rpg_smith', 'Smith at the Anvil', 'NPCs', 'Five-frame hammer swing at a war anvil — raise, held windup, one fast strike landing the spark, rebound and settle. Plus a four-frame forge quench loop.', ['npc', 'crafting', 'smithing', 'anvil'], () => RL().smithSuite(), { w: 32, h: 32, featured: true });
+    add('rpg_farmer', 'Farmer at Work', 'NPCs', 'Four distinct verbs, not one swing recoloured: till with a hoe and throw a clod, plant from a seed bag, water in an arcing stream, harvest with a sickle and puff the stubble.', ['npc', 'farming', 'town', 'tool'], () => RL().farmSuite(), { w: 32, h: 32, featured: true });
+    add('rpg_fisher', 'Angler', 'NPCs', 'Eight-frame beat: wind up, cast, line settles, wait, rod jerks on the bite, two reels, fish held up. Bobber and splash sit at a fixed water point so the strike reads as a catch.', ['npc', 'fishing', 'town', 'water'], () => RL().fishSuite(), { w: 32, h: 32, featured: true });
+    add('rpg_climber', 'Climber', 'NPCs', 'Five-frame hand-over-hand ascent that resets each cycle so it holds still against a scrolling wall. Legs are posed, not walked: a climb is the one action no sine gait fits.', ['npc', 'climbing', 'platform', 'rock'], () => RL().climbSuite(), { w: 32, h: 32 });
+    add('rpg_rest', 'Resting Poses', 'NPCs', 'Seven seated states on a dedicated hip-anchored rig: stool, floor, knees-up, dozing nod, reclined toe-tap, drinking and a shocked emote. Breath drives head and torso on separate beats so every frame differs.', ['npc', 'idle', 'resting', 'sitting', 'emote'], () => RL().restSuite(), { w: 32, h: 32, featured: true });
+    add('rpg_spear', 'Spear Combat', 'Enemies', 'Twelve polearm states across side/down/up: draw, combat-ready stance and step, slash, two thrusts, parry, evade, lunge, retreat, hit and knockdown. Thrusts drive the whole body forward, which is what sells reach.', ['enemy', 'spear', 'polearm', 'combat', 'guard'], () => RL().spearSuite(), { w: 32, h: 32, featured: true });
     extraPacks.forEach(fn => { try { fn(add); } catch (e) { console.warn('pack failed', e); } });
+
     return T;
   }
 

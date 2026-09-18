@@ -84,7 +84,7 @@ PF.RPG.medieval = (() => {
       post: (api, cfg) => {
         const bob = cfg.bob || 0, kb = cfg.kb || 0, hd = cfg.headDy || 0;
         const side = cfg.facing === 'side', up = cfg.facing === 'up';
-        const X = x => x + kb, Y = y => y + bob + hd, BY = y => y + bob;
+        const X = x => x + kb, Y = y => y + bob + hd + 1, BY = y => y + bob;
 
         // Red cross on surcoat (front and side)
         if (!up && !cfg.lying) {
@@ -147,30 +147,30 @@ PF.RPG.medieval = (() => {
       post: (api, cfg) => {
         const bob = cfg.bob || 0, kb = cfg.kb || 0, hd = cfg.headDy || 0;
         const side = cfg.facing === 'side', up = cfg.facing === 'up';
-        const X = x => x + kb, Y = y => y + bob + hd, BY = y => y + bob;
+        const X = x => x + kb, Y = y => y + bob + hd + 1, BY = y => y + bob;
 
         if (cfg.lying) return;
 
         // Winged Circlet Helm
         if (side) {
           // Wing sweeping backwards from temple
-          api.line(X(16), Y(4), X(9), Y(0), '#ffffff', 2);
+          api.line(X(16), Y(4), X(9), Y(1), '#ffffff', 2);
           api.line(X(16), Y(5), X(11), Y(2), '#c0cbdc', 1);
           api.line(X(15), Y(6), X(10), Y(4), '#8b9bb4', 1);
-          api.px(X(8), Y(0), '#ffffff'); api.px(X(9), Y(-1), '#ffffff');
+          api.px(X(8), Y(1), '#ffffff'); api.px(X(9), Y(1), '#ffffff');
           // Silver circlet
           api.line(X(14), Y(4), X(20), Y(4), '#c0cbdc', 1);
           api.px(X(17), Y(4), '#2ce8f5'); // sapphire gem
         } else {
           // Wing plumes on left & right temples
           // Left wing
-          api.line(X(11), Y(5), X(6), Y(0), '#ffffff', 2);
+          api.line(X(11), Y(5), X(6), Y(1), '#ffffff', 2);
           api.line(X(11), Y(6), X(8), Y(2), '#c0cbdc', 1);
-          api.px(X(5), Y(0), '#ffffff'); api.px(X(6), Y(-1), '#ffffff');
+          api.px(X(5), Y(1), '#ffffff'); api.px(X(6), Y(1), '#ffffff');
           // Right wing
-          api.line(X(20), Y(5), X(25), Y(0), '#ffffff', 2);
+          api.line(X(20), Y(5), X(25), Y(1), '#ffffff', 2);
           api.line(X(20), Y(6), X(23), Y(2), '#c0cbdc', 1);
-          api.px(X(26), Y(0), '#ffffff'); api.px(X(25), Y(-1), '#ffffff');
+          api.px(X(26), Y(1), '#ffffff'); api.px(X(25), Y(1), '#ffffff');
           // Circlet
           api.line(X(11), Y(4), X(20), Y(4), '#c0cbdc', 1);
           if (!up) { api.px(X(15), Y(4), '#2ce8f5'); api.px(X(16), Y(4), '#2ce8f5'); }
@@ -229,27 +229,27 @@ PF.RPG.medieval = (() => {
       post: (api, cfg) => {
         const bob = cfg.bob || 0, kb = cfg.kb || 0, hd = cfg.headDy || 0;
         const side = cfg.facing === 'side', up = cfg.facing === 'up';
-        const X = x => x + kb, Y = y => y + bob + hd, BY = y => y + bob;
+        const X = x => x + kb, Y = y => y + bob + hd + 1, BY = y => y + bob;
 
         if (cfg.lying) return;
 
         // 3-Pointed Jester Cap with golden jingle bells
         if (side) {
           // Purple front lobe, gold back lobe
-          api.line(X(15), Y(3), X(19), Y(-2), '#68386c', 2);
-          api.px(X(20), Y(-2), '#fee761'); // bell
-          api.line(X(12), Y(3), X(7), Y(0), '#feae34', 2);
-          api.px(X(6), Y(0), '#fee761'); // bell
+          api.line(X(15), Y(3), X(19), Y(1), '#68386c', 2);
+          api.px(X(20), Y(1), '#fee761'); // bell
+          api.line(X(12), Y(3), X(7), Y(1), '#feae34', 2);
+          api.px(X(6), Y(1), '#fee761'); // bell
         } else {
           // Left horn (gold), center horn (purple), right horn (gold)
-          api.line(X(12), Y(3), X(6), Y(-1), '#feae34', 2);
-          api.px(X(5), Y(-1), '#fee761'); // bell left
+          api.line(X(12), Y(3), X(6), Y(1), '#feae34', 2);
+          api.px(X(5), Y(1), '#fee761'); // bell left
 
           api.line(X(15), Y(2), X(16), Y(-3), '#68386c', 2);
           api.px(X(16), Y(-4), '#fee761'); // bell center
 
-          api.line(X(19), Y(3), X(25), Y(-1), '#feae34', 2);
-          api.px(X(26), Y(-1), '#fee761'); // bell right
+          api.line(X(19), Y(3), X(25), Y(1), '#feae34', 2);
+          api.px(X(26), Y(1), '#fee761'); // bell right
         }
 
         // Jagged ruffled jester collar
@@ -327,7 +327,7 @@ PF.RPG.medieval = (() => {
       post: (api, cfg) => {
         const bob = cfg.bob || 0, kb = cfg.kb || 0, hd = cfg.headDy || 0;
         const side = cfg.facing === 'side', up = cfg.facing === 'up';
-        const X = x => x + kb, Y = y => y + bob + hd, BY = y => y + bob;
+        const X = x => x + kb, Y = y => y + bob + hd + 1, BY = y => y + bob;
 
         if (cfg.lying) return;
 

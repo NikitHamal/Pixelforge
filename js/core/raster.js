@@ -129,6 +129,16 @@ PF.Raster = (() => {
   /* Whole-buffer transforms (return new buffers) */
   const flipH = (p, w, h) => { const o = new Uint32Array(p.length); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) o[y * w + (w - 1 - x)] = p[y * w + x]; return o; };
   const flipV = (p, w, h) => { const o = new Uint32Array(p.length); for (let y = 0; y < h; y++) o.set(p.subarray(y * w, y * w + w), (h - 1 - y) * w); return o; };
+  /* Mirror src into a pre-allocated dst. Sprite frames are painted then
+     mirrored per animation tick, so the allocating flipH above is the wrong
+     tool here — this one keeps the hot path allocation-free. */
+  function mirrorInto(src, dst, w, h) {
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      for (let x = 0; x < w; x++) dst[row + x] = src[row + (w - 1 - x)];
+    }
+    return dst;
+  }
   const rotate90 = (p, w, h) => { const o = new Uint32Array(p.length); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) o[x * h + (h - 1 - y)] = p[y * w + x]; return o; };
   function shift(p, w, h, dx, dy, wrap = false) {
     const o = new Uint32Array(p.length);
@@ -233,5 +243,5 @@ PF.Raster = (() => {
   /* Unique colors */
   const colorsOf = p => { const s = new Set(); for (let i = 0; i < p.length; i++) if (p[i]) s.add(p[i]); return [...s]; };
 
-  return { set, get, stamp, line, rect, ellipse, fill, flipH, flipV, rotate90, shift, outline, outlineSelective, replaceColor, shadeRegion, composite, bounds, paintRows, toRows, colorsOf };
+  return { set, get, stamp, line, rect, ellipse, fill, flipH, flipV, mirrorInto, rotate90, shift, outline, outlineSelective, replaceColor, shadeRegion, composite, bounds, paintRows, toRows, colorsOf };
 })();

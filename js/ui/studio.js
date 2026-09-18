@@ -9,7 +9,7 @@ PF.UI = (() => {
   const toast = msg => { const el = $('#toast'); if (!el) return; el.textContent = msg; el.classList.add('is-on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('is-on'), 2200); };
   const setTheme = t => { document.documentElement.dataset.theme = t; try { localStorage.setItem('pf-theme', t); } catch {} const b = $('#btn-theme .ms'); if (b) b.textContent = t === 'dark' ? 'light_mode' : 'dark_mode'; };
   const setView = v => {
-    if (v === 'agent') { $('#drawer-agent')?.classList.add('is-open'); return; }
+    if (v === 'agent') { if (PF.UI.openDrawer) PF.UI.openDrawer('agent'); else $('#drawer-agent')?.classList.add('is-open'); return; }
     const s = $('#studio'); if (!s) return; s.dataset.view = v;
     $$('.studio__nav button').forEach(b => b.classList.toggle('is-on', b.dataset.view === v));
     if (v === 'canvas') { try { PF.Renderer.fit(); } catch {} }
@@ -175,11 +175,11 @@ function hslToHex(h, s, l) {
   onMenu('#mi-fit', () => PF.Renderer.fit());
   onMenu('#mi-inspector', () => $('#studio').classList.toggle('hide-inspector'));
   onMenu('#mi-fullscreen', () => { const s = $('#studio'); document.fullscreenElement ? document.exitFullscreen() : s.requestFullscreen?.(); });
-  onMenu('#mi-agent-open', () => $('#drawer-agent').classList.add('is-open'));
+  onMenu('#mi-agent-open', () => openDrawer('agent'));
   onMenu('#mi-shortcuts', () => $('#dlg-help').showModal());
-  onMenu('#mi-library', () => { renderLib(); $('#drawer-library').classList.add('is-open'); });
+  onMenu('#mi-library', () => openDrawer('library'));
   $$('[data-agent-prompt]').forEach(b => b.addEventListener('click', () => {
-    closeMenus(); $('#drawer-agent').classList.add('is-open');
+    closeMenus(); openDrawer('agent');
     $('#agent-input').value = b.dataset.agentPrompt;
     setTimeout(() => $('#agent-send').click(), 150);
   }));
@@ -438,8 +438,7 @@ function hslToHex(h, s, l) {
     else if (k === 'delete' || k === 'backspace') PF.Input.deleteSel();
     else if (k === 'escape') {
       closeMenus();
-      if ($('#drawer-agent').classList.contains('is-open')) $('#drawer-agent').classList.remove('is-open');
-      else if ($('#drawer-library').classList.contains('is-open')) $('#drawer-library').classList.remove('is-open');
+      if ($('#studio-side')?.classList.contains('is-open')) closeDrawers();
       else PF.Input.clearSel();
       replaceTarget = null;
     }
@@ -454,12 +453,30 @@ function hslToHex(h, s, l) {
     e.preventDefault();
   });
 
+  /* ---- Full-height right sidebar: exactly one drawer open at a time ---- */
+  function openDrawer(which) {
+    const wantLib = which === 'library', wantAg = which === 'agent';
+    $('#drawer-library')?.classList.toggle('is-open', wantLib);
+    $('#drawer-agent')?.classList.toggle('is-open', wantAg);
+    $('#studio-side')?.classList.toggle('is-open', wantLib || wantAg);
+    if (wantLib) renderLib();
+    if (wantAg) setTimeout(() => $('#agent-input')?.focus(), 120);
+  }
+  function closeDrawers() { openDrawer(null); }
+  function toggleDrawer(which) {
+    const el = which === 'library' ? $('#drawer-library') : $('#drawer-agent');
+    if (el && el.classList.contains('is-open')) closeDrawers(); else openDrawer(which);
+  }
+  PF.UI.openDrawer = openDrawer; PF.UI.closeDrawers = closeDrawers;
+
   /* ---- Panels + agent console ---- */
   PF.Panels.init();
-  PF.Agent.init({ log: $('#agent-log'), input: $('#agent-input'), send: $('#agent-send'), chips: $('#agent-chips') });
+  PF.Agent.init({ log: $('#agent-log'), input: $('#agent-input'), send: $('#agent-send'), chips: $('#agent-chips'),
+    model: $('#agent-model'), status: $('#agent-status'), stop: $('#agent-stop'), mode: $('#agent-mode'), refresh: $('#agent-models-refresh'),
+    connect: { btn: $('#agent-connect'), dlg: $('#dlg-nebian'), login: $('#neb-login'), pass: $('#neb-password'), go: $('#neb-go'), err: $('#neb-error') } });
   const dp = params.get('prompt');
   if (dp) {
-    $('#drawer-agent').classList.add('is-open');
+    openDrawer('agent');
     $('#agent-input').value = dp;
     setTimeout(() => $('#agent-send').click(), 700);
   }
@@ -471,13 +488,12 @@ function hslToHex(h, s, l) {
     mini.appendChild(b);
   });
   $('#btn-agent-tools').addEventListener('click', () => mini.classList.toggle('hidden'));
-  $('#btn-agent').addEventListener('click', () => $('#drawer-agent').classList.toggle('is-open'));
-  $('#agent-close').addEventListener('click', () => $('#drawer-agent').classList.remove('is-open'));
+  $('#btn-agent').addEventListener('click', () => toggleDrawer('agent'));
+  $('#agent-close').addEventListener('click', closeDrawers);
 
   /* ---- Library drawer ---- */
-  const drawer = $('#drawer-library');
-  $('#btn-library').addEventListener('click', () => { renderLib(); drawer.classList.toggle('is-open'); });
-  $('#lib-close').addEventListener('click', () => drawer.classList.remove('is-open'));
+  $('#btn-library').addEventListener('click', () => toggleDrawer('library'));
+  $('#lib-close').addEventListener('click', closeDrawers);
   $('#lib-search').addEventListener('input', renderLib);
   (function initLibCats() {
     const cats = $('#lib-cats');
@@ -492,10 +508,14 @@ function hslToHex(h, s, l) {
     const cat = $('#lib-cats .chip.is-on')?.textContent || 'All';
     const term = ($('#lib-search').value || '').toLowerCase(), body = $('#library-body');
     body.innerHTML = '';
-    PF.Library.list()
+    const found = PF.Library.list()
       .filter(t => cat === 'All' || (cat === 'Featured' ? t.featured : t.category === cat))
-      .filter(t => !term || (t.name + ' ' + t.desc + ' ' + t.tags.join(' ')).toLowerCase().includes(term))
-      .slice(0, 60)
+      .filter(t => !term || (t.name + ' ' + t.desc + ' ' + t.tags.join(' ')).toLowerCase().includes(term));
+    const shown = found.slice(0, 60);
+    const count = $('#lib-count');
+    if (count) count.textContent = found.length === shown.length ? `${found.length} asset${found.length === 1 ? '' : 's'}` : `Showing ${shown.length} of ${found.length} — refine search`;
+    $('#lib-empty')?.classList.toggle('hidden', found.length > 0);
+    shown
       .forEach(t => {
         const stats = PF.Library.docStats(t.id) || { states: 0, frames: 0 };
         const row = document.createElement('div');
@@ -507,7 +527,7 @@ function hslToHex(h, s, l) {
         row.querySelector('[data-open]').addEventListener('click', async () => {
           await PF.Tools.call('load_template', { id: t.id });
           try { history.replaceState(null, '', 'studio.html?project=' + PF.Projects.openId()); } catch {}
-          drawer.classList.remove('is-open');
+          closeDrawers();
           PF.UI.toast('Opened ' + t.name);
         });
         row.querySelector('[data-add]').addEventListener('click', async () => {

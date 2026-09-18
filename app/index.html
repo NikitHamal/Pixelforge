@@ -150,11 +150,21 @@ PixelForge.clickUI('frame-add')</pre>
     <section class="view" id="view-agent" aria-label="AI agent">
       <div class="page-head">
         <div class="head-copy"><div class="eyebrow">Tool-calling workspace</div><h1>AI agent cockpit</h1><p>The app is navigable by stable semantic actions, not visual guessing.</p></div>
-        <span class="badge ok">● Ready · <span data-count="tools">48</span> tools</span>
+        <span class="badge ok">● Ready · <span data-count="tools">56</span> tools</span>
       </div>
       <div class="agent-layout">
         <article class="card console">
           <div class="console-head"><h2>PixelForge agent</h2><span class="badge ok">Local execution</span></div>
+          <div class="agent-bar">
+            <div class="agent-bar__row">
+              <button class="quick quick--mode is-on" id="agent-mode" data-agent-id="agent-mode" title="AI mode (free Nebians models) — click for local recipes">AI</button>
+              <button class="quick" id="agent-connect" data-agent-id="agent-connect" title="Connect your Nebians account">Connect</button>
+              <select class="agent-input agent-model" id="agent-model" aria-label="AI model (free, no key)" data-agent-id="agent-model"></select>
+              <button class="btn outline btn-sm" id="agent-models-refresh" data-agent-id="agent-models-refresh" title="Refresh live model lists">Refresh</button>
+              <button class="btn outline btn-sm hidden" id="agent-stop" data-agent-id="agent-stop">Stop</button>
+            </div>
+            <div class="agent-status" id="agent-status" role="status" data-agent-id="agent-status"></div>
+          </div>
           <div class="messages" id="agent-log" role="log" aria-live="polite" data-agent-id="agent-log"></div>
           <div class="quick-row" id="agent-chips">
             <button class="quick" data-prompt="/list_templates" data-agent-id="prompt-templates">Templates</button>
@@ -206,6 +216,19 @@ PixelForge.clickUI('frame-add')</pre>
 
 
 
+<!-- Nebians connect -->
+<dialog class="modal" id="dlg-nebian" aria-label="Connect Nebians account">
+  <div class="modal-head"><div><div class="eyebrow">Free LLMs</div><h2>Connect Nebians</h2></div><button class="icon" id="neb-cancel" aria-label="Close">×</button></div>
+  <p class="muted-sm">Sign in with your Nebians account to drive the agent with every free LLM there — Unikey, Qwen, DeepAI, K2Think, Poolside and more. PixelForge holds no keys: your token stays in this browser only.</p>
+  <form class="modal-form" id="neb-form">
+    <label>Email or username<input name="login" id="neb-login" autocomplete="username"></label>
+    <label>Password<input name="password" id="neb-password" type="password" autocomplete="current-password"></label>
+    <p class="neb-err" id="neb-error" role="alert"></p>
+    <div class="page-actions"><button type="submit" class="btn primary" id="neb-go">Connect</button></div>
+  </form>
+  <p class="muted-sm">Prefer no browser secret? Export <code>NEBIANS_TOKEN</code> before <code>node scripts/serve.js</code> and the agent uses the server key instead.</p>
+</dialog>
+
 <!-- Help -->
 <dialog class="modal" id="helpModal" aria-label="Help">
   <div class="modal-head"><div><div class="eyebrow">Help</div><h2>Where is everything?</h2></div><button class="icon" data-close aria-label="Close">×</button></div>
@@ -244,9 +267,12 @@ PixelForge.clickUI('frame-add')</pre>
   <script src="../js/library/rpg_props.js"></script>
   <script src="../js/library/rpg_medieval.js"></script>
   <script src="../js/library/rpg_tiny.js"></script>
+  <script src="../js/library/rpg_life.js"></script>
   <script src="../js/library/index.js"></script>
 <script src="../js/agent/tools.js"></script>
 <script src="../js/agent/studio-tools.js"></script>
+<script src="../js/agent/nebians.js"></script>
+<script src="../js/agent/harness.js"></script>
 <script src="../js/agent/agent.js"></script>
 <script src="../js/agent/mcp.js"></script>
 <script src="app.js"></script>

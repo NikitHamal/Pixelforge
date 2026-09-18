@@ -31,9 +31,13 @@ RF.Game = (() => {
     bandit: { spr: 'rpg_bandit', mv: null, atk: 'attack_side', hp: 40, spd: 58, dmg: 12, r: 11, xp: 3, humanoid: true },
     wraith: { spr: 'rpg_wraith', mv: 'float', hp: 70, spd: 48, dmg: 15, r: 11, xp: 5, drift: true },
     boar: { spr: 'boar', mv: 'trot', charge: 'charge', hp: 48, spd: 50, dmg: 14, r: 12, xp: 3, charger: true },
+    boarrider: { spr: 'goblin_rider', mv: 'trot', charge: 'charge', hp: 66, spd: 64, dmg: 16, r: 13, xp: 7, charger: true },
     wolf: { spr: 'wolf', mv: 'run', atk: 'attack', hp: 36, spd: 74, dmg: 12, r: 11, xp: 3 },
     skeleton: { spr: 'skeleton', mv: null, hp: 58, spd: 42, dmg: 14, r: 11, xp: 4, humanoid: true },
     orc: { spr: 'orc', mv: null, hp: 95, spd: 38, dmg: 18, r: 13, xp: 5, humanoid: true },
+    // The Tiny Muster rig is the only pack with eight authored facings, so it
+    // is also the one place the diagonal branch of faceOf() ever fires.
+    militia: { spr: 'tiny_blade', mv: null, hp: 78, spd: 44, dmg: 14, r: 12, xp: 5, humanoid: true },
     ghost: { spr: 'ghost', mv: 'float', hp: 52, spd: 52, dmg: 13, r: 11, xp: 4, drift: true },
     necro: { spr: 'rpg_necromancer', mv: null, hp: 65, spd: 40, dmg: 8, r: 11, xp: 6, humanoid: true, shooter: true },
     demon: { spr: 'rpg_demon', mv: null, hp: 950, spd: 44, dmg: 24, r: 20, xp: 40, humanoid: true, boss: true, scale: 2.5 },
@@ -69,8 +73,24 @@ RF.Game = (() => {
   };
 
   /* ================= helpers ================= */
-  function faceOf(dx, dy) {
-    if (Math.abs(dx) > Math.abs(dy) * 1.15) return { s: 'side', flip: dx < 0 };
+  /* Diagonal facings are opt-in per sprite: RF.Sprites.frames() falls back to a
+     template's FIRST state when a name misses, so asking a 3-direction unit for
+     walk_downright would silently play its idle instead of erroring. */
+  const diagCache = new Map();
+  function hasDiag(spr) {
+    if (!spr) return false;
+    if (diagCache.has(spr)) return diagCache.get(spr);
+    let ok = false;
+    try { ok = (PF.Library.docStats(spr).stateNames || []).indexOf('walk_downright') >= 0; } catch (e) { ok = false; }
+    diagCache.set(spr, ok);
+    return ok;
+  }
+  function faceOf(dx, dy, spr) {
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (hasDiag(spr) && ax > ay * 0.55 && ax < ay * 1.8) {
+      return { s: (dy >= 0 ? 'down' : 'up') + (dx < 0 ? 'left' : 'right'), flip: false };
+    }
+    if (ax > ay * 1.15) return { s: 'side', flip: dx < 0 };
     return { s: dy >= 0 ? 'down' : 'up', flip: false };
   }
   function adv(e, dt) {
@@ -133,7 +153,9 @@ RF.Game = (() => {
     if (t > 80) pool.push(['spider', 7]);
     if (t > 95) pool.push(['spiderling', 6]);
     if (t > 110) pool.push(['wolf', 6], ['boar', 4]);
+    if (t > 125) pool.push(['boarrider', 4]);
     if (t > 150) pool.push(['skeleton', 6]);
+    if (t > 165) pool.push(['militia', 5]);
     if (t > 190) pool.push(['orc', 5], ['ghost', 4], ['wraith', 3]);
     if (t > 230) pool.push(['necro', 3]);
     return pool;
@@ -358,7 +380,7 @@ RF.Game = (() => {
       p.x = clamp(p.x + mx * p.speed * dt, 20, Wd.W - 20);
       p.y = clamp(p.y + my * p.speed * dt, 20, Wd.H - 20);
       collide(p, 11);
-      p.face = (mx || my) ? faceOf(mx, my) : (p.lockFace || p.face);
+      p.face = (mx || my) ? faceOf(mx, my, p.spr) : (p.lockFace || p.face);
       // regen + heal zones
       if (p.regen) p.hp = Math.min(p.maxhp, p.hp + p.regen * dt);
       for (const h of Wd.heals) {
@@ -387,7 +409,7 @@ RF.Game = (() => {
       const target = nearestFoe(p.x, p.y, 520);
       if ((G.atkQueued || target) && p.atkT <= 0 && target) {
         G.atkQueued = false;
-        p.atkT = p.cd; p.lockFace = faceOf(target.x - p.x, target.y - p.y);
+        p.atkT = p.cd; p.lockFace = faceOf(target.x - p.x, target.y - p.y, p.spr);
         playerAttack(target);
       }
       // anim state
@@ -417,11 +439,11 @@ RF.Game = (() => {
       if (e.key === 'chicken' && !p.deadT && d < 140) {
         // flee!
         e.x += -nx * e.spd * dt; e.y += -ny * e.spd * dt;
-        e.face = faceOf(-nx, -ny);
+        e.face = faceOf(-nx, -ny, e.spr);
       } else if (e.def.shooter && d < 260 && d > 120 && !e.boss) {
         // necromancer keeps range + casts
         e.x += -nx * e.spd * 0.5 * dt; e.y += -ny * e.spd * 0.5 * dt;
-        e.face = faceOf(nx, ny);
+        e.face = faceOf(nx, ny, e.spr);
         e.shootT -= dt;
         if (e.shootT <= 0 && !p.deadT) {
           e.shootT = 2.6; e.state = 'cast'; e.t = 0; e.atkAnim = 0.5;
@@ -443,7 +465,7 @@ RF.Game = (() => {
         if (e.def.wobble) e.wob += dt * 6;
         e.x += nx * sp * dt + (e.def.wobble ? Math.cos(e.wob) * 20 * dt : 0);
         e.y += ny * sp * dt;
-        e.face = faceOf(nx, ny);
+        e.face = faceOf(nx, ny, e.spr);
       }
       collide(e, e.r * 0.7);
       // contact damage
@@ -573,10 +595,10 @@ RF.Game = (() => {
           burst(e.x, e.y, 'fx', 'dust', 3); AU.hit();
         }, 450);
       }
-      e.face = faceOf(nx, ny); e.flip = false;
+      e.face = faceOf(nx, ny, e.spr); e.flip = false;
     } else if (e.key === 'demon') {
       e.x += nx * e.spd * dt; e.y += ny * e.spd * dt;
-      e.face = faceOf(nx, ny); e.flip = e.face.flip;
+      e.face = faceOf(nx, ny, e.spr); e.flip = e.face.flip;
       e.slamT -= dt;
       if (e.slamT <= 0 && d < 170) {
         e.slamT = 3; e.state = 'attack_side'; e.t = 0; e.atkAnim = 0.6;
@@ -602,7 +624,7 @@ RF.Game = (() => {
       e.flip = e.face.flip;
     } else if (e.key === 'ent') {
       e.x += nx * e.spd * dt; e.y += ny * e.spd * dt;
-      e.face = faceOf(nx, ny);
+      e.face = faceOf(nx, ny, e.spr);
       e.slamT -= dt;
       if (e.slamT <= 0 && d < 220) {
         e.slamT = 3.5; e.state = 'slam'; e.t = 0; e.atkAnim = 0.9; G.shake = 10;
@@ -616,7 +638,7 @@ RF.Game = (() => {
     } else if (e.key === 'spiderqueen') {
       // skitters in, pounces at close range, falls back on a web volley
       e.x += nx * e.spd * dt; e.y += ny * e.spd * dt;
-      e.face = faceOf(nx, ny); e.flip = e.face.flip;
+      e.face = faceOf(nx, ny, e.spr); e.flip = e.face.flip;
       e.slamT -= dt; e.shootT -= dt;
       if (e.slamT <= 0 && d < 150) {
         e.slamT = 4; e.state = 'lunge'; e.t = 0; e.atkAnim = 0.7;

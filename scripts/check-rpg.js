@@ -23,6 +23,16 @@ const isNew = id => id.startsWith('rpg_');
 const must = (tag, c, msg) => { isNew(tag) ? ok(c, msg) : (c ? pass++ : warn('LEGACY ' + msg)); };
 
 const GROUND_CATS = new Set(['Heroes', 'NPCs', 'Enemies']);
+/* The outline pass can only write INSIDE the buffer, so a character pixel that
+   lands on row 0 has no rim above it and reads as sliced off the top of the
+   frame — the complaint that "most assets look cut off". Tiles, water and
+   weather bleed to the edges on purpose, so this only governs figures.
+   Budget is a ratchet: today's survivors are listed by the failure text, and
+   any NEW template that clips fails the gate. Lower it as they are fixed. */
+const OUT_U32 = PF.Color.hexToU32('#181425');
+const FIGURE_CATS = new Set(['Heroes', 'NPCs', 'Enemies', 'Animals']);
+const EDGE_BUDGET = 38;   // ratchet: only ever lower this. See the FAIL text for the list.
+const edgeClipped = new Set();
 const GROUND_IDS = new Set(['rpg_village', 'rpg_dungeon_props', 'rpg_savepoint']);
 /* States that are airborne by design. Sprites no longer carry a baked shadow,
    so a jump apex legitimately has no pixel in the ground band — without this
@@ -56,6 +66,12 @@ for (const t of list) {
       let n = 0, lowest = -1;
       for (let i = 0; i < buf.length; i++) if (buf[i]) { n++; const y = Math.floor(i / doc.width); if (y > lowest) lowest = y; }
       f._n = n; f._lowest = lowest;
+      if (doc.height === 32 && FIGURE_CATS.has(t.category) && !edgeClipped.has(t.id)) {
+        for (let x = 0; x < doc.width; x++) {
+          const v = buf[x];
+          if (v && v !== OUT_U32) { edgeClipped.add(t.id); break; }
+        }
+      }
       const minPx = t.id === 'rpg_status' ? 15 : t.category === 'FX' ? 6 : doc.width >= 64 ? 120 : 30;
       must(tag, n >= minPx, `${tag}/${s.name}#${fi}: too empty (${n}px)`);
       if (prev) {
@@ -88,6 +104,10 @@ for (const t of list) {
     ok(st && st.states === doc.states.length, `${tag}: docStats`);
   } catch (e) { ok(false, `${tag}: docStats threw`); }
 }
+
+ok(edgeClipped.size <= EDGE_BUDGET,
+  `edge ratchet: ${edgeClipped.size} figure templates paint on row 0, budget ${EDGE_BUDGET} — ` +
+  `keep headgear below y1 and locomotion bob within 1px so the outline can close. Offenders: ${[...edgeClipped].join(', ')}`);
 
 const rpg = list.filter(t => t.id.startsWith('rpg_'));
 const frames = rpg.reduce((n, t) => n + PF.Library.docStats(t.id).frames, 0);

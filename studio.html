@@ -119,6 +119,7 @@
 
   <main>
     <section class="studio" id="studio" data-view="canvas" aria-label="PixelForge Studio editor">
+      <div class="studio__main">
 
       <div class="studio__body">
         <!-- ============ TOOL RAIL ============ -->
@@ -180,40 +181,6 @@
             <span class="pill-sep"></span>
             <button class="pill-btn" id="sel-clear" title="Deselect (Esc)" data-agent-id="sel-clear"><span class="ms">deselect</span></button>
           </div>
-
-          <aside class="drawer" id="drawer-library" aria-label="Asset library">
-            <div class="drawer__head">
-              <span class="title grow">Asset library</span>
-              <button class="icon-btn icon-btn--sm" id="lib-close" aria-label="Close library" data-agent-id="library-close"><span class="ms">close</span></button>
-            </div>
-            <div class="drawer__body">
-              <input class="input input--sm" id="lib-search" placeholder="Search heroes, slime, tiles, sword…" aria-label="Search assets" data-agent-id="library-search" spellcheck="false">
-              <div class="cat-row" id="lib-cats"></div>
-              <div id="library-body" class="stack" style="display:flex;flex-direction:column;gap:12px"></div>
-              <p class="muted" style="font-size:.75rem">Open replaces your canvas as a new project (autosaved). +States appends every state when sizes match.</p>
-            </div>
-          </aside>
-
-          <aside class="drawer drawer--agent" id="drawer-agent" aria-label="AI agent console">
-            <div class="drawer__head">
-              <span class="title grow">Agent console · <span data-count="tools">48</span> tools</span>
-              <button class="icon-btn icon-btn--sm" id="btn-agent-tools" aria-label="Show tool list" data-agent-id="agent-tools-toggle"><span class="ms">construction</span></button>
-              <button class="icon-btn icon-btn--sm" id="agent-close" aria-label="Close agent console" data-agent-id="agent-close"><span class="ms">close</span></button>
-            </div>
-            <div class="tools-mini hidden" id="agent-tools-mini"></div>
-            <div class="agent-log" id="agent-log" role="log" aria-live="polite" data-agent-id="agent-log"></div>
-            <div class="agent-chips" id="agent-chips">
-              <button class="chip" data-prompt="make a slime idle animation" data-agent-id="prompt-slime"><span class="ms">auto_awesome</span>Slime idle</button>
-              <button class="chip" data-prompt="spinning coin" data-agent-id="prompt-coin"><span class="ms">paid</span>Spinning coin</button>
-              <button class="chip" data-prompt="hero walk cycle" data-agent-id="prompt-hero"><span class="ms">directions_walk</span>Hero walk</button>
-              <button class="chip" data-prompt="/list_templates" data-agent-id="prompt-templates"><span class="ms">widgets</span>Templates</button>
-              <button class="chip" data-prompt="/help" data-agent-id="prompt-help"><span class="ms">help</span>Help</button>
-            </div>
-            <div class="agent-compose">
-              <textarea id="agent-input" rows="1" placeholder="Ask the agent, or type /tool_name key=value…" aria-label="Agent prompt" data-agent-id="agent-input"></textarea>
-              <button class="fab fab--primary" id="agent-send" aria-label="Send" data-agent-id="agent-send" style="width:44px;height:44px"><span class="ms">arrow_upward</span></button>
-            </div>
-          </aside>
         </div>
 
         <!-- ============ INSPECTOR ============ -->
@@ -323,6 +290,55 @@
         <span><span class="kbd">Ctrl+S</span> save</span>
         <span><span class="kbd">Space</span> play</span>
       </div>
+      </div><!-- /.studio__main -->
+      <div class="studio__side" id="studio-side">
+        <aside class="drawer" id="drawer-library" aria-label="Asset library">
+          <div class="drawer__head">
+            <span class="title grow">Asset library</span>
+            <button class="icon-btn icon-btn--sm" id="lib-close" aria-label="Close library" data-agent-id="library-close"><span class="ms">close</span></button>
+          </div>
+          <div class="drawer__body">
+            <div class="lib-sticky">
+              <input class="input input--sm" id="lib-search" placeholder="Search heroes, slime, tiles, sword…" aria-label="Search assets" data-agent-id="library-search" spellcheck="false">
+              <div class="cat-row" id="lib-cats"></div>
+              <div class="lib-count" id="lib-count" aria-live="polite"></div>
+            </div>
+            <div id="library-body" class="stack" style="display:flex;flex-direction:column;gap:12px"></div>
+            <p class="lib-empty hidden" id="lib-empty">No assets match — try another search or category.</p>
+            <p class="muted" style="font-size:.75rem">Open replaces your canvas as a new project (autosaved). +States appends every state when sizes match.</p>
+          </div>
+        </aside>
+        <aside class="drawer drawer--agent" id="drawer-agent" aria-label="AI agent console">
+          <div class="drawer__head">
+            <span class="title grow">Agent console · <span data-count="tools">56</span> tools</span>
+            <button class="icon-btn icon-btn--sm" id="btn-agent-tools" aria-label="Show tool list" data-agent-id="agent-tools-toggle"><span class="ms">construction</span></button>
+            <button class="icon-btn icon-btn--sm" id="agent-close" aria-label="Close agent console" data-agent-id="agent-close"><span class="ms">close</span></button>
+          </div>
+          <div class="agent-bar">
+              <div class="agent-bar__row">
+                <button class="chip chip--mode is-on" id="agent-mode" data-agent-id="agent-mode" title="AI mode (free Nebians models) — click for local recipes">AI</button>
+                <button class="chip" id="agent-connect" data-agent-id="agent-connect" title="Connect your Nebians account">Connect</button>
+                <select class="input input--sm agent-model" id="agent-model" aria-label="AI model (free, no key)" data-agent-id="agent-model"></select>
+                <button class="icon-btn icon-btn--sm" id="agent-models-refresh" aria-label="Refresh live model lists" title="Refresh live model lists" data-agent-id="agent-models-refresh"><span class="ms">sync</span></button>
+                <button class="icon-btn icon-btn--sm hidden" id="agent-stop" aria-label="Stop the agent" title="Stop" data-agent-id="agent-stop"><span class="ms">stop</span></button>
+              </div>
+            <div class="agent-status" id="agent-status" role="status" data-agent-id="agent-status"></div>
+          </div>
+          <div class="tools-mini hidden" id="agent-tools-mini"></div>
+          <div class="agent-log" id="agent-log" role="log" aria-live="polite" data-agent-id="agent-log"></div>
+          <div class="agent-chips" id="agent-chips">
+            <button class="chip" data-prompt="make a slime idle animation" data-agent-id="prompt-slime"><span class="ms">auto_awesome</span>Slime idle</button>
+            <button class="chip" data-prompt="spinning coin" data-agent-id="prompt-coin"><span class="ms">paid</span>Spinning coin</button>
+            <button class="chip" data-prompt="hero walk cycle" data-agent-id="prompt-hero"><span class="ms">directions_walk</span>Hero walk</button>
+            <button class="chip" data-prompt="/list_templates" data-agent-id="prompt-templates"><span class="ms">widgets</span>Templates</button>
+            <button class="chip" data-prompt="/help" data-agent-id="prompt-help"><span class="ms">help</span>Help</button>
+          </div>
+          <div class="agent-compose">
+            <textarea id="agent-input" rows="1" placeholder="Ask the agent, or type /tool_name key=value…" aria-label="Agent prompt" data-agent-id="agent-input"></textarea>
+            <button class="fab fab--primary" id="agent-send" aria-label="Send" data-agent-id="agent-send"><span class="ms">arrow_upward</span></button>
+          </div>
+        </aside>
+      </div>
     </section>
   </main>
 
@@ -402,6 +418,23 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <dialog class="sheet" id="dlg-nebian" aria-label="Connect Nebians account">
+    <div class="sheet__inner">
+      <div class="sheet__handle"></div>
+      <div class="sheet__head"><h3 class="title">Connect Nebians</h3><button class="icon-btn" data-close aria-label="Close" data-agent-id="nebian-close"><span class="ms">close</span></button></div>
+      <p class="muted" style="font-size:.82rem">Sign in with your Nebians account to drive the agent with every free LLM there — Unikey, Qwen, DeepAI, K2Think, Poolside and more. PixelForge holds no keys: your token stays in this browser only.</p>
+      <div class="row wrap">
+        <label class="field grow"><span>Email or username</span><input class="input" id="neb-login" autocomplete="username" data-agent-id="nebian-login"></label>
+        <label class="field grow"><span>Password</span><input class="input" id="neb-password" type="password" autocomplete="current-password" data-agent-id="nebian-password"></label>
+      </div>
+      <p class="neb-err" id="neb-error" role="alert"></p>
+      <div class="row wrap">
+        <button class="btn btn--filled" id="neb-go" data-agent-id="nebian-connect"><span class="ms ms--sm">login</span>Connect</button>
+      </div>
+      <p class="muted" style="font-size:.75rem">Prefer no browser secret? Export <code>NEBIANS_TOKEN</code> before <code>node scripts/serve.js</code> and the agent uses the server key instead.</p>
+    </div>
+  </dialog>
+
   <script src="js/core/store.js"></script>
   <script src="js/core/raster.js"></script>
   <script src="js/core/renderer.js"></script>
@@ -424,9 +457,12 @@
   <script src="js/library/rpg_props.js"></script>
   <script src="js/library/rpg_medieval.js"></script>
   <script src="js/library/rpg_tiny.js"></script>
+  <script src="js/library/rpg_life.js"></script>
   <script src="js/library/index.js"></script>
   <script src="js/agent/tools.js"></script>
   <script src="js/agent/studio-tools.js"></script>
+  <script src="js/agent/nebians.js"></script>
+  <script src="js/agent/harness.js"></script>
   <script src="js/agent/agent.js"></script>
   <script src="js/agent/mcp.js"></script>
   <script src="js/ui/panels.js"></script>

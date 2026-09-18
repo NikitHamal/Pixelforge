@@ -137,15 +137,19 @@ PF.RPG = (() => {
     // head slides out from under a static hood/helm during the breathing idle,
     // which both looks wrong and makes the idle change almost no pixels.
     // Shoulder pads are the one exception — they follow the body (BY).
-    const Y = y => y + bob + hd, BY = y => y + bob, X = x => x + kb;
+    /* The +1 is a hard safety gutter, not padding: the outline pass can only
+       write inside the buffer, so any headgear authored on y0 loses its outline
+       and reads as a flat slice off the top of the frame. Author one row lower
+       and row 0 stays free for the outline to close over it. */
+    const Y = y => y + bob + hd + 1, BY = y => y + bob, X = x => x + kb;
     if (o.hood) {
       const c = o.hood, sh = o.hoodSh || '#193c3e';
       if (side) {
         api.rect(X(10), Y(1), X(21), Y(5), c); api.rect(X(10), Y(1), X(12), Y(5), sh);
-        api.rect(X(9), Y(5), X(11), Y(13), c); api.px(X(15), Y(0), c); api.px(X(16), Y(0), c);
+        api.rect(X(9), Y(5), X(11), Y(13), c); api.px(X(15), Y(1), c); api.px(X(16), Y(1), c);
       } else {
         api.rect(X(9), Y(1), X(22), Y(5), c); api.rect(X(9), Y(1), X(11), Y(5), sh); api.rect(X(20), Y(1), X(22), Y(5), sh);
-        api.px(X(14), Y(0), c); api.px(X(15), Y(0), c); api.px(X(16), Y(0), c);
+        api.px(X(14), Y(1), c); api.px(X(15), Y(1), c); api.px(X(16), Y(1), c);
         api.rect(X(9), Y(5), X(22), Y(6), sh);
       }
     }
@@ -155,26 +159,26 @@ PF.RPG = (() => {
       // rather than upward - a vertical feather would fall off the canvas.
       const c = o.hat, band = o.hatBand || '#262b44', sh = o.hatSh || '#262b44', plume = o.hatPlume;
       if (side) {
-        api.rect(X(10), Y(0), X(21), Y(2), c);
+        api.rect(X(10), Y(1), X(21), Y(2), c);
         api.rect(X(10), Y(2), X(21), Y(3), band);
         api.rect(X(8), Y(3), X(24), Y(4), c); api.rect(X(8), Y(4), X(24), Y(4), sh);
-        if (plume) { api.line(X(10), Y(1), X(5), Y(1), plume, 1); api.px(X(4), Y(1), plume); api.px(X(5), Y(0), plume); api.px(X(5), Y(2), plume); }
+        if (plume) { api.line(X(10), Y(1), X(5), Y(1), plume, 1); api.px(X(4), Y(1), plume); api.px(X(5), Y(1), plume); api.px(X(5), Y(2), plume); }
       } else {
-        api.rect(X(9), Y(0), X(22), Y(2), c);
+        api.rect(X(9), Y(1), X(22), Y(2), c);
         api.rect(X(9), Y(2), X(22), Y(3), band);
         api.rect(X(7), Y(3), X(24), Y(4), c); api.rect(X(7), Y(4), X(24), Y(4), sh);
-        if (plume) { api.line(X(9), Y(1), X(4), Y(1), plume, 1); api.px(X(3), Y(1), plume); api.px(X(4), Y(0), plume); api.px(X(4), Y(2), plume); }
+        if (plume) { api.line(X(9), Y(1), X(4), Y(1), plume, 1); api.px(X(3), Y(1), plume); api.px(X(4), Y(1), plume); api.px(X(4), Y(2), plume); }
       }
     }
     if (o.crown) {
       const c = o.crown, sh = o.crownSh || '#feae34';
       if (side) {
         api.rect(X(12), Y(1), X(19), Y(2), c);
-        api.px(X(13), Y(0), c); api.px(X(15), Y(0), c); api.px(X(17), Y(0), c);
+        api.px(X(13), Y(1), c); api.px(X(15), Y(1), c); api.px(X(17), Y(1), c);
         api.px(X(15), Y(1), o.gem || '#ff0044'); api.px(X(16), Y(1), o.gem || '#ff0044');
       } else {
         api.rect(X(11), Y(1), X(20), Y(2), c); api.rect(X(11), Y(2), X(20), Y(2), sh);
-        [12, 14, 16, 18].forEach(x => api.px(X(x), Y(0), c));
+        [12, 14, 16, 18].forEach(x => api.px(X(x), Y(1), c));
         api.px(X(15), Y(1), o.gem || '#ff0044'); api.px(X(16), Y(1), o.gem || '#ff0044');
       }
     }
@@ -222,12 +226,14 @@ PF.RPG = (() => {
     }
     if (o.horns) {
       const c = o.horns, sh = o.hornsSh || '#8b9bb4';
+      // Horns sweep outward, never up: the frame has no rows above y1 to spare,
+      // and a tip drawn off-canvas comes back as a horn that has been chopped.
       if (side) {
-        api.line(X(13), Y(2), X(10), Y(-2), c, 2); api.line(X(18), Y(2), X(20), Y(-2), c, 2);
-        api.px(X(10), Y(-2), sh); api.px(X(20), Y(-2), sh);
+        api.line(X(13), Y(3), X(10), Y(1), c, 2); api.line(X(18), Y(3), X(20), Y(1), c, 2);
+        api.px(X(10), Y(1), sh); api.px(X(20), Y(1), sh);
       } else {
-        api.line(X(12), Y(3), X(8), Y(-1), c, 2); api.line(X(19), Y(3), X(23), Y(-1), c, 2);
-        api.px(X(8), Y(-1), sh); api.px(X(23), Y(-1), sh);
+        api.line(X(12), Y(4), X(8), Y(1), c, 2); api.line(X(19), Y(4), X(23), Y(1), c, 2);
+        api.px(X(8), Y(1), sh); api.px(X(23), Y(1), sh);
       }
     }
     if (o.pads) {
@@ -268,77 +274,108 @@ PF.RPG = (() => {
       states.push(D(sname, 4, true, frames));
     }
     const amp = o.sneak ? 3 : 2;
+    // walk x6 — six beats, not four, so the cycle has room for a real
+    // heel-strike and toe-off. Dust lifts on the two contact frames.
     for (const [sname, facing] of [['walk_down', 'down'], ['walk_side', 'side'], ['walk_up', 'up']]) {
       const frames = [];
-      for (let i = 0; i < 4; i++) {
-        const cfg = facing === 'side' ? SP(i, 4, amp, pal) : FP(i, 4, amp, pal, facing);
-        if (o.sneak) cfg.bob = -1;
+      for (let i = 0; i < 6; i++) {
+        /* A 6-sample sine repeats its magnitude on frames 1/2 and 4/5, which
+           renders two identical poses and stalls the cycle. Riding the bob on
+           a quarter-phase cosine gives six distinct heights instead. */
+        const a = i / 6 * Math.PI * 2;
+        /* The bob is clamped to one row of lift. Two rows is what was slicing
+           headgear off the top of the frame on every walk and run — the outline
+           pass cannot draw outside the buffer — and a 2px body lift also pulls
+           the planted feet off the ground line the engine sits its shadow on.
+           The arms take over the quarter-phase cosine so all six frames stay
+           distinct without it. */
+        const bob = Math.max(-1, Math.min(0, Math.round(-Math.abs(Math.sin(a)) * amp - Math.cos(a) * 0.9)) + (o.sneak ? -1 : 0));
+        const aw = Math.round(Math.cos(a) * 2);
+        const dust = (i === 1 || i === 4) ? [[13, 27, '#c0cbdc'], [14, 26, '#8b9bb4'], [18, 27, '#c0cbdc']] : null;
+        const cfg = facing === 'side'
+          ? SP(i, 6, amp, pal, { bob, tool: { kind: 'none', dust } })
+          : FP(i, 6, amp, pal, facing, { bob, tool: { kind: 'none', dust } });
+        if (facing === 'side') { cfg.armF = { dx: -aw, dy: 0 }; cfg.armB = { dx: aw, dy: 0 }; }
+        else { cfg.armL = { dx: 0, dy: -aw }; cfg.armR = { dx: 0, dy: aw }; }
         frames.push(Fr(ms(6), N(cfg, { pre, post }, i)));
       }
       states.push(D(sname, 6, true, frames));
     }
-    // run x3 — six-frame cycle at a wider stride than the walk, so a sprint
-    // reads as a distinct gear. Side view kicks up dust at the footfalls.
+    // run x6 — wider stride than the walk, so a sprint reads as another gear.
+    // Every facing kicks up dust at the footfalls, and the bob is clamped so no
+    // frame dips below the floor line into the engine's shadow row.
     for (const [sname, facing] of [['run_down', 'down'], ['run_side', 'side'], ['run_up', 'up']]) {
       const frames = [];
       for (let i = 0; i < 6; i++) {
-        // A 6-sample sine repeats its magnitude on frames 1/2 and 4/5, which
-        // would render two identical poses and visibly stall the cycle. Adding
-        // a quarter-phase cosine term to the body bob gives all six frames a
-        // distinct height (airborne at full stride, lowest at the absorb beat).
         const a = (i / 6) * Math.PI * 2;
-        const bob = Math.round(-Math.abs(Math.sin(a)) * 2 - Math.cos(a));
+        const bob = Math.max(-1, Math.min(0, Math.round(-Math.abs(Math.sin(a)) * 2 - Math.cos(a))) + (o.sneak ? -1 : 0));
+        const aw = Math.round(Math.cos(a) * 2);
+        const dust = (i === 0 || i === 3) ? [[12, 27, '#c0cbdc'], [19, 27, '#c0cbdc'], [15, 26, '#8b9bb4']]
+          : i === 4 ? [[11, 27, '#8b9bb4'], [20, 27, '#c0cbdc']] : null;
         const cfg = facing === 'side'
-          ? SP(i, 6, 3, pal, { bob, tool: { kind: 'none', dust: i % 3 === 0 ? [[6, 28, '#c0cbdc'], [9, 27, '#8b9bb4']] : null } })
-          : FP(i, 6, 3, pal, facing, { bob });
-        if (o.sneak) cfg.bob -= 1; // crouched sprint, keeps the per-frame delta
+          ? SP(i, 6, 3, pal, { bob, tool: { kind: 'none', dust } })
+          : FP(i, 6, 3, pal, facing, { bob, tool: { kind: 'none', dust } });
+        if (facing === 'side') { cfg.armF = { dx: -aw, dy: 0 }; cfg.armB = { dx: aw, dy: 0 }; }
+        else { cfg.armL = { dx: 0, dy: -aw }; cfg.armR = { dx: 0, dy: aw }; }
         frames.push(Fr(ms(10), N(cfg, { pre, post }, i)));
       }
       states.push(D(sname, 10, true, frames));
     }
-    // attack (side)
+    // attack — a held windup, ONE fast strike frame, an impact, then the blade
+    // swinging through and behind the torso. The old five frames stepped almost
+    // evenly, which reads as a metronome: the uneven timing is the weight.
+    const ADUR = [200, 120, 45, 70, 130, 165], ADY = [-3, -4, -2, -2, -2, -1];
+    // Profile can lay the blade back over the shoulder; square-on views cannot,
+    // because the tip then lands on the face instead of above it.
+    const PROF = [-2.45, -2.85, -0.35, 0.6, 0.62, 0.3];
+    const FRONT = [-1.75, -2.05, -0.15, 0.6, 0.62, 0.35];
+    const arcFor = (ang, i, r) => i === 2 || i === 3 ? [ang[i] - 1.15, ang[i], r]
+      : (i === 4 ? [ang[i] - 0.7, ang[i], r - 1] : null);
     {
       const frames = [];
       if (o.weapon === 'bow') {
-        // draw-hold-release: smooth pull ramp, arrow gone + string snapped on the loose frame
-        const pulls = [0, 0.45, 0.85, 1, 0.1], bowDur = [145, 120, 120, 105, 170];
-        for (let i = 0; i < 5; i++) {
-          const cfg = SP(i, 5, 1, pal, { tool: { kind: 'bow', pull: pulls[i], arrow: i < 4 } });
-          cfg.armF = { dx: 2, dy: -2 };
+        // nock, two-frame draw, a long held ANCHOR, then a 55ms release. The
+        // hold is the frame that sells aim; equal time everywhere made the shot
+        // never land.
+        const pulls = [0, 0.4, 0.8, 1, 0.05, 0], bowDur = [120, 110, 120, 190, 55, 150], bar = [-1, -2, -3, -4, -2, -1];
+        for (let i = 0; i < 6; i++) {
+          const cfg = SP(i, 6, 1, pal, { tool: { kind: 'bow', pull: pulls[i], arrow: i > 0 && i < 4 }, headDy: i === 5 ? 1 : 0 });
+          cfg.armF = { dx: 2, dy: bar[i] };
+          cfg.kb = i === 4 ? 1 : (i === 3 ? -1 : 0);
+          cfg.eye = i === 3 ? 'closed' : 'open';
           frames.push(Fr(bowDur[i], N(cfg, { pre, post }, i)));
         }
         states.push(D('bow_side', 10, true, frames));
       } else {
-        // windup hold -> fast cut with slash arc + follow-through -> recover
-        const angles = [-2.2, -1.5, 0.1, 0.8, 0.3], atkDur = [195, 95, 95, 120, 155];
-        for (let i = 0; i < 5; i++) {
-          const cfg = SP(i, 5, 1, pal, { tool: { kind: o.weapon || 'sword', angle: angles[i],
-            slash: i === 2 ? [-0.6, 0.9] : (i === 3 ? [-0.2, 0.6] : null) } });
-          cfg.armF = { dx: 2, dy: -2 };
-          frames.push(Fr(atkDur[i], N(cfg, { pre, post }, i)));
+        for (let i = 0; i < 6; i++) {
+          const cfg = SP(i, 6, 1, pal, { tool: { kind: o.weapon || 'sword', angle: PROF[i],
+            arc: arcFor(PROF, i, 10), impact: i === 3 ? [3, 2, 0.2] : null, behind: i >= 4 } });
+          cfg.armF = { dx: 2, dy: ADY[i] };
+          cfg.kb = [0, 1, 2, 2, 1, 0][i];
+          frames.push(Fr(ADUR[i], N(cfg, { pre, post }, i)));
         }
         states.push(D('attack_side', 10, true, frames));
       }
     }
-    // Omni attacks: the same windup / cut / recover beat, but played on the
-    // front and back facings so top-down games get four-directional combat.
+    // Omni attacks: the same beat played on the front and back facings so
+    // top-down games get directional combat.
     for (const [sname, facing] of [['attack_down', 'down'], ['attack_up', 'up']]) {
       const frames = [];
       if (o.weapon === 'bow') {
-        const pulls = [0, 0.45, 0.85, 1, 0.1], dur = [145, 120, 120, 105, 170];
-        const arms = [{ dx: 0, dy: -2 }, { dx: 1, dy: -3 }, { dx: 2, dy: -4 }, { dx: 0, dy: -1 }, { dx: 0, dy: -2 }];
-        for (let i = 0; i < 5; i++) {
-          const cfg = FP(i, 5, 1, pal, facing, { tool: { kind: 'bow', pull: pulls[i], arrow: i < 4 } });
+        const pulls = [0, 0.4, 0.8, 1, 0.05, 0], dur = [120, 110, 120, 190, 55, 150];
+        const arms = [{ dx: 0, dy: -1 }, { dx: 1, dy: -2 }, { dx: 2, dy: -3 }, { dx: 2, dy: -4 }, { dx: 1, dy: -2 }, { dx: 0, dy: -1 }];
+        for (let i = 0; i < 6; i++) {
+          const cfg = FP(i, 6, 1, pal, facing, { tool: { kind: 'bow', pull: pulls[i], arrow: i > 0 && i < 4 }, headDy: i === 5 ? 1 : 0 });
           cfg.armL = arms[i]; // bow arm rises as the string comes back
           frames.push(Fr(dur[i], N(cfg, { pre, post }, i)));
         }
       } else {
-        const angles = [-2.2, -1.5, 0.1, 0.8, 0.3], dur = [195, 95, 95, 120, 155];
-        for (let i = 0; i < 5; i++) {
-          const cfg = FP(i, 5, 1, pal, facing, { tool: { kind: o.weapon || 'sword', angle: angles[i],
-            slash: i === 2 ? [0.5, 2.7] : (i === 3 ? [-0.2, 0.6] : null) } });
-          cfg.armR = { dx: 1, dy: -2 };
-          frames.push(Fr(dur[i], N(cfg, { pre, post }, i)));
+        for (let i = 0; i < 6; i++) {
+          const cfg = FP(i, 6, 1, pal, facing, { tool: { kind: o.weapon || 'sword', angle: FRONT[i],
+            arc: arcFor(FRONT, i, 9), impact: i === 3 ? [3, 2, 0.2] : null, behind: i >= 4 } });
+          cfg.armR = { dx: 1, dy: ADY[i] };
+          cfg.kb = [0, 1, 2, 2, 1, 0][i];
+          frames.push(Fr(ADUR[i], N(cfg, { pre, post }, i)));
         }
       }
       states.push(D(sname, 10, true, frames));
@@ -377,10 +414,55 @@ PF.RPG = (() => {
       }
       states.push(D('cast_side', 7, true, sideFrames));
     }
-    // hurt (2f) + death (4f, lying + dither fade)
+    /* Combat-ready: weapon out, weight forward. A unit that only has idle and
+       attack looks switched off between swings, so the stance gets its own
+       cycle. Two channels — bob and arm on offset beats — because a lone bob
+       repeats on the half-cycle and hitches the loop. */
+    const RB = [0, -1, -1, 0], RA = [-2, -2, -3, -3], RDUR = [220, 200, 220, 260];
+    for (const [sname, facing] of [['ready_down', 'down'], ['ready_side', 'side'], ['ready_up', 'up']]) {
+      const frames = [];
+      for (let i = 0; i < 4; i++) {
+        const tool = { kind: o.weapon || 'sword', angle: facing === 'side' ? -0.3 : 0.15, arrow: false, pull: 0 };
+        const cfg = facing === 'side' ? SP(i, 4, 0, pal, { bob: RB[i], tool }) : FP(i, 4, 0, pal, facing, { bob: RB[i], tool });
+        cfg.armL = { dx: 0, dy: RA[i] }; cfg.armR = { dx: 0, dy: RA[i] };
+        cfg.armF = { dx: facing === 'side' ? 2 : 0, dy: RA[i] }; cfg.armB = { dx: 0, dy: RA[i] };
+        cfg.eye = 'open';
+        frames.push(Fr(RDUR[i], N(cfg, { pre, post }, i)));
+      }
+      states.push(D(sname, 5, true, frames));
+    }
+    /* Parry: blade snapped up across the body, held long, then let go. */
+    const PANG = [-1.5, -1.35, -0.9], PKB = [1, 0, -1], PDUR = [70, 190, 140];
+    for (const [sname, facing] of [['parry_down', 'down'], ['parry_side', 'side'], ['parry_up', 'up']]) {
+      const frames = [];
+      for (let i = 0; i < 3; i++) {
+        const tool = { kind: o.weapon || 'sword', angle: PANG[i], arrow: false, pull: 0, arc: i === 0 ? [PANG[i] - 0.9, PANG[i], facing === 'side' ? 10 : 9] : null };
+        const cfg = facing === 'side' ? SP(i, 3, 0, pal, { tool }) : FP(i, 3, 0, pal, facing, { tool });
+        cfg.kb = PKB[i];
+        if (facing === 'side') cfg.armF = { dx: 2, dy: -3 }; else cfg.armR = { dx: 1, dy: -3 };
+        frames.push(Fr(PDUR[i], N(cfg, { pre, post }, i)));
+      }
+      states.push(D(sname, 10, true, frames));
+    }
+    /* Evade: a hop back that pushes off the ground it leaves and lands heavy. */
+    const EKB = [0, -2, -4, -2, 0], EBOB = [0, -2, -1, 0, -1], EDUR = [70, 110, 110, 90, 150];
+    for (const [sname, facing] of [['evade_down', 'down'], ['evade_side', 'side'], ['evade_up', 'up']]) {
+      const frames = [];
+      for (let i = 0; i < 5; i++) {
+        const dust = i === 0 ? [[12, 27, '#c0cbdc'], [19, 27, '#c0cbdc']] : i === 3 ? [[13, 27, '#8b9bb4'], [18, 27, '#c0cbdc']] : null;
+        const cfg = facing === 'side'
+          ? SP(i, 5, 0, pal, { bob: EBOB[i], tool: { kind: 'none', dust } })
+          : FP(i, 5, 0, pal, facing, { bob: EBOB[i], tool: { kind: 'none', dust } });
+        cfg.kb = EKB[i];
+        frames.push(Fr(EDUR[i], N(cfg, { pre, post }, i)));
+      }
+      states.push(D(sname, 10, true, frames));
+    }
+    // hurt (3f) + death (4f, lying + dither fade)
     states.push(D('hurt', 7, true, [
-      Fr(ms(7), N({ pal, facing: 'side', bob: 0, kb: 2, eye: 'hurt', mouth: 'open', flash: true, legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post })),
-      Fr(ms(7), N({ pal, facing: 'side', bob: 0, kb: 1, eye: 'hurt', legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post }))
+      Fr(60, N({ pal, facing: 'side', bob: 0, kb: 3, eye: 'hurt', mouth: 'open', flash: true, tool: { kind: 'none', impact: [-2, -4, 0.15] }, legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post })),
+      Fr(95, N({ pal, facing: 'side', bob: -1, kb: 1, eye: 'hurt', legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post })),
+      Fr(150, N({ pal, facing: 'side', bob: 0, kb: 0, eye: 'hurt', legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post }))
     ]));
     states.push(D('death', 6, false, [
       Fr(ms(6), N({ pal, facing: 'side', bob: 0, kb: 1, eye: 'dead', legF: { dx: 0, dy: 0 }, legB: { dx: 0, dy: 0 }, armF: { dx: 0, dy: 0 }, armB: { dx: 0, dy: 0 } }, { pre, post })),
