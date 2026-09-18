@@ -91,7 +91,14 @@ for (const t of list) {
       if (same) warn(`${tag}/${s.name}: first/last frames pixel-identical (loop hitch)`);
     }
   }
-  if ((GROUND_CATS.has(t.category) || GROUND_IDS.has(t.id)) && !t.tags.includes('flying')) {
+  /* Overhead art has no ground line to stand on. The whole point of the check
+     is that a 3/4-view figure's feet share a floor with every other pack's
+     feet; a top-down sprite is seen from above, so its lowest row is the
+     bottom of its shoulders and pinning it to y25 would just shove the
+     character off-centre in its own cell. The tag, not the category, is the
+     right key: a top-down hero is still a Hero. */
+  if ((GROUND_CATS.has(t.category) || GROUND_IDS.has(t.id))
+      && !t.tags.includes('flying') && !t.tags.includes('top-down')) {
     const lows = doc.states.filter(s => !AIRBORNE.test(s.name)).flatMap(s => s.frames.map(f => f._lowest));
     if (lows.length) {
       const minLow = Math.min(...lows);
