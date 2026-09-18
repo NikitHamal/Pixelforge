@@ -9,11 +9,16 @@ const ROOT = path.resolve(__dirname, '..');
 /* Load order matters: raster -> pixel -> rigs -> packs -> registry. */
 const FILES = [
   'js/core/raster.js',
+  'js/core/style.js',
+  'js/core/atlas.js',
+  'js/core/export.js',
   'js/library/pixel.js',
   'js/library/characters.js',
   'js/library/monsters.js',
   'js/library/world.js',
   'js/library/items.js',
+  'js/library/font.js',
+  'js/library/autotile.js',
   'js/library/rpg_heroes.js',
   'js/library/rpg_foes.js',
   'js/library/rpg_world.js',
@@ -25,7 +30,17 @@ const FILES = [
   'js/library/rpg_medieval.js',
   'js/library/rpg_tiny.js',
   'js/library/rpg_life.js',
-  'js/library/index.js'
+  'js/library/scifi.js',
+  'js/library/platformer.js',
+  'js/library/nature.js',
+  'js/library/urban.js',
+  'js/library/horror.js',
+  'js/library/farm.js',
+  'js/library/vfx.js',
+  'js/library/ui.js',
+  'js/library/tiny16.js',
+  'js/library/index.js',
+  'js/core/factory.js'
 ];
 
 function boot() {

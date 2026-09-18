@@ -21,14 +21,31 @@ PF.Pixel = (() => {
   /* Prototype-based draw API. The previous form returned a fresh object of nine
      closures per call — one allocation storm per rendered frame (and per live
      preview tick). A plain constructor with prototype methods keeps the exact
-     same surface with zero per-call closure cost. */
+     same surface with zero per-call closure cost.
+
+     Two more hot-path rules live here:
+     - `px` inlines its own bounds test. It is the single most-called method in
+       the engine (every primitive funnels through it), and the extra call into
+       Raster.set plus its `inb()` cost more than the store itself.
+     - the option objects handed to Raster are shared, not literals. `{fill:true}`
+       is a fresh allocation per call otherwise, and a full-library build makes
+       ~200k of them. Raster only reads these, and nothing here is re-entrant,
+       so mutating one shared `size` field is safe. */
   const num = c => (typeof c === 'number' ? c : C(c));
+  const RECT_FILL = { fill: true, size: 1, mx: false, my: false };
+  const RECT_STROKE = { fill: false, size: 1, mx: false, my: false };
+  const ELL_FILL = { fill: true, size: 1, mx: false, my: false };
+  const ELL_STROKE = { fill: false, size: 1, mx: false, my: false };
   function Api(buf, W, H) { this.buf = buf; this.W = W; this.H = H; }
-  Api.prototype.px = function (x, y, c) { PF.Raster.set(this.buf, this.W, this.H, Math.round(x), Math.round(y), num(c)); };
-  Api.prototype.rect = function (x0, y0, x1, y1, c) { PF.Raster.rect(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), { fill: true }); };
-  Api.prototype.rectO = function (x0, y0, x1, y1, c, size = 1) { PF.Raster.rect(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), { fill: false, size }); };
+  Api.prototype.px = function (x, y, c) {
+    const xi = Math.round(x), yi = Math.round(y), W = this.W, H = this.H;
+    if (xi < 0 || yi < 0 || xi >= W || yi >= H) return;
+    this.buf[yi * W + xi] = num(c);
+  };
+  Api.prototype.rect = function (x0, y0, x1, y1, c) { PF.Raster.rect(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), RECT_FILL); };
+  Api.prototype.rectO = function (x0, y0, x1, y1, c, size = 1) { RECT_STROKE.size = size; PF.Raster.rect(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), RECT_STROKE); };
   Api.prototype.line = function (x0, y0, x1, y1, c, size = 1) { PF.Raster.line(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), size); };
-  Api.prototype.ellipse = function (x0, y0, x1, y1, c, fill = true) { PF.Raster.ellipse(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), { fill }); };
+  Api.prototype.ellipse = function (x0, y0, x1, y1, c, fill = true) { PF.Raster.ellipse(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), fill ? ELL_FILL : ELL_STROKE); };
   Api.prototype.fill = function (x, y, c) { PF.Raster.fill(this.buf, this.W, this.H, Math.round(x), Math.round(y), num(c), true); };
   /* deterministic pseudo-random from coords (stable speckles) */
   Api.prototype.hash = function (x, y, seed = 0) { let h = (x * 374761393 + y * 668265263 + seed * 974634211) | 0; h = (h ^ (h >> 13)) | 0; h = Math.imul(h, 1274126177); h = (h ^ (h >> 16)) >>> 0; return h / 4294967295; };
@@ -40,23 +57,36 @@ PF.Pixel = (() => {
   Api.prototype.grad = function (x0, y0, x1, y1, cTop, cBot) {
     const ta = PF.Color.rgba(num(cTop)), ba = PF.Color.rgba(num(cBot));
     const t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1)), span = Math.max(1, b - t);
+    const l = Math.round(Math.min(x0, x1)), r = Math.round(Math.max(x0, x1));
     for (let y = t; y <= b; y++) {
       const k = (y - t) / span;
       const c = PF.Color.fromRGBA(Math.round(ta[0] + (ba[0] - ta[0]) * k), Math.round(ta[1] + (ba[1] - ta[1]) * k), Math.round(ta[2] + (ba[2] - ta[2]) * k), 255);
-      this.rect(x0, y, x1, y, c);
+      this.rect(l, y, r, y, c);
     }
   };
   // Checker dither between two colours. Breaks up flat rect bands.
   Api.prototype.dith = function (x0, y0, x1, y1, cA, cB, seed = 0) {
     const l = Math.round(Math.min(x0, x1)), r = Math.round(Math.max(x0, x1)), t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1));
-    for (let y = t; y <= b; y++) for (let x = l; x <= r; x++) this.px(x, y, ((x + y + seed) & 1) ? cA : cB);
+    const buf = this.buf, W = this.W, H = this.H, A = num(cA), B = num(cB);
+    const cl = l < 0 ? 0 : l, cr = r >= W ? W - 1 : r, ct = t < 0 ? 0 : t, cb = b >= H ? H - 1 : b;
+    for (let y = ct; y <= cb; y++) {
+      const row = y * W;
+      for (let x = cl; x <= cr; x++) buf[row + x] = ((x + y + seed) & 1) ? A : B;
+    }
   };
   // Deterministic speckle texture. density 0..1, colours cycled by hash.
   Api.prototype.speck = function (x0, y0, x1, y1, seed, colors, density = 0.12) {
     const l = Math.round(Math.min(x0, x1)), r = Math.round(Math.max(x0, x1)), t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1));
-    for (let y = t; y <= b; y++) for (let x = l; x <= r; x++) {
-      const h = this.hash(x, y, seed);
-      if (h < density) this.px(x, y, colors[Math.floor(this.hash(x, y, seed + 99) * colors.length) % colors.length]);
+    const n = colors.length, pal = new Array(n);
+    for (let i = 0; i < n; i++) pal[i] = num(colors[i]);
+    const buf = this.buf, W = this.W, H = this.H;
+    const cl = l < 0 ? 0 : l, cr = r >= W ? W - 1 : r, ct = t < 0 ? 0 : t, cb = b >= H ? H - 1 : b;
+    for (let y = ct; y <= cb; y++) {
+      const row = y * W;
+      for (let x = cl; x <= cr; x++) {
+        if (this.hash(x, y, seed) >= density) continue;
+        buf[row + x] = pal[Math.floor(this.hash(x, y, seed + 99) * n) % n];
+      }
     }
   };
   // Organic rounded mass: base blob + top highlight + bottom shade. The
@@ -302,7 +332,160 @@ PF.Pixel = (() => {
     buf.set(PF.Raster.outlineSelective(buf, W, H, PF.Color.hexToU32(c), opts));
   }
 
+  /* ---- Modern / sci-fi / industrial tools (ADDITIVE) ----
+     The rig only shipped fantasy tools, so a sci-fi or modern pack had to
+     smuggle a rifle through `t.draw` locally. These live here instead: one
+     implementation, available to every pack and every facing preference. */
+  const GUN = { body: '#3a4466', bodyHi: '#5a6988', grip: '#262b44', accent: '#ff0044', glow: '#2ce8f5' };
+  function rifle(api, hx, hy, angle = 0, pal = GUN) {
+    const a = angle || 0, c = Math.cos(a), s = Math.sin(a);
+    const bx = hx - c * 3, by = hy - s * 3, tx = hx + c * 12, ty = hy + s * 12;
+    api.line(bx, by, tx, ty, pal.body, 3);            // receiver + barrel
+    api.line(bx, by - 1, tx - c * 2, ty - s * 2, pal.bodyHi, 1); // top rail highlight
+    const ma = a + Math.PI / 2;
+    api.line(hx - c * 1, hy - s * 1, hx - c * 1 - Math.cos(ma) * 3, hy - s * 1 - Math.sin(ma) * 3, pal.grip, 2); // magazine
+    api.px(tx, ty, pal.glow || '#ffffff');
+    api.px(tx - c, ty - s, pal.accent);
+  }
+  function pistol(api, hx, hy, angle = 0, pal = GUN) {
+    const a = angle || 0, c = Math.cos(a), s = Math.sin(a);
+    api.line(hx, hy, hx + c * 5, hy + s * 5, pal.body, 2);
+    api.line(hx - c, hy - s, hx - c * 2, hy - s * 4, pal.grip, 2);
+    api.px(hx + c * 5, hy + s * 5, pal.glow || '#ffffff');
+  }
+  function blaster(api, hx, hy, angle = 0, pal = GUN) {
+    const a = angle || 0, c = Math.cos(a), s = Math.sin(a);
+    api.rect(hx - 1, hy - 1, hx + 4, hy + 1, pal.body);
+    api.line(hx + 4, hy, hx + 8, hy + s * 2, pal.glow, 2);
+    api.line(hx - 1, hy + 1, hx - 2, hy + 4, pal.grip, 2);
+    api.px(hx + 9, hy + s * 2, '#ffffff');
+    api.px(hx + 1, hy - 1, pal.accent);
+  }
+  function wrench(api, hx, hy, angle = 0, pal = { handle: '#8b9bb4', head: '#c0cbdc' }) {
+    const a = angle || 0, c = Math.cos(a), s = Math.sin(a);
+    api.line(hx, hy, hx + c * 7, hy + s * 7, pal.handle, 2);
+    const tx = hx + c * 8, ty = hy + s * 8, ma = a + Math.PI / 2;
+    api.line(tx - Math.cos(ma) * 2, ty - Math.sin(ma) * 2, tx + Math.cos(ma) * 2, ty + Math.sin(ma) * 2, pal.head, 2);
+    api.px(tx, ty + Math.sin(a) * 2, pal.head);
+  }
+  function shovel(api, hx, hy, angle = 0, pal = { handle: '#b86f50', head: '#8b9bb4' }) {
+    const a = angle || 0, c = Math.cos(a), s = Math.sin(a);
+    api.line(hx, hy + 3, hx + c * 8, hy + s * 8, pal.handle, 2);
+    const tx = hx + c * 10, ty = hy + s * 10;
+    api.ellipse(tx - 2, ty - 2, tx + 2, ty + 3, pal.head, true);
+  }
+  function net(api, hx, hy, angle = 0, pal = { handle: '#b86f50', mesh: '#c0cbdc' }) {
+    const a = angle || 0, c = Math.cos(a), s = Math.sin(a);
+    api.line(hx, hy + 3, hx + c * 7, hy + s * 7, pal.handle, 1);
+    const tx = hx + c * 9, ty = hy + s * 9;
+    api.ellipse(tx - 3, ty - 3, tx + 3, ty + 3, pal.mesh, false);
+    api.line(tx - 2, ty, tx + 2, ty, pal.mesh, 1);
+    api.line(tx, ty - 2, tx, ty + 2, pal.mesh, 1);
+  }
+  /* Long-hafted curved blade: the one silhouette the fantasy packs never had. */
+  function scythe(api, hx, hy, angle = 0, pal = { haft: '#733e39', blade: '#c0cbdc', shine: '#ffffff' }) {
+    const a = angle || 0, c = Math.cos(a), s = Math.sin(a);
+    api.line(hx, hy + 4, hx + c * 9, hy + s * 9, pal.haft, 1);
+    const tx = hx + c * 11, ty = hy + s * 11, ma = a + Math.PI / 2;
+    for (let i = 0; i <= 5; i++) {
+      const k = i / 5;
+      const qx = tx - Math.cos(ma) * k * 7, qy = ty - Math.sin(ma) * k * 7;
+      api.px(qx, qy, pal.blade); api.px(qx + c, qy + s, pal.blade);
+    }
+    api.px(tx - Math.cos(ma) * 7, ty - Math.sin(ma) * 7, pal.shine);
+  }
+  const CLAW = { claw: '#e8ecf5', clawSh: '#8b9bb4' };
+  function claw(api, hx, hy, angle = 0, pal = CLAW) {
+    const a = angle || 0, c = Math.cos(a), s = Math.sin(a), ma = a + Math.PI / 2;
+    for (let i = -1; i <= 1; i++) {
+      const ox = Math.cos(ma) * i * 2, oy = Math.sin(ma) * i * 2;
+      api.line(hx + ox, hy + oy, hx + ox + c * 4, hy + oy + s * 4, pal.claw, 1);
+      api.px(hx + ox + c * 5, hy + oy + s * 5, pal.clawSh);
+    }
+  }
+  /* Energy beam from (x0,y0) to (x1,y1): hot core, soft shell, spark tips. */
+  function beam(api, x0, y0, x1, y1, colors = ['#ffffff', '#2ce8f5', '#124e89'], width = 3) {
+    for (let w = width - 1; w >= 0; w--) api.line(x0, y0, x1, y1, colors[Math.min(colors.length - 1, w)], width - w);
+    api.px(x0, y0, colors[0]); api.px(x1, y1, colors[0]);
+    const dx = Math.sign(x1 - x0), dy = Math.sign(y1 - y0);
+    api.px(x1 + dx, y1 + dy, colors[1]); api.px(x1 - dy, y1 + dx, colors[1]);
+  }
+  /* Muzzle flash: a 4-point star with a bright core, sized by `t` (0..1). */
+  function muzzle(api, cx, cy, t, colors = ['#ffffff', '#ffec27', '#feae34']) {
+    const r = 1 + Math.round(t * 4);
+    api.line(cx - r, cy, cx + r, cy, colors[1], 1);
+    api.line(cx, cy - r, cx, cy + r, colors[1], 1);
+    api.px(cx + 1, cy + 1, colors[2]); api.px(cx - 1, cy - 1, colors[2]);
+    api.rect(cx - 1, cy - 1, cx + 1, cy + 1, colors[0]);
+  }
+  /* Hollow ring (shockwave, magic circle, portal rim). */
+  function ring(api, cx, cy, r, color, thickness = 1, dash = 0) {
+    const steps = Math.max(12, Math.round(r * 6));
+    for (let i = 0; i <= steps; i++) {
+      if (dash && (i % (dash * 2)) >= dash) continue;
+      const a = (i / steps) * TAU;
+      for (let w = 0; w < thickness; w++) api.px(cx + Math.cos(a) * (r - w), cy + Math.sin(a) * (r - w), color);
+    }
+  }
+  /* Rising smoke: opaque early, breaking up later. */
+  function smokePuff(api, cx, cy, t, colors = ['#5a6988', '#8b9bb4', '#c0cbdc'], n = 5, seed = 0) {
+    for (let i = 0; i < n; i++) {
+      const h1 = api.hash(i, seed, 5), h2 = api.hash(i, seed, 9);
+      const x = cx + Math.round((h1 - 0.5) * 8 * (0.4 + t)), y = cy - Math.round(t * 5 + h2 * 2);
+      const c = colors[Math.min(colors.length - 1, Math.floor(t * colors.length))];
+      api.px(x, y, c); api.px(x + 1, y, c);
+      if (t < 0.5) api.px(x, y - 1, c);
+      if (t > 0.6) api.px(x + 2, y - 1, c);
+    }
+  }
+  /* Water splash crown: symmetric, lifts then falls. */
+  function splash(api, cx, cy, t, colors = ['#ffffff', '#73eff7', '#41a6f6']) {
+    const h = Math.round(Math.sin(Math.min(1, t) * Math.PI) * 5);
+    for (let i = -2; i <= 2; i++) {
+      const dx = i * 2, dh = h - Math.abs(i);
+      if (dh <= 0) continue;
+      api.line(cx + dx, cy, cx + dx + Math.sign(i), cy - dh, colors[1], 1);
+      api.px(cx + dx + Math.sign(i), cy - dh - 1, colors[0]);
+    }
+    api.rect(cx - 3, cy, cx + 3, cy, colors[2]);
+  }
+  /* Bubble: outline + single specular dot. */
+  function bubble(api, cx, cy, r, body = '#73eff7', hi = '#ffffff') {
+    api.ellipse(cx - r, cy - r, cx + r, cy + r, body, false);
+    api.px(cx - Math.max(1, r >> 1), cy - Math.max(1, r >> 1), hi);
+  }
+  /* Leaf: teardrop with a centre vein, rotated on the 8-point compass. */
+  function leaf(api, cx, cy, angle, size, body, vein) {
+    const c = Math.cos(angle), s = Math.sin(angle), ma = angle + Math.PI / 2;
+    for (let i = 0; i <= size; i++) {
+      const k = i / size, w = Math.round(Math.sin(k * Math.PI) * (size * 0.55));
+      for (let j = -w; j <= w; j++) {
+        const px = cx + c * (i - size / 2) + Math.cos(ma) * j, py = cy + s * (i - size / 2) + Math.sin(ma) * j;
+        api.px(px, py, Math.abs(j) === w ? vein : body);
+      }
+    }
+    api.line(cx - c * size / 2, cy - s * size / 2, cx + c * size / 2, cy + s * size / 2, vein, 1);
+  }
+  /* Snow / rain / ash column inside a rect, deterministic on (x,y,t). */
+  function precip(api, x0, y0, x1, y1, t, color, kind = 'rain', density = 0.02) {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const h = api.hash(x, y, 17);
+      if (h > density) continue;
+      if (kind === 'rain') { api.px(x, y, color); api.px(x, y + 1, color); }
+      else if (kind === 'snow') api.px(x + ((t + h) % 1 < 0.5 ? 0 : 1), y, color);
+      else api.px(x, y, color);
+    }
+  }
+  /* Foliage: layered canopy blobs with a lit top and a shaded underside. */
+  function canopy(api, cx, cy, rx, ry, colors, seed = 0) {
+    api.ellipse(cx - rx, cy - ry, cx + rx, cy + ry, colors[0], true);
+    api.ellipse(cx - rx + 1, cy - ry + 1, cx + rx - 2, cy - ry + (ry >> 1), colors[1], true);
+    api.speck(cx - rx + 1, cy - 1, cx + rx - 1, cy + ry - 1, seed, [colors[2]], 0.16);
+    api.rect(cx - Math.max(1, rx - 2), cy + ry - 1, cx + Math.max(1, rx - 2), cy + ry, colors[2]);
+  }
+
   return { C, frame, makeApi, offsetApi, clamp, lerp, easeOut, easeInOut, TAU, finishSelective,
     sword, pickaxe, axe, mace, spear, hammer, shield, kiteShield, bow, bowFront, slash, sparks, particles, shadowFlat, flashWhite,
-    arcTrail, dustPuff, impactStar };
+    arcTrail, dustPuff, impactStar,
+    rifle, pistol, blaster, wrench, shovel, net, scythe, claw, beam, muzzle, ring, smokePuff, splash, bubble, leaf, precip, canopy, GUN, CLAW };
 })();

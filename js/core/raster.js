@@ -153,10 +153,32 @@ PF.Raster = (() => {
      Runs once per rendered frame for every sprite, so the neighbour test is
      fully inlined: no get() calls, no per-pixel array allocation, no bounds
      function — just four (or eight) direct indexed reads off the row offsets. */
+  /* Per-height scratch for the "does this row contain any opaque pixel" map.
+     Keyed by height and reused: allocating a Uint8Array per outline call would
+     cost more than the rows it saves. outline() is never re-entered, so a single
+     scratch per height is safe. */
+  const rowAnyCache = new Map();
+  function rowAnyFor(h) {
+    let a = rowAnyCache.get(h);
+    if (!a) { a = new Uint8Array(h); if (rowAnyCache.size < 64) rowAnyCache.set(h, a); }
+    return a;
+  }
   function outline(p, w, h, c, diagonal = false) {
     const o = p.slice();
     const wm1 = w - 1, hm1 = h - 1;
+    /* Sprites have empty margins — a 32x32 character typically paints nothing in
+       rows 0-2 and 29-31. An outline pixel needs an orthogonal opaque
+       neighbour, so a row with no opaque pixel in itself or either neighbour
+       cannot receive one and the whole row can be skipped. Exactly equivalent
+       output, and it removes the per-pixel branch storm from the margins. */
+    const rowAny = rowAnyFor(h);
+    rowAny.fill(0);
     for (let y = 0; y < h; y++) {
+      const row = y * w;
+      for (let x = 0; x < w; x++) if (p[row + x]) { rowAny[y] = 1; break; }
+    }
+    for (let y = 0; y < h; y++) {
+      if (!rowAny[y] && (y === 0 || !rowAny[y - 1]) && (y === hm1 || !rowAny[y + 1])) continue;
       const row = y * w, up = row - w, down = row + w;
       const hasUp = y > 0, hasDown = y < hm1;
       for (let x = 0; x < w; x++) {

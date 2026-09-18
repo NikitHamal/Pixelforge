@@ -1,0 +1,47 @@
+# PixelForge CI.
+#
+# GitHub only runs workflows that live in `.github/workflows/`, and this
+# repository is published through a connector that refuses writes to that path
+# (a workflow file is executable configuration, so the guard is deliberate).
+# Install it once, locally:
+#
+#     mkdir -p .github/workflows && cp ci/verify.yml .github/workflows/verify.yml
+#
+# Nothing in the workflow depends on it living here — it is plain YAML that runs
+# the same `node scripts/...` gate a developer runs by hand.
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gates:
+    name: PixelForge gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No `npm install`: the project intentionally has zero dependencies and no
+      # build step. The gate is the whole CI story.
+      - name: Verify (syntax, quality, style, atlas, export, pixels, wiring, pages, docs)
+        run: node scripts/verify.js
+
+      - name: Benchmarks (informational)
+        run: node scripts/bench-compare.js
+
+      - name: Catalogue is up to date
+        run: node scripts/catalogue.js --check
+
+      - name: Forge CLI smoke test
+        run: |
+          node scripts/forge.js list
+          node scripts/forge.js kit forge-out "handheld platformer" --style gameboy
+          test -f forge-out/kit-atlas.png
+          test -f forge-out/PACK.md

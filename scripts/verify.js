@@ -1,6 +1,7 @@
 /* One-shot verification gate. Run this before you call anything done.
 
-   Steps: syntax -> sprite quality -> pixel regression -> game wiring -> pages.
+   Steps: syntax -> sprite quality -> style -> atlas -> export -> pixel regression
+          -> game wiring -> pages -> docs.
 
    Usage: node scripts/verify.js [--update-baseline]
 */
@@ -41,11 +42,18 @@ const run = (name, args) => {
 const STEPS = [
   syntaxCheck,
   () => run('sprite quality gate', ['scripts/check-rpg.js']),
+  () => run('style engine gate', ['scripts/check-style.js']),
+  () => run('atlas packer gate', ['scripts/check-atlas.js']),
+  () => run('export format gate', ['scripts/check-export.js']),
+  () => run('bitmap font gate', ['scripts/check-font.js']),
   () => updateBaseline
-    ? run('pixel baseline updated', ['scripts/sprite-hash.js', 'save', 'scripts/hashes-baseline.json'])
-    : run('pixel regression', ['scripts/sprite-hash.js', 'diff', 'scripts/hashes-baseline.json']),
+    ? run('pixel baseline updated', ['scripts/sprite-hash.js', 'save', 'scripts/hashes-baseline'])
+    : run('pixel regression', ['scripts/sprite-hash.js', 'diff', 'scripts/hashes-baseline']),
   () => run('game wiring', ['scripts/check-game.js']),
-  () => run('page integrity', ['scripts/check-pages.js'])
+  () => run('page integrity', ['scripts/check-pages.js']),
+  () => run('static references + tool schemas', ['scripts/check-refs.js']),
+  () => run('docs + catalogue', ['scripts/check-docs.js']),
+  () => run('catalogue freshness', ['scripts/catalogue.js', '--check'])
 ];
 
 console.log('PixelForge verification\n' + '='.repeat(52));

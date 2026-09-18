@@ -109,7 +109,11 @@ PF.Chars = (() => {
     }
     // head — cfg.headDy sinks the head into the shoulders for a breathing
     // idle without moving the feet (a whole-body bob reads as a hop)
-    const hy = Y(4) + (cfg.headDy || 0);
+    /* Head clamp: with bob=-2 (an evade or jump apex) the head top lands on row
+       0, where the outline pass has no room to close and the sprite reads as
+       sliced off. Clamping the head to row 3 keeps the 2px hair cap inside the
+       buffer; the neck absorbs the 1px and the feet never move. */
+    const hy = Math.max(3, Y(4) + (cfg.headDy || 0));
     if (back) drawHeadBack(api, tx, hy, pal, cfg);
     else drawHeadFront(api, tx, hy, pal, cfg);
   }
@@ -275,7 +279,7 @@ PF.Chars = (() => {
 
     // 5. Head profile (positioned at tx - 1 = 11 + kb). headDy sinks it for
     //    the breathing idle without lifting the feet off the ground.
-    drawHeadSide(api, tx - 1, Y(4) + (cfg.headDy || 0), pal, cfg);
+    drawHeadSide(api, tx - 1, Math.max(3, Y(4) + (cfg.headDy || 0)), pal, cfg);
 
     // 6. Front arm (attached at front shoulder tx + 4)
     const adx = Math.max(-1, Math.min(3, aF.dx || 0)), ady = aF.dy || 0;
@@ -405,6 +409,14 @@ PF.Chars = (() => {
       else if (t.kind === 'hammer') P.hammer(api, hx, hy, t.angle, t.pal);
       else if (t.kind === 'pickaxe') P.pickaxe(api, hx, hy, t.angle, PICK_PAL);
       else if (t.kind === 'axe') P.axe(api, hx, hy, t.angle, AXE_PAL);
+      else if (t.kind === 'rifle') P.rifle(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'pistol') P.pistol(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'blaster') P.blaster(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'scythe') P.scythe(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'claw') P.claw(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'wrench') P.wrench(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'shovel') P.shovel(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'net') P.net(api, hx, hy, t.angle || 0, t.pal);
       else if (t.kind === 'bow') P.bow(api, hx + 4, hy - 2, t.pull || 0, BOW_PAL, t.arrow === false ? 0 : 1);
       else if (t.kind === 'food') { api.rect(hx - 1, hy - 4, hx + 1, hy - 2, '#e43b44'); api.px(hx, hy - 5, '#63c74d'); }
       else if (t.kind === 'staff') { api.line(hx, hy - 10, hx, hy + 4, '#b86f50', 2); api.rect(hx - 1, hy - 12, hx + 1, hy - 10, '#2ce8f5'); api.px(hx, hy - 11, '#ffffff'); }
@@ -437,6 +449,16 @@ PF.Chars = (() => {
       else if (t.kind === 'kiteShield') P.kiteShield(api, hlx - 1, hly - 1, t.base, t.rim, t.cross);
       else if (t.kind === 'pickaxe') P.pickaxe(api, hx, hy, t.angle, PICK_PAL);
       else if (t.kind === 'axe') P.axe(api, hx, hy, t.angle, AXE_PAL);
+      /* Ranged and industrial tools hold on the sword side in the front view so
+         they extend away from the torso instead of across it. */
+      else if (t.kind === 'rifle') P.rifle(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'pistol') P.pistol(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'blaster') P.blaster(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'scythe') P.scythe(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'claw') P.claw(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'wrench') P.wrench(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'shovel') P.shovel(api, hx, hy, t.angle || 0, t.pal);
+      else if (t.kind === 'net') P.net(api, hx, hy, t.angle || 0, t.pal);
       else if (t.kind === 'food') { const f = t.at || [hx - 2, hy - 4]; api.rect(f[0] - 1, f[1] - 1, f[0] + 1, f[1] + 1, '#e43b44'); api.px(f[0], f[1] - 2, '#63c74d'); api.px(f[0] - 1, f[1] - 1, '#f6757a'); }
       else if (t.kind === 'box') { api.rect(hlx - 1, hly, hx + 1, hly + 4, '#b86f50'); api.rect(hlx - 1, hly, hx + 1, hly + 1, '#733e39'); }
       else if (t.kind === 'staff') { api.line(hlx, hly - 10, hlx, hly + 4, '#b86f50', 2); api.rect(hlx - 1, hly - 12, hlx + 1, hly - 10, '#b55088'); }
