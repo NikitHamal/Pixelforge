@@ -4,6 +4,44 @@ All notable changes to PixelForge. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [semver](https://semver.org/).
 
+## [2.2.0] — 2026-09-20
+
+A fourth demo game, and the overhead sprite pack it needed. Every other
+building pack in the library is drawn in front elevation, which is the one
+thing a top-down settlement game cannot use.
+
+### Added — the Hold pack
+
+- `js/library/hold.js` — eight templates drawn from directly above: a 16-tile
+  terrain sheet, two 16-piece connection-mask autotile sheets (split-stake
+  palisade and coursed rampart), six dwellings, eight workplaces, six
+  fortifications, eight resource nodes and a four-stage construction site.
+  Registered under **World**, so the ground-contact and edge-clip rules that
+  govern character art do not apply to a roof seen from the sky.
+- The autotile sheets resolve a coverage mask per cell before shading, so a
+  run of wall reads as one continuous barrier instead of a line of crates —
+  shading by silhouette edge is what makes a 4-bit mask look like carpentry.
+
+### Added — Hearthhold
+
+- `games/hearthhold/` — a top-down settlement builder with a defence layer.
+  Fell timber and quarry stone by day, raise dwellings, workshops, fields,
+  walls, gates, towers and a barracks, then hold the valley after dark. Twelve
+  days and eleven nights to win; losing the hall, or everyone in it, ends it.
+- Villagers are a flat list driven by a one-step decision function: they take
+  the workplace that needs them most, gather outward from their own lodge,
+  haul to the nearest store, sleep in whatever bed you built them, and run
+  from raiders rather than stand and be cut down.
+- Raiders route with walls priced rather than blocked, so a warband prefers an
+  open gate, then the long way round, then the thinnest stretch of palisade —
+  which is the priority order a besieger actually has.
+- Three difficulties, a day/night cycle with punched-out torchlight, weather,
+  crop growth, construction sites, autotiled walls with shut/open/auto gates,
+  a build palette, an inspector, and 1x/2x/3x speed.
+- `scripts/sim-game.js` now drives Hearthhold too: it picks the hardest
+  difficulty, winds the clock to 3x and asserts the population readout falls —
+  a number only a running villager tick can move.
+
 ## [2.1.0] — 2026-09-19
 
 A quality pass over the drawing and the animation, two new asset domains, two

@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Ironvale &mdash; Isometric Skirmish</title>
-<meta name="description" content="An isometric village-defence skirmish built entirely from PixelForge's procedural isometric asset pack. Hold Ironvale against the warbands.">
-<meta name="theme-color" content="#101425">
+<title>Hearthhold &mdash; Settlement Defence</title>
+<meta name="description" content="A top-down settlement builder and night-defence game built entirely from PixelForge's procedural sprite packs. Raise the hold by day, hold it after dark.">
+<meta name="theme-color" content="#10141f">
 <link rel="stylesheet" href="css/game.css">
 </head>
 <body>
@@ -14,46 +14,63 @@
 
   <div id="hud" class="hidden">
     <div class="row top">
-      <div class="meters">
-        <div class="bar hp"><i id="hp-fill"></i><span id="hp-txt">100</span></div>
-        <div class="bar sp"><i id="sp-fill"></i><span id="sp-txt">100</span></div>
-      </div>
-      <div class="mid">
-        <div id="wave-txt">WARBAND 1</div>
-        <div id="clock-txt">00:00</div>
+      <div id="res-strip">
+        <div class="chip pop" title="Settlers / beds"><span class="pip"></span><b id="pop-txt">0</b></div>
       </div>
       <div class="right">
+        <div class="cheer" title="Contentment">
+          <span>MOOD</span>
+          <div class="bar"><i id="cheer-fill"></i></div>
+          <em id="cheer-arrow">&mdash;</em>
+        </div>
+        <div id="clock-box"><b id="day-txt">DAY 1</b><span id="clock-txt">07:00</span></div>
         <div id="score-box">RENOWN <b id="score-txt">0</b></div>
+        <div class="spd">
+          <button class="ib" id="btn-spd1">1&times;</button>
+          <button class="ib" id="btn-spd2">2&times;</button>
+          <button class="ib" id="btn-spd3">3&times;</button>
+        </div>
         <button class="ib" id="btn-mute" aria-label="Mute">SOUND</button>
         <button class="ib" id="btn-pause" aria-label="Pause">PAUSE</button>
       </div>
     </div>
-    <div id="keep-row">
-      <span>KEEP</span><div class="bar keep"><i id="keep-fill"></i></div><span id="keep-txt">100</span>
+
+    <div id="build-panel">
+      <div id="cat-rail"></div>
+      <div id="palette"></div>
+      <div id="card" class="hidden">
+        <b id="card-name"></b>
+        <span id="card-cost"></span>
+        <p id="card-desc"></p>
+      </div>
     </div>
+
+    <div id="inspect" class="hidden"></div>
+    <div id="wave-txt" class="hidden"></div>
     <div id="toast" class="hidden"></div>
   </div>
 
-  <div id="stick"><i id="nub"></i></div>
-  <button id="btn-fire" aria-label="Strike">STRIKE</button>
-
   <div id="screen-title" class="screen">
     <div class="panel">
-      <h1>IRON<span>VALE</span></h1>
-      <p class="tag">Four warbands are coming down the valley road. The keep holds or it doesn&rsquo;t.</p>
+      <h1>HEARTH<span>HOLD</span></h1>
+      <p class="tag">A hall, a handful of settlers and eleven nights of raiders.
+        Fell timber and raise roofs while it is light &mdash; everything you did not build
+        is something that will not hold at dusk.</p>
       <div id="picker"></div>
       <p id="best-txt"></p>
-      <p class="hint"><b>WASD</b> move &middot; <b>mouse</b> face &middot; <b>click / space</b> strike &middot; <b>shift</b> dash &middot; <b>P</b> pause<br>
-      On a phone: left thumb drives, right thumb swings.</p>
+      <p class="hint"><b>click</b> a building, then the ground &middot; <b>drag</b> to lay walls and roads &middot;
+        <b>right-click</b> cancels<br>
+        <b>WASD</b> or drag to pan &middot; <b>wheel</b> zooms &middot; <b>1 2 3</b> speed &middot; <b>P</b> pause &middot;
+        click a settler to give them a spear</p>
     </div>
   </div>
 
   <div id="screen-over" class="screen hidden">
     <div class="panel">
-      <h2 id="over-title">IRONVALE FALLS</h2>
+      <h2 id="over-title">THE HOLD IS BROKEN</h2>
       <p id="over-sub"></p>
       <div id="over-stats"></div>
-      <button class="big" id="btn-again">STAND AGAIN</button>
+      <button class="big" id="btn-again">SETTLE AGAIN</button>
     </div>
   </div>
 </div>
@@ -96,6 +113,8 @@
   <script src="../../js/library/hold.js"></script>
   <script src="../../js/library/index.js"></script>
 <script src="../lib/bake.js"></script>
+<script src="js/defs.js"></script>
+<script src="js/world.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>

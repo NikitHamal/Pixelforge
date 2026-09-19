@@ -48,6 +48,7 @@ node scripts/serve.js          # http://localhost:5173
 | `games/runefall/` | Side-on action demo, built entirely from library assets |
 | `games/nightfall/` | Top-down survival shooter on the top-down pack |
 | `games/ironvale/` | Isometric skirmish on the iso pack |
+| `games/hearthhold/` | Top-down settlement builder and night defence on the Hold pack |
 
 **On the command line** — no install, no `node_modules`:
 
@@ -228,17 +229,18 @@ The pixel-regression gate fails on *any* visual change, intentional or not. That
 bin/pixelforge.js      CLI entry point
 js/core/               engine: raster, palette, effects, tiles, gif, zip, exporters,
                        store, renderer, animation, input, io, projects
-js/library/            sprite packs (29 files) + pixel.js (draw API) + rig.js (shared
+js/library/            sprite packs (30 files) + pixel.js (draw API) + rig.js (shared
                        humanoid skeleton) + forge.js (seeded character generator)
-                       + index.js (the registry)
+                       + hold.js (overhead settlement pack) + index.js (the registry)
 scripts/               render.js, verify.js, test.js, check-*.js, sheet.js, serve.js
 app/ studio.html       editors
 games/runefall/        side-on demo game
 games/nightfall/       top-down demo game
 games/ironvale/        isometric demo game
+games/hearthhold/      top-down settlement-defence demo game
 ```
 
-Adding a library file means registering it in **eight** places: `FILES` in `scripts/lib-boot.js`, the `<script>` list in each of the six HTML pages (`index.html`, `studio.html`, `app/index.html`, `games/runefall/index.html`, `games/nightfall/index.html`, `games/ironvale/index.html`), and `js/library/index.js`. `scripts/check-pages.js` asserts every `js/library/*.js` entry in `lib-boot.js`'s `FILES` appears in all six pages, so a missed `<script>` tag fails the gate.
+Adding a library file means registering it in **nine** places: `FILES` in `scripts/lib-boot.js`, the `<script>` list in each of the seven HTML pages (`index.html`, `studio.html`, `app/index.html`, `games/runefall/index.html`, `games/nightfall/index.html`, `games/ironvale/index.html`, `games/hearthhold/index.html`), and `js/library/index.js`. `scripts/check-pages.js` asserts every `js/library/*.js` entry in `lib-boot.js`'s `FILES` appears in all seven pages, so a missed `<script>` tag fails the gate.
 
 ---
 

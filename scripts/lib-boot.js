@@ -44,6 +44,7 @@ const FILES = [
   'js/library/iso.js',
   'js/library/topdown.js',
   'js/library/forge.js',
+  'js/library/hold.js',
   'js/library/index.js'
 ];
 

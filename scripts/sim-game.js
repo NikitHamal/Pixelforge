@@ -69,6 +69,42 @@ const GAMES = {
           'nothing died \u2014 melee/foe collision is broken');
       return `clock ${clock}, hp ${hp}, keep ${keep}, renown ${renown}, ${doc.byId['wave-txt'].textContent}`;
     }
+  },
+  'games/hearthhold': {
+    /* A colony sim runs on its own clock rather than the player's reflexes, so
+       the harness picks the hardest, shortest day and then winds the game
+       speed up to 3x. That buys roughly four in-game days out of the frame
+       budget, which is enough for the stores to run out and the raids to
+       start — a settlement nobody builds in is supposed to die. */
+    start(doc) {
+      const picker = doc.byId['picker'];
+      if (!picker || picker.children.length < 3)
+        throw new Error('hearthhold: title screen produced no difficulty buttons');
+      picker.children[picker.children.length - 1].emit('click', {});
+      if (!doc.byId['screen-title'].classList.contains('hidden'))
+        throw new Error('hearthhold: picking a difficulty did not dismiss the title screen');
+      doc.byId['btn-spd3'].emit('click', {});
+    },
+    /* The population readout is the one number no other gate can fake: it only
+       falls when a villager was actually simulated — walked, starved, or was
+       cut down — so it proves the colony AI ran and not merely the renderer. */
+    check(doc) {
+      const clock = doc.byId['clock-txt'].textContent;
+      if (!/^\d\d:\d\d$/.test(clock) || clock === '07:00')
+        throw new Error('hearthhold: clock never advanced (' + clock + ')');
+      if (!/^DAY \d+$/.test(doc.byId['day-txt'].textContent))
+        throw new Error('hearthhold: day counter malformed (' + doc.byId['day-txt'].textContent + ')');
+      const pop = doc.byId['pop-txt'].textContent;
+      if (!/^\d+ \/ \d+$/.test(pop))
+        throw new Error('hearthhold: population readout malformed (' + pop + ')');
+      const alive = Number(pop.split(' / ')[0]);
+      if (!(alive < 4))
+        throw new Error('hearthhold: four settlers sat through four days with no food and ' +
+          'no walls and none of them came to harm \u2014 the villager tick is not running');
+      const renown = Number(doc.byId['score-txt'].textContent);
+      if (!(renown >= 0)) throw new Error('hearthhold: renown readout is not a number');
+      return `clock ${clock}, ${doc.byId['day-txt'].textContent}, pop ${pop}, renown ${renown}`;
+    }
   }
 };
 
