@@ -96,10 +96,18 @@ PF.Forge = (() => {
          crown just makes the head bigger. The falls run past the jaw to hy+4,
          which is the row the neck ends on. */
       a.ellipse(12, hy - 5, 20, hy - 2, p.hair, true);
-      a.rect(11, hy - 3, 12, hy + 4, p.hair);
-      a.rect(20, hy - 3, 21, hy + 4, p.hairSh);
-      a.rect(11, hy + 4, 12, hy + 4, p.hairSh);
+      /* Length hangs on the OUTER column. Two solid slabs pressed against the
+         jaw close the face down to a slot and the head reads as a cowl; the
+         inner column has to stop at the cheekbone and let the jaw out. */
+      a.rect(11, hy - 3, 11, hy + 5, p.hair);
+      a.rect(21, hy - 3, 21, hy + 5, dim(p.hairSh));
+      a.rect(12, hy - 3, 12, hy + 1, p.hair);
+      a.rect(20, hy - 3, 20, hy + 1, p.hairSh);
+      a.rect(11, hy + 5, 11, hy + 5, p.hairSh);
       a.ellipse(13, hy - 5, 16, hy - 4, p.hairHi, true);
+      a.px(11, hy, p.hairHi); a.px(11, hy + 3, p.hairHi);            // strands catching light
+      a.px(21, hy + 1, p.hairSh); a.px(21, hy + 4, p.hairSh);
+      a.rect(15, hy - 5, 15, hy - 3, p.hairSh);                      // a parting
       a.px(13, hy - 2, p.hair); a.px(19, hy - 2, p.hairSh);
     } },
     { key: 'topknot', name: 'topknot', hard: false, paint: (a, hy, p) => {
@@ -112,35 +120,41 @@ PF.Forge = (() => {
     } },
     { key: 'hood', name: 'hood', hard: false, paint: (a, hy, p, pal) => {
       /* A hood is the raised collar behind the neck plus a SMALL opening set
-         LOW. The first cut opened it from hy-2 down to hy+3 — six rows, most
-         of the face — and the result read as a bonnet with a hole cut in it
+         LOW. The first cut opened it from hy-2 down to hy+3 -- six rows, most
+         of the face -- and the result read as a bonnet with a hole cut in it
          rather than as a hood with someone inside. Four rows, with the top one
-         in shadow, is what puts the face back in a recess. */
-      a.ellipse(11, hy - 5, 21, hy + 3, p.hoodCloth, true);
-      a.ellipse(12, hy - 5, 18, hy - 2, p.hoodHi, true);
+         in shadow, is what puts the face back in a recess.
+
+         The shell then has to stay INSIDE the shoulders. Run out to x11/x21
+         with cheek panels five rows deep and a full-width collar under them,
+         the hood, the sleeves and the torso are one continuous coloured mass
+         from the crown to the belt with a small pale face set in it. */
+      a.ellipse(12, hy - 5, 20, hy + 2, p.hoodCloth, true);
+      a.ellipse(13, hy - 5, 17, hy - 2, p.hoodHi, true);
       /* CHEEK PANELS. Without cloth running down beside the jaw the shell is a
-         bowl resting on a bare head — a cap, not a hood. These two columns and
-         the point below the chin are the whole difference. */
-      a.rect(11, hy - 1, 12, hy + 5, p.hoodCloth);
-      a.rect(11, hy - 1, 11, hy + 5, p.hoodSh);
-      a.rect(20, hy - 1, 21, hy + 5, p.hoodSh);
-      a.rect(21, hy - 1, 21, hy + 5, mix(p.hoodCloth, 20, 0.5));
+         bowl resting on a bare head -- a cap, not a hood. One column a side,
+         not two: the second one closes the face down to a slot. */
+      a.rect(12, hy - 1, 12, hy + 3, p.hoodCloth);
+      a.rect(11, hy, 11, hy + 3, p.hoodSh);
+      a.rect(20, hy - 1, 20, hy + 3, p.hoodSh);
+      a.rect(21, hy, 21, hy + 3, mix(p.hoodCloth, 20, 0.5));
       /* The recess is ONE row of shadow over the base skin tone, not a filled
          block of skinSh. Filled, a deep-skinned character's whole face goes to
          #3d2318 and the hood reads as empty. */
-      a.ellipse(13, hy - 1, 20, hy + 3, pal.skin, true);
-      a.rect(13, hy - 1, 20, hy - 1, pal.skinSh);
-      a.rect(13, hy - 1, 20, hy - 1, p.hoodSh);              // brow of the recess
-      a.px(14, hy + 1, pal.eye); a.px(18, hy + 1, pal.eye);
-      if (pal.eyeHi) { a.px(15, hy + 1, pal.eyeHi); a.px(19, hy + 1, pal.eyeHi); }
-      a.rect(15, hy + 3, 17, hy + 3, pal.mouth);
-      a.rect(11, hy + 4, 21, hy + 5, p.hoodSh);              // collar behind the neck
-      a.rect(11, hy + 4, 21, hy + 4, p.hoodCloth);
+      a.ellipse(13, hy - 1, 19, hy + 3, pal.skin, true);
+      a.rect(13, hy - 1, 19, hy - 1, p.hoodSh);              // brow of the recess
+      a.rect(13, hy, 14, hy, pal.eye); a.rect(18, hy, 19, hy, pal.eye);
+      if (pal.eyeHi) { a.px(13, hy, pal.eyeHi); a.px(18, hy, pal.eyeHi); }
+      a.rect(15, hy + 2, 17, hy + 2, pal.mouth);
+      a.rect(12, hy + 4, 20, hy + 4, p.hoodCloth);           // collar behind the neck
+      a.rect(12, hy + 5, 20, hy + 5, p.hoodSh);
+      a.px(12, hy + 4, p.hoodSh); a.px(20, hy + 4, p.hoodSh);
     } },
-    { key: 'cap', name: 'soft cap', hard: false, paint: (a, hy, p) => {
+    { key: 'cap', name: 'soft cap', hard: false, paint: (a, hy, p, pal) => {
       a.ellipse(12, hy - 5, 20, hy - 2, p.hoodCloth, true);
       a.ellipse(13, hy - 5, 17, hy - 4, p.hoodHi, true);
       a.rect(11, hy - 2, 21, hy - 2, p.hoodSh);
+      a.rect(13, hy - 1, 19, hy - 1, pal.skin);                      // forehead under the brim
       a.px(20, hy - 5, p.hoodCloth); a.px(21, hy - 4, p.hoodSh);        // slouched point
       a.rect(12, hy - 1, 12, hy, p.hairSh);                          // hair under the brim
       a.rect(20, hy - 1, 20, hy, p.hairSh);
@@ -164,6 +178,10 @@ PF.Forge = (() => {
       a.ellipse(12, hy - 5, 17, hy - 3, p.metalHi, true);
       a.rect(11, hy - 2, 21, hy - 2, p.metalHi);                     // rim top light
       a.rect(11, hy - 1, 21, hy - 1, p.rim);
+      /* Rivets along the rim. Unbroken, eleven pixels of near-black sitting
+         directly on the brow is a bar across the face, and the eyes one row
+         under it stop reading at all. */
+      for (const rx of [13, 19]) a.px(rx, hy - 1, p.metalHi);
       a.rect(16, hy - 1, 16, hy + 2, p.metal);                       // nasal
       a.px(16, hy + 2, p.rim);
       a.rect(11, hy - 1, 11, hy + 1, p.metalSh);                     // cheek plates
@@ -188,7 +206,7 @@ PF.Forge = (() => {
       a.px(13, hy - 6, '#f6d873'); a.px(16, hy - 6, '#f6d873'); a.px(19, hy - 6, '#f6d873');
       a.px(16, hy - 4, p.gem);                                       // set stone
     } },
-    { key: 'wizhat', name: 'pointed hat', hard: false, paint: (a, hy, p) => {
+    { key: 'wizhat', name: 'pointed hat', hard: false, paint: (a, hy, p, pal) => {
       /* The cone tapers over three rows and STOPS at hy-6. The first cut went
          to hy-9, which put the tip at y-2 on an idle frame: clipped off the
          top of the buffer, with the outline pass unable to close around what
@@ -201,6 +219,9 @@ PF.Forge = (() => {
       a.rect(15, hy - 6, 17, hy - 6, p.hoodCloth);
       a.px(13, hy - 4, p.hoodHi); a.px(15, hy - 6, p.hoodHi);
       a.px(16, hy - 3, p.gem);                                       // hatband stone
+      /* Give the forehead back. Brim, brow shadow and eyes stacked on three
+         consecutive rows are one dark mass and the hat eats the face. */
+      a.rect(13, hy - 1, 19, hy - 1, pal.skin);
       a.rect(12, hy - 1, 12, hy + 1, p.hairSh);
       a.rect(20, hy - 1, 20, hy + 1, p.hairSh);
     } },
@@ -217,14 +238,21 @@ PF.Forge = (() => {
       /* Undead only. The skull is the head, so it repaints the face: sockets
          instead of eyes and a tooth row instead of a mouth. Drawn as a hat
          over a living face it reads as a mask, which is a different creature. */
-      a.ellipse(12, hy - 5, 20, hy + 3, pal.skinHi, true);
-      a.ellipse(13, hy - 4, 19, hy - 1, '#ffffff', true);
-      a.rect(13, hy - 1, 15, hy + 1, '#1a1622');                     // sockets
-      a.rect(17, hy - 1, 19, hy + 1, '#1a1622');
-      a.px(14, hy, pal.eyeHi || '#4fe0f0'); a.px(18, hy, pal.eyeHi || '#4fe0f0');
-      a.rect(15, hy + 2, 17, hy + 2, pal.skinSh);                    // nasal cavity
-      a.rect(13, hy + 4, 19, hy + 4, '#ffffff');
-      a.px(15, hy + 4, pal.skinSh); a.px(17, hy + 4, pal.skinSh);    // tooth gaps
+      /* Bone, not white. Filled to the edge in #ffffff with three-pixel
+         sockets it is a marshmallow with two holes in it, and the cranium,
+         the brow and the jaw all disappear into one blob. */
+      a.ellipse(12, hy - 5, 20, hy + 2, '#c9b48a', true);
+      a.ellipse(12, hy - 5, 19, hy + 1, '#ead4aa', true);
+      a.ellipse(13, hy - 5, 17, hy - 2, '#fff6c9', true);            // the dome catching light
+      a.rect(12, hy - 1, 20, hy - 1, '#a89873');                     // brow ridge
+      a.rect(13, hy, 14, hy + 1, '#1a1622');                         // sockets, sunk under it
+      a.rect(18, hy, 19, hy + 1, '#1a1622');
+      a.px(13, hy, pal.eyeHi || '#4fe0f0'); a.px(18, hy, pal.eyeHi || '#4fe0f0');
+      a.px(16, hy + 1, '#1a1622'); a.px(16, hy + 2, '#a89873');      // nasal cavity
+      a.rect(14, hy + 3, 18, hy + 4, '#ead4aa');                     // the jaw
+      a.rect(14, hy + 3, 18, hy + 3, '#c9b48a');
+      for (let q = 14; q <= 18; q += 2) a.px(q, hy + 3, '#5c4a32');  // tooth gaps
+      a.px(12, hy + 1, '#a89873'); a.px(20, hy + 1, '#a89873');      // cheekbones
     } }
   ];
 
@@ -308,8 +336,14 @@ PF.Forge = (() => {
     { key: 'staff', name: 'focus staff', arc: 'cast', reach: 0.9, two: true, paint: (a, x, y, ang, p) => {
       shaft(a, x, y, ang, -6, 9, 0, p.grip, p.gripHi);
       const [ox, oy] = tipOf(x, y, ang, 10);
+      /* A sphere, and one that is the light source. Two flat tones make a
+         sticker, and a sticker on the end of a stick is a balloon. */
       R().disc(a, ox, oy, 2, p.gem, lit(p.gem));                      // focus stone
-      a.px(ox, oy - 2, lit(p.gem));
+      a.px(ox + 1, oy + 1, dim(p.gem)); a.px(ox + 2, oy, dim(p.gem));  // terminator
+      a.px(ox - 1, oy - 1, '#ffffff');                                // specular
+      for (const [mx, my] of [[-3, -3], [3, -2], [-2, 3]]) {          // and motes off it
+        a.px(ox + mx, oy + my, lit(p.gem));
+      }
     } },
     { key: 'scythe', name: 'reaping scythe', arc: 'swing', reach: 1.9, two: true, paint: (a, x, y, ang, p) => {
       shaft(a, x, y, ang, -4, 7, 0, p.grip, p.gripHi);
@@ -351,20 +385,39 @@ PF.Forge = (() => {
       /* A lantern HANGS. Swung out on the carry angle it reads as a boxy mace,
          so this one ignores `ang` entirely and drops straight down from the
          fist — the bail is what sells the weight. */
-      a.px(x, y - 1, p.steelSh);
-      a.rect(x - 2, y, x + 2, y + 1, p.steelSh);
-      a.rect(x - 2, y + 2, x + 2, y + 4, '#f6c341');
-      a.rect(x - 2, y + 2, x - 2, y + 4, p.steelSh);
+      /* A lamp is the light in the scene it is carried through, so it throws
+         one: a flat yellow rectangle in a grey frame is a sticky note. */
+      for (const [gx, gy] of [[-3, 3], [3, 3], [-3, 1], [3, 1], [0, 6], [-2, 6], [2, 6]]) {
+        a.px(x + gx, y + gy, '#8a6a22');
+      }
+      a.px(x, y - 1, p.steelSh);                                     // bail
+      a.px(x - 1, y - 1, p.steel); a.px(x + 1, y - 1, p.steel);
+      a.rect(x - 2, y, x + 2, y + 1, p.steelSh);                     // cap
+      a.rect(x - 2, y, x + 2, y, p.steel);
+      a.rect(x - 2, y + 2, x + 2, y + 4, '#f6c341');                 // the glazing
+      a.rect(x - 1, y + 2, x, y + 4, '#fff1b8');
+      a.px(x, y + 3, '#ffffff');                                     // the flame in it
+      a.rect(x - 2, y + 2, x - 2, y + 4, p.steelSh);                 // and its frame
       a.rect(x + 2, y + 2, x + 2, y + 4, p.steelSh);
-      a.rect(x - 1, y + 3, x, y + 3, '#fff1b8');
+      a.px(x + 1, y + 2, p.steelSh); a.px(x + 1, y + 4, p.steelSh);
       a.rect(x - 2, y + 5, x + 2, y + 5, p.steelSh);      // stops short of the ground line
+      a.px(x - 2, y + 5, p.steel);
     } },
     { key: 'tome', name: 'grimoire', arc: 'cast', reach: 0.9, two: false, paint: (a, x, y, ang, p) => {
+      /* Boards, a spine and a page block. A coloured square with a dot on it
+         is a floor tile someone is holding. */
       a.rect(x - 3, y - 3, x + 2, y + 2, p.cloth);
       a.rect(x - 3, y - 3, x + 2, y - 3, p.clothHi);
       a.rect(x - 3, y + 2, x + 2, y + 2, p.clothSh);
-      a.rect(x + 2, y - 3, x + 2, y + 2, '#e8e2d0');                  // page block
-      a.rect(x - 1, y - 1, x, y, p.gem);                              // sigil
+      a.rect(x - 3, y - 3, x - 3, y + 2, p.clothSh);                  // the spine, rolled
+      a.rect(x - 2, y - 3, x - 2, y + 2, p.clothHi);
+      a.px(x - 3, y - 2, p.clothHi); a.px(x - 3, y + 1, p.clothHi);   // its bands
+      a.rect(x + 2, y - 2, x + 2, y + 1, '#e8e2d0');                  // page block
+      a.rect(x + 2, y - 2, x + 2, y - 2, '#ffffff');
+      a.px(x + 1, y - 3, p.clothSh); a.px(x + 1, y + 2, p.clothSh);   // corner bosses
+      a.rect(x, y - 1, x, y + 1, p.gem);                              // and a sigil on the board
+      a.rect(x - 1, y, x + 1, y, p.gem);
+      a.px(x, y, lit(p.gem));
     } }
   ];
 
@@ -566,7 +619,12 @@ PF.Forge = (() => {
          colour. Matched exactly, a hood and the tunic under it are one
          continuous yellow mass from the crown to the belt and the character
          loses its head. */
-      hoodCloth: c.hood, hoodHi: lit(c.hood), hoodSh: dim(c.hood),
+      /* Deepened again on top of that. A hood one shade off the tunic still
+         merges with the shoulders under it at 32px, and the whole upper half
+         of the figure comes back as a single coloured mass with a small pale
+         face floating in it. */
+      hoodCloth: mix(c.hood, 20, 0.24), hoodHi: lit(mix(c.hood, 20, 0.12)),
+      hoodSh: dim(mix(c.hood, 20, 0.3)),
       hair: c.hair, hairHi: c.hairHi, hairSh: c.hairSh,
       metal: c.metal, metalHi: lit(c.metal), metalSh: dim(c.metal),
       rim: mix(c.metal, 20, 0.66),                        // the hard edge of a helm shell

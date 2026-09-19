@@ -127,9 +127,32 @@ PF.Rig = (() => {
       a.rect(13, sh + 2, 19, hip - 3, pal.vest);
       a.rect(13, sh + 2, 19, sh + 2, pal.vestHi);
       a.rect(13, hip - 3, 19, hip - 3, pal.vestSh);
+      /* A cuirass is CURVED. Flat between its two edge rows it is a bib
+         pinned to the shirt, whatever colour it is painted. One lit column
+         down the near side, one shaded column down the far, and a pair of
+         lames across it, and the same slab reads as plate. */
+      a.rect(13, sh + 2, 13, hip - 3, pal.vestHi);
+      a.rect(19, sh + 2, 19, hip - 3, pal.vestSh);
+      a.rect(18, sh + 3, 18, hip - 3, pal.vestSh);
+      for (const ly of [sh + 5, sh + 8]) {
+        a.rect(14, ly, 18, ly, pal.vestSh);                     // a lame,
+        a.rect(14, ly + 1, 18, ly + 1, pal.vestHi);             // and the light on the one under it
+      }
       a.rect(14, sh, 15, sh + 2, pal.vestSh);
       a.rect(17, sh, 18, sh + 2, pal.vestSh);
+      a.px(14, sh + 3, pal.vestHi); a.px(17, sh + 3, pal.vestHi);   // strap rivets
       a.rect(18, sh + 4, 19, sh + 6, pal.vestSh);   // pouch
+    } else {
+      /* Cloth with nothing over it needs folds, or the torso is one flat
+         panel of colour with a rounded top -- a signboard. A lit column
+         down the near side, a shaded one down the far, and two short
+         creases where the fabric gathers at the belt. */
+      a.rect(12, sh + 2, 12, hip - 4, pal.shirtHi);
+      a.rect(20, sh + 2, 20, hip - 4, pal.shirtSh);
+      a.rect(19, sh + 4, 19, hip - 4, pal.shirtSh);
+      a.rect(15, sh + 6, 15, hip - 4, pal.shirtSh);
+      a.rect(16, sh + 6, 16, hip - 4, pal.shirtHi);
+      a.px(13, sh + 3, pal.shirtHi);
     }
     /* Shield, not three loose pixels: an L of yellow on a navy chest reads as
        a lanyard hanging off the shoulder. */
@@ -163,8 +186,12 @@ PF.Rig = (() => {
     a.rect(14, hy + 4, 18, hy + 4, pal.skinSh);
     a.px(20, hy + 1, pal.skinSh); a.px(12, hy + 1, pal.skinSh);   // ears
     a.rect(13, hy - 1, 19, hy - 1, pal.brow);                 // brow shadow
-    a.px(14, hy, pal.eye); a.px(18, hy, pal.eye);
-    if (pal.eyeHi) { a.px(15, hy, pal.eyeHi); a.px(19, hy, pal.eyeHi); }
+    /* Two pixels of eye, not one. A single dark speck under a brow row is
+       the same mark as a nostril or a smudge of dirt, and under anything
+       with a hard rim -- a helm, a hood -- it is simply lost in the shadow
+       above it. The outer pixel carries the glint when the kin has one. */
+    a.rect(13, hy, 14, hy, pal.eye); a.rect(18, hy, 19, hy, pal.eye);
+    if (pal.eyeHi) { a.px(13, hy, pal.eyeHi); a.px(18, hy, pal.eyeHi); }
     a.rect(15, hy + 2, 16, hy + 2, pal.mouth);
     if (pal.gear) pal.gear(a, hy, o);
     else {
