@@ -232,6 +232,49 @@ PF.Library = (() => {
     add('td_props', 'Top-Down Props', 'World', 'Thirteen overhead set pieces, each with a translucent cast shadow so it sits on the floor rather than on top of it: planked crate, rusted drum, table, bed, rug, swaying bush, a tree whose canopy opens on its own trunk, faceted rock, a campfire with a real tapering flame, door, sandbag wall, dumpster and street lamp.', ['top-down', 'overhead', 'props', 'scenery', 'decoration', 'cover'], () => TD().propSuite(), { w: 32, h: 32 });
     add('td_vehicles', 'Top-Down Vehicles', 'World', 'Five overhead vehicles built from per-row hull profiles rather than boxes: a saloon car, a box truck, a tank whose turret traverses independently of its hull, a helicopter with a blurred main and tail rotor, and a rowboat with a hollow interior and shipped oars.', ['top-down', 'overhead', 'vehicle', 'car', 'tank', 'helicopter'], () => TD().vehicleSuite(), { w: 32, h: 32, featured: true });
     add('td_pickups', 'Top-Down Pickups', 'Items', 'Six overhead pickups with a travelling specular highlight and a ground shadow that tightens as the item rises, so they hover instead of twitching: medkit, ammo box, key, spinning coin, fuel can and chest.', ['top-down', 'overhead', 'pickup', 'item', 'loot'], () => TD().pickupSuite(), { w: 32, h: 32 });
+    /* ---- The Forge: eight showcase rolls out of the parametric generator ----
+       These are not hand-drawn templates. Each one is PF.Forge.suite(seed)
+       resolving a seed into a kin, a role, headgear, a weapon and a whole
+       palette, then dressing the shared rig with it. They are pinned here with
+       explicit seeds so the sprite-hash baseline has something stable to hold,
+       and so the generator itself runs through every gate the hand-drawn
+       library does. The studio's Forge panel rolls the other ~2.6 million. */
+    const FG = () => PF.Forge;
+    const forged = (id, seed, o, name, cat, desc, tags, featured) =>
+      add(id, name, cat, desc, ['forge', 'generated', 'seeded'].concat(tags),
+        () => FG().suite(seed, o), { w: 32, h: 32, featured: !!featured });
+    forged('forge_knight', '9', { role: 'fighter', gear: 'helm', held: 'sword' },
+      'Forged — Sworn Knight', 'Heroes',
+      'Generator roll: closed helm, plate over a surcoat and a longsword. Six states — idle, walk, run, a three-beat swing with anticipation and a real slash arc, hurt and death.',
+      ['knight', 'fighter', 'rpg', 'sword'], true);
+    forged('forge_warden', '31', { role: 'ranger', gear: 'hood', held: 'bow' },
+      'Forged — Hooded Warden', 'Heroes',
+      'Hooded archer with a cheek-panelled cowl. The shoot cycle draws, holds, looses and lets the stave recoil; the arrow leaves the frame on the release beat.',
+      ['ranger', 'archer', 'bow', 'hood']);
+    forged('forge_magus', '104', { role: 'caster', gear: 'wizhat', held: 'staff', cloak: true },
+      'Forged — Cloaked Magus', 'Heroes',
+      'Pointed hat, tapered mantle and a focus staff. The cast raises the staff and grows a ring of sparks out of the head over five frames.',
+      ['mage', 'wizard', 'staff', 'magic'], true);
+    forged('forge_marauder', '55', { role: 'brute', gear: 'horned', held: 'axe' },
+      'Forged — Horned Marauder', 'Enemies',
+      'Horned helm and a bearded axe whose head is filled in the haft\u2019s own frame, so it stays welded to the shaft through the whole swing arc.',
+      ['orc', 'brute', 'axe', 'enemy'], true);
+    forged('forge_reaper', '101', { role: 'undead', gear: 'skull', held: 'scythe' },
+      'Forged — Bone Reaper', 'Enemies',
+      'Skull-faced undead with a swept scythe that clears the torso on every beat. Cyan pinpoint eyes, grave-grey bone, full six-state combat suite.',
+      ['undead', 'skeleton', 'scythe', 'enemy'], true);
+    forged('forge_pikeman', '2', { role: 'fighter', gear: 'band', held: 'spear', cloak: true },
+      'Forged — Cloaked Pikeman', 'Enemies',
+      'Goblin spearman in a tapered cloak. The thrust drives the leaf head four pixels past the guard and snaps back \u2014 a lunge, not a wiggle.',
+      ['goblin', 'spear', 'pike', 'enemy']);
+    forged('forge_lampkeep', '44', { role: 'folk', gear: 'long', held: 'lantern' },
+      'Forged — Lamplighter', 'NPCs',
+      'Townsfolk roll: long hair, a pewter brooch and a lantern that hangs plumb from the fist instead of swinging out like a mace.',
+      ['npc', 'town', 'lantern', 'villager']);
+    forged('forge_scribe', '77', { role: 'folk', gear: 'cap', held: 'tome' },
+      'Forged — Village Scribe', 'NPCs',
+      'Soft cap, working clothes and a grimoire held open at the hip. The mildest roll the generator makes, and the one that proves it can do ordinary people.',
+      ['npc', 'town', 'book', 'villager']);
     extraPacks.forEach(fn => { try { fn(add); } catch (e) { console.warn('pack failed', e); } });
 
     return T;
