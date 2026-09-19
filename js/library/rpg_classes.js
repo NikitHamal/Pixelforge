@@ -12,12 +12,19 @@ PF.RPG.classes = (() => {
   const P = () => R.PAL;
 
   /* ================= palettes (merged into R.PAL for game use) ================= */
+  /* AGENTS.md rule 10, the version that bites hardest: parts that TOUCH must
+     differ in value, not merely in hue. The first cut of this palette put tan
+     skin against a #b86f50 harness against #733e39 trousers against a #b86f50
+     fur — four steps of one brown ramp, arms and torso and cape and legs all
+     within 20 luma of each other. It rendered as a brown blob with eyes.
+     Now: light skin, dark leather harness, bone fur (set in barbarianSuite),
+     near-black hide trousers. Four separated values, one silhouette. */
   const BARBARIAN = { ...P().KNIGHT,
     skin: '#e8b796', skinSh: '#c28569',
-    hair: '#d77643', hairSh: '#b86f50', hairHi: '#feae34',
-    shirt: '#b86f50', shirtSh: '#733e39', shirtHi: '#e4a672',   // leather harness
-    pants: '#733e39', pantsSh: '#3e2731',
-    boots: '#3e2731', belt: '#262b44', buckle: '#c0cbdc', lip: '#a26a5a' };
+    hair: '#d77643', hairSh: '#a2543a', hairHi: '#feae34',
+    shirt: '#733e39', shirtSh: '#3e2731', shirtHi: '#b86f50',   // dark leather harness
+    pants: '#262b44', pantsSh: '#181425',                        // hide breeches
+    boots: '#3e2731', belt: '#b86f50', buckle: '#feae34', lip: '#a26a5a' };
 
   const MONK = { ...P().CLERIC,
     skin: '#e4a672', skinSh: '#b86f50',
@@ -35,14 +42,20 @@ PF.RPG.classes = (() => {
     pants: '#3e8948', pantsSh: '#265c42',
     boots: '#733e39', belt: '#733e39', buckle: '#fee761', lip: '#a26a5a' };
 
+  /* Same rule, the other end of the value scale. Trousers, boots, shirtSh and
+     pantsSh were ALL #181425 — the outline colour itself — so the legs, the
+     sleeve shadow and the border around them were one indistinguishable mass
+     and the figure read as a black smear with a face. Everything the outline
+     touches now clears it by a real step, and the gi stays the darkest cloth
+     the character wears without ever reaching the border tone. */
   const NINJA = { ...P().ROGUE,
     skin: '#c28569', skinSh: '#a26a5a',
     // never set hair to the outline colour (#181425) — the hair side panels
     // sit outside the hood and read as thick outline bars if they match
-    hair: '#262b44', hairSh: '#262b44', hairHi: '#3a4466',
-    shirt: '#193c3e', shirtSh: '#181425', shirtHi: '#265c42',    // indigo gi
-    pants: '#181425', pantsSh: '#181425',
-    boots: '#181425', belt: '#e43b44', buckle: '#fee761', lip: '#a26a5a' }; // bright obi: the only warm accent
+    hair: '#262b44', hairSh: '#1e2338', hairHi: '#3a4466',
+    shirt: '#1d4a4d', shirtSh: '#12292f', shirtHi: '#2f6f5e',    // teal gi
+    pants: '#2e3550', pantsSh: '#1d2236',
+    boots: '#3a4466', belt: '#e43b44', buckle: '#fee761', lip: '#a26a5a' }; // bright obi: the only warm accent
 
   const BANDIT = { ...P().RANGER,
     skin: '#e4a672', skinSh: '#b86f50',
@@ -79,7 +92,9 @@ PF.RPG.classes = (() => {
   function barbarianSuite() {
     return R.humanoidSuite(BARBARIAN, 'rpg-barbarian', {
       weapon: 'axe',
-      garb: { cape: '#b86f50', capeSh: '#733e39' }
+      // Bone-pale fur, not another brown: the mantle is the one thing that
+      // has to read from across the screen, and it sits on a brown harness.
+      garb: { cape: '#ead4aa', capeSh: '#b08a63' }
     });
   }
   // Monk: shaved head, long white beard, staff, chi cast.
@@ -98,12 +113,14 @@ PF.RPG.classes = (() => {
   }
   // Ninja: teal hood, crimson scarf, silent stride.
   function ninjaSuite() {
-    // A bright crimson cape swamped the silhouette at 32x32 and read as a
-    // robed monk, not a shinobi. Dark cloak + a single red obi instead.
+    /* A bright crimson cape swamped the silhouette at 32x32 and read as a robed
+       monk; the dark cloak that replaced it was worse — a near-black slab
+       flanking a near-black gi, which is what buried the figure. A shinobi
+       needs no cloak at all. The hood is now a step LIGHTER than the gi so the
+       head separates from the shoulders, and the red obi is the only accent. */
     return R.humanoidSuite(NINJA, 'rpg-ninja', {
       weapon: 'sword', sneak: true,
-      head: { hood: '#193c3e', hoodSh: '#181425' },
-      garb: { cape: '#262b44', capeSh: '#181425' }
+      head: { hood: '#31405e', hoodSh: '#1f2740' }
     });
   }
 

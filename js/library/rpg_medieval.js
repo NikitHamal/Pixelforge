@@ -503,70 +503,134 @@ PF.RPG.medieval = (() => {
       const api = apiFor(buf, W, H);
       const bob = pose.bob || 0, flap = pose.flap || 0, dive = pose.dive || 0;
       const Y = y => y + bob + dive;
-      const FGold = pose.flash ? '#ffffff' : '#ead4aa';
-      const FShade = pose.flash ? '#c0cbdc' : '#c8b28a';
-      const LGold = pose.flash ? '#ffffff' : '#d77643';
-      const LShade = pose.flash ? '#c0cbdc' : '#b86f50';
+      /* Rebuilt. The old form laid a cream rectangle over a tawny ellipse at
+         nearly the same value, dropped the head ellipse straight onto the chest
+         with no neck, and hid the folded wing BEHIND both — four tan shapes with
+         no gap anywhere, which is why a heraldic beast rendered as a tan dog
+         with a duck bill. It is now built like an animal in profile: lion barrel
+         at the rear, eagle chest a full value above it, a neck that lifts the
+         head clear of the shoulders, and the wing as the darkest mass on the
+         sprite so the silhouette reads in three parts. */
+      const FGold = pose.flash ? '#ffffff' : '#ead4aa';   // eagle plumage, the lightest value
+      const FShade = pose.flash ? '#d4dae8' : '#b8a077';
+      const LGold = pose.flash ? '#ffffff' : '#d77643';   // lion hide, a step below it
+      const LShade = pose.flash ? '#c0cbdc' : '#9c4f38';
+      const WMid = pose.flash ? '#c0cbdc' : '#7d5a34';    // wing coverts, darkest of the three
+      const WHi = pose.flash ? '#ffffff' : '#c8a86c';
       const Talon = '#feae34', Beak = '#f77622', Eye = '#ff0044';
+      const st = pose.step || 0, spread = pose.fly || dive > 0;
 
-      // 1. Wings (behind body or spread wide)
-      if (flap === 1) { // High wings up
-        api.line(14, Y(12), 8, Y(2), FGold, 3);
-        api.line(8, Y(2), 2, Y(1), '#ffffff', 2);
-        api.line(18, Y(12), 24, Y(2), FGold, 3);
-        api.line(24, Y(2), 30, Y(1), '#ffffff', 2);
-      } else if (flap === 2) { // Downstroke
-        api.line(14, Y(13), 6, Y(18), FGold, 3);
-        api.line(18, Y(13), 26, Y(18), FGold, 3);
-      } else { // Resting / folded
-        api.ellipse(10, Y(10), 18, Y(16), FShade, true);
-        api.ellipse(11, Y(11), 17, Y(15), FGold, true);
+      /* A wing at 32px has to be a SHAPE, not a comb. The first cut alternated
+         two values down a quill fan, which at this size is just noise — the
+         flight frames read as a shredded brown cloud. One solid membrane, a lit
+         leading edge, and dark scalloped tips along the trailing edge. */
+      const WDk = pose.flash ? '#8b9bb4' : '#513a20';
+      const wing = (rx, ry, tx, ty, drop, base, edge) => {
+        for (let i = 0; i <= 7; i++) {
+          const t = i / 7;
+          const x = Math.round(rx + (tx - rx) * t), y = Math.round(ry + (ty - ry) * t);
+          const d = Math.max(2, Math.round(drop * (1 - t * 0.55)));
+          api.line(x, y, x, y + d, base, 2);
+          if (i % 2 === 0) api.px(x, y + d, WDk);
+        }
+        api.line(rx, ry, tx, ty, edge, 2);
+        api.px(tx, ty, WHi);
+      };
+
+      // 1. Far wing, behind everything and a step down in value
+      if (spread) {
+        if (flap === 1) wing(17, Y(12), 9, Y(3), 4, WMid, WMid);
+        else if (flap === 2) wing(17, Y(14), 10, Y(21), 3, WMid, WMid);
+        else wing(17, Y(13), 7, Y(10), 4, WMid, WMid);
       }
 
-      // 2. Lion Hindquarters (tawny feline body)
-      api.ellipse(6, Y(13), 18, Y(22), LGold, true);
-      api.rect(6, Y(19), 16, Y(22), LShade);
+      // 2. Lion hindquarters: barrel, haunch, rump shadow
+      api.ellipse(4, Y(13), 17, Y(22), LGold, true);
+      api.ellipse(4, Y(18), 15, Y(22), LShade, true);        // underside in shadow
+      api.ellipse(4, Y(14), 10, Y(21), LGold, true);         // haunch proud of the flank
+      api.line(5, Y(14), 9, Y(13), pose.flash ? '#ffffff' : '#f0894f', 1);  // back light
 
-      // 3. Eagle Forequarters (feathered chest)
-      api.rect(14, Y(11), 22, Y(20), FGold);
-      api.rect(14, Y(16), 22, Y(20), FShade);
+      // 3. Eagle forequarters, stepped up a full value from the hide behind them
+      api.ellipse(12, Y(11), 23, Y(21), FGold, true);
+      api.ellipse(13, Y(16), 22, Y(21), FShade, true);       // breast underside
+      api.line(13, Y(12), 20, Y(11), pose.flash ? '#ffffff' : '#fff6c9', 1);
+      // breast feather scallops: two short rows, the only detail the chest needs
+      for (let k = 0; k < 3; k++) { api.px(15 + k * 3, Y(15), FShade); api.px(16 + k * 3, Y(18), FShade); }
 
-      // 4. Lion Tail with bushy tuft
-      const tw = pose.tailW || 0;
-      api.line(6, Y(15), 2, Y(12 + tw), LShade, 2);
-      api.ellipse(1, Y(10 + tw), 4, Y(13 + tw), LGold, true);
-
-      // 5. Legs: Lion hind paws + Eagle front talons
-      if (pose.fly) {
-        // Tucked flight legs
-        api.rect(7, Y(21), 11, Y(23), LGold); api.px(8, Y(23), Talon);
-        api.rect(17, Y(20), 21, Y(22), Talon); api.px(21, Y(22), '#ffffff');
-      } else if (dive > 0) {
-        // Extended talons forward in dive
-        api.line(18, Y(18), 24, Y(23), Talon, 2);
-        api.px(25, Y(23), '#ffffff'); api.px(24, Y(24), '#ffffff');
+      // 4. Near wing: folded over the flank when perched, spread when airborne
+      if (spread) {
+        if (flap === 1) wing(16, Y(13), 3, Y(5), 6, WHi, WMid);
+        else if (flap === 2) wing(16, Y(15), 4, Y(22), 5, WHi, WMid);
+        else wing(16, Y(14), 2, Y(11), 6, WHi, WMid);
       } else {
-        // Ground planted stance at y=26..27
-        const st = pose.step || 0;
-        api.rect(7 + st, Y(20), 10 + st, Y(26), LGold); api.rect(7 + st, Y(26), 10 + st, Y(27), LShade);
-        api.rect(18 - st, Y(18), 21 - st, Y(25), FGold);
-        api.rect(17 - st, Y(25), 22 - st, Y(27), Talon);
-        api.px(22 - st, Y(27), '#ffffff'); // sharp talon claw
+        /* Folded: a long covert mass laid ON the flank, its trailing quills
+           hanging past the hip. Behind the body and in the chest's own cream it
+           was invisible twice over. */
+        api.ellipse(6, Y(12), 18, Y(18), WMid, true);
+        api.ellipse(7, Y(12), 17, Y(14), WHi, true);         // sunlit shoulder coverts
+        api.line(8, Y(12), 16, Y(12), pose.flash ? '#ffffff' : '#e8d3a0', 1);
+        for (let k = 0; k < 4; k++) {
+          const x0 = 6 + k * 3;
+          api.line(x0, Y(17), x0 + 1, Y(20 + k), WMid, 2);
+          api.px(x0 + 1, Y(20 + k), pose.flash ? '#ffffff' : '#513a20');
+        }
       }
 
-      // 6. Eagle Head & Razor Hooked Beak
-      const hd = pose.headDy || 0;
-      const hx = 20, hy = Y(7 + hd);
-      api.ellipse(hx - 2, hy, hx + 5, hy + 7, FGold, true);
-      api.rect(hx - 1, hy + 4, hx + 4, hy + 7, FShade);
-      // Feathery crown crest
-      api.line(hx, hy, hx - 3, hy - 3, FGold, 2); api.px(hx - 3, hy - 3, '#ffffff');
-      // Razor hooked raptor beak
-      api.rect(hx + 4, hy + 2, hx + 7, hy + 5, Beak);
-      api.px(hx + 7, hy + 5, Talon); // hook tip curves down
-      api.px(hx + 6, hy + 6, Talon);
-      // Piercing raptor eye
-      api.px(hx + 2, hy + 2, Eye); api.px(hx + 2, hy + 1, '#181425');
+      // 5. Lion tail, whipping, with a tuft the colour of the plumage
+      /* Short. A tail that climbs to the top row with a cream tuft on the end
+         reads as a balloon on a string and competes with the head for the eye. */
+      const tw = pose.tailW || 0, td = spread ? 5 : 0;   // in flight it streams back, not up
+      api.line(5, Y(19 + td), 2, Y(16 + tw + td), LShade, 2);
+      api.line(2, Y(16 + tw + td), 3, Y(13 + tw + td), LGold, 2);
+      api.ellipse(1, Y(11 + tw + td), 4, Y(14 + tw + td), LShade, true);
+      api.ellipse(2, Y(11 + tw + td), 4, Y(13 + tw + td), LGold, true);
+
+      // 6. Legs
+      if (pose.fly) {
+        api.rect(8, Y(21), 11, Y(24), LShade); api.rect(8, Y(23), 11, Y(24), LGold);
+        api.rect(16, Y(20), 19, Y(23), FShade);
+        api.rect(15, Y(23), 20, Y(24), Talon); api.px(20, Y(24), '#ffffff');
+      } else if (dive > 0) {
+        api.rect(9, Y(20), 12, Y(23), LShade);
+        api.line(19, Y(19), 25, Y(22), Talon, 2);            // talons thrown forward
+        api.line(19, Y(21), 25, Y(25), Talon, 2);
+        api.px(26, Y(22), '#ffffff'); api.px(26, Y(25), '#ffffff');
+      } else {
+        // hind leg: hock kinks back, so it reads as feline rather than as a post
+        api.rect(6 + st, Y(21), 9 + st, Y(23), LShade);      // thigh, shaded off the haunch
+        api.line(5 + st, Y(20), 10 + st, Y(20), pose.flash ? '#c0cbdc' : '#6e3627', 1);  // hock crease
+        api.rect(7 + st, Y(23), 9 + st, Y(26), LGold);       // shank takes the light
+        api.rect(6 + st, Y(26), 11 + st, Y(27), LShade);     // paw
+        api.px(11 + st, Y(27), Talon);
+        // foreleg: scaled eagle shank down to a three-toed talon on the ground
+        api.rect(17 - st, Y(20), 19 - st, Y(24), FShade);
+        api.rect(17 - st, Y(20), 17 - st, Y(24), FGold);
+        api.rect(15 - st, Y(25), 21 - st, Y(26), Talon);
+        api.px(14 - st, Y(26), Talon); api.px(22 - st, Y(26), Talon);
+        api.px(15 - st, Y(27), '#ffffff'); api.px(18 - st, Y(27), '#ffffff'); api.px(21 - st, Y(27), '#ffffff');
+      }
+
+      // 7. Neck and eagle head, carried clear of the shoulder line
+      /* Head base y5 and flight bob capped at -3: the crest line sits at hy-1, so a
+         deeper hop would push feathers off the top row and the outline pass would
+         have nowhere to write. */
+      const hd = pose.headDy || 0, hy = Y(5 + hd);
+      api.line(20, Y(13), 22, Y(10), FGold, 4);              // neck, welded to the chest
+      api.ellipse(18, hy, 25, hy + 7, FGold, true);
+      api.ellipse(18, hy + 4, 23, hy + 7, FShade, true);     // under the jaw
+      api.ellipse(18, hy, 22, hy + 3, pose.flash ? '#ffffff' : '#fff6c9', true);  // lit crown
+      // crest feathers, swept back off the crown
+      api.line(19, hy + 1, 15, hy - 1, FShade, 1);
+      api.line(19, hy + 3, 14, hy + 2, FGold, 1);
+      api.px(13, hy + 2, WHi);
+      // hooked raptor beak: upper mandible overhangs, tip curls below the jaw
+      api.rect(24, hy + 3, 28, hy + 5, Beak);
+      api.rect(24, hy + 3, 28, hy + 3, Talon);               // lit ridge
+      api.px(28, hy + 6, Beak); api.px(27, hy + 6, Beak);
+      api.px(28, hy + 7, Talon);                             // the hook
+      api.rect(24, hy + 6, 26, hy + 6, FShade);              // lower mandible line
+      api.px(23, hy + 3, '#181425');                         // cere
+      api.px(22, hy + 2, Eye); api.px(22, hy + 1, '#181425'); api.px(21, hy + 2, '#181425');
 
       finish(buf, W, H);
       if (pose.fade) PF.RPG.fadeOut(buf, W, H, pose.fade, 5);
@@ -595,15 +659,17 @@ PF.RPG.medieval = (() => {
         D('fly', 8, true, [
           Fr(ms(8), griffinFrame({ fly: true, flap: 1, bob: -3 })),
           Fr(ms(8), griffinFrame({ fly: true, flap: 2, bob: -1 })),
-          Fr(ms(8), griffinFrame({ fly: true, flap: 0, bob: -4 })),
+          Fr(ms(8), griffinFrame({ fly: true, flap: 0, bob: -3 })),
           Fr(ms(8), griffinFrame({ fly: true, flap: 1, bob: -2 }))
         ]),
         // 4. Dive Attack: swoop down with razor talons extended
         D('dive_attack', 10, true, [
-          Fr(ms(10), griffinFrame({ fly: true, flap: 0, bob: -5 })),
+          // wind-up, plunge, strike, recovery — the recovery must not be a copy
+          // of the wind-up or the loop hitches on the wrap
+          Fr(ms(10), griffinFrame({ fly: true, flap: 1, bob: -3 })),
           Fr(ms(10), griffinFrame({ dive: 3, flap: 2, bob: -1 })),
           Fr(ms(10), griffinFrame({ dive: 4, flap: 1, bob: 0 })),
-          Fr(ms(10), griffinFrame({ fly: true, flap: 0, bob: -3 }))
+          Fr(ms(10), griffinFrame({ fly: true, flap: 0, bob: -2 }))
         ]),
         // 5. Hurt
         D('hurt', 7, true, [

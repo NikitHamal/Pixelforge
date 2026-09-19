@@ -176,33 +176,67 @@ PF.Monsters = (() => {
   /* ---------- GOLEM ---------- */
   function golemFrame(pose, hurt) {
     return (buf, W, H) => {
-      const api = apiFor(buf, W, H), cx = 16;
+      const api = apiFor(buf, W, H);
       const R1 = hurt ? '#ffffff' : '#8b9bb4', R2 = hurt ? '#e8e8e8' : '#5a6988', R3 = '#3a4466', Eye = '#2ce8f5';
       const bob = pose.bob || 0, Y = y => y + bob;
-      // legs: heavy blocks
-      api.rect(10, Y(22 + (pose.legDy || 0)), 14, Y(27), R2); api.rect(17, Y(22 - (pose.legDy || 0)), 21, Y(27), R2);
-      api.rect(10, Y(26), 14, Y(27), R3); api.rect(17, Y(26), 21, Y(27), R3);
-      // torso: big rock
-      api.rect(8, Y(13), 23, Y(22), R1);
-      api.rect(20, Y(13), 23, Y(22), R2);
-      api.rect(8, Y(13), 11, Y(22), R2);
-      // cracks
-      api.line(14, Y(14), 16, Y(17), R3, 1); api.line(16, Y(17), 15, Y(20), R3, 1);
-      // core crystal
-      api.rect(14, Y(16), 17, Y(19), Eye); api.px(15, Y(17), '#ffffff');
-      // arms: boulders
-      const aDy = pose.armDy || 0, aDx = pose.armDx || 0;
-      api.rect(3 + aDx, Y(13 + aDy), 7 + aDx, Y(21 + aDy), R2);
-      api.rect(24 - aDx, Y(13 - aDy), 28 - aDx, Y(21 - aDy), R2);
-      api.rect(3 + aDx, Y(19 + aDy), 7 + aDx, Y(21 + aDy), R3);
-      api.rect(24 - aDx, Y(19 - aDy), 28 - aDx, Y(21 - aDy), R3);
-      // head: small slab + glowing eyes
-      api.rect(11, Y(5), 20, Y(12), R1);
-      api.rect(18, Y(5), 20, Y(12), R2);
-      api.rect(12, Y(8), 14, Y(9), Eye); api.rect(17, Y(8), 19, Y(9), Eye);
-      api.rect(12, Y(5), 19, Y(6), R3); // brow
-      // moss
-      api.px(9, Y(14), '#63c74d'); api.px(22, Y(16), '#63c74d'); api.px(13, Y(6), '#63c74d');
+      const aDy = pose.armDy || 0, aDx = pose.armDx || 0, lDy = pose.legDy || 0;
+      /* A golem is a boulder that stood up, not a plus sign. The old form ran
+         both arms out sideways in one straight bar at chest height, square-ended
+         and handless, on a rectangular torso of exactly the same height: the
+         universal read for an unposed placeholder. Everything here answers to
+         gravity instead — a shoulder shelf wider than the waist, arms that fall
+         PAST the hip into knuckle-dragging fists, and a head sunk between the
+         shoulders with no neck to hold it up. */
+      // legs: short and planted, set well inside the waist so the mass reads top-heavy
+      /* Two legs need daylight between them or they render as one plinth the
+         same width as the waist, and the golem stops having legs at all. */
+      api.rect(10, Y(23 + lDy), 13, Y(27), R2); api.rect(18, Y(23 - lDy), 21, Y(27), R2);
+      api.rect(10, Y(26), 13, Y(27), R3); api.rect(18, Y(26), 21, Y(27), R3);
+      api.px(10, Y(23 + lDy), R3); api.px(21, Y(23 - lDy), R3);
+      /* Torso as per-row spans, not a rectangle: the shelf flares at the
+         shoulder and steps in twice on the way to the belt. A stone body drawn
+         as one box has no corner to catch the light, which is what made the
+         old one read as masonry rather than as a creature. */
+      const TOR = [[12, 9, 22], [13, 8, 23], [14, 7, 24], [15, 7, 24], [16, 9, 22],
+        [17, 10, 21], [18, 10, 21], [19, 11, 20], [20, 11, 20], [21, 11, 20], [22, 12, 19], [23, 12, 19]];
+      for (const [y, x0, x1] of TOR) {
+        api.rect(x0, Y(y), x1, Y(y), R1);
+        api.rect(x1 - 2, Y(y), x1, Y(y), R2);   // light falls from the upper left
+        api.px(x0, Y(y), R2);
+      }
+      api.px(7, Y(14), R2); api.px(24, Y(14), R3);   // chipped shoulder corners
+      // cracks — two strokes that follow the taper rather than cutting across it
+      api.line(13, Y(14), 15, Y(18), R3, 1); api.line(15, Y(18), 14, Y(22), R3, 1);
+      api.line(20, Y(15), 19, Y(19), R3, 1);
+      // core crystal, sunk into the chest with a lit rim
+      api.rect(15, Y(17), 18, Y(20), R3);
+      api.rect(15, Y(17), 17, Y(19), Eye); api.px(16, Y(18), '#ffffff');
+      /* Arms: shoulder, forearm, fist — every segment BELOW the shoulder line.
+         aDx/aDy still drive the attack, so a raised smash now travels from the
+         hip to over the head instead of from one T-pose to another. */
+      const arm = (x, out, sock, dx, dy) => {
+        /* The joint is drawn as a stroke from the shoulder socket to the top of
+           the upper arm, so the limb stays welded to the body at every armDy the
+           attack and walk ask for. Without it the arms detach into floating
+           bricks the moment they swing — the outline pass rims each island. */
+        api.line(sock, Y(15), x + 2 + dx, Y(14 + dy), R2, 3);
+        api.rect(x + dx, Y(14 + dy), x + 4 + dx, Y(17 + dy), R2);          // upper arm
+        api.rect(x + out + dx, Y(14 + dy), x + out + dx, Y(17 + dy), R3);  // outer shade
+        api.rect(x - 1 + dx, Y(18 + dy), x + 4 + dx, Y(22 + dy), R1);      // fist
+        api.rect(x - 1 + dx, Y(21 + dy), x + 4 + dx, Y(22 + dy), R2);
+        api.px(x + out + dx, Y(22 + dy), R3);                              // knuckle shadow
+      };
+      arm(3, 0, 9, aDx, aDy); arm(24, 4, 22, -aDx, -aDy);
+      // head: a slab sunk into the shelf, heavy brow, eyes lit from inside
+      api.rect(12, Y(5), 19, Y(12), R1);
+      api.rect(17, Y(5), 19, Y(12), R2);
+      api.rect(12, Y(5), 19, Y(6), R3);                                    // brow
+      api.px(12, Y(5), R2); api.px(19, Y(5), R2);                          // chipped crown
+      api.rect(13, Y(8), 14, Y(9), Eye); api.rect(17, Y(8), 18, Y(9), Eye);
+      api.rect(13, Y(11), 18, Y(12), R2);                                  // jaw
+      // moss, on the upward-facing surfaces only
+      api.px(10, Y(13), '#63c74d'); api.px(21, Y(14), '#63c74d');
+      api.px(13, Y(6), '#63c74d'); api.px(12, Y(20), '#3e8948');
       finish(buf, W, H);
     };
   }
@@ -532,26 +566,58 @@ PF.Monsters = (() => {
         finish(buf, W, H); return;
       }
       const cy = 15 + (flap === 1 ? -2 : 0);
-      const R = hurt ? '#ffffff' : '#e43b44', Dk = hurt ? '#e8e8e8' : '#a22633', belly = '#ffd34e', wing = '#f77622';
-      api.ellipse(cx - 5, cy - 4, cx + 5, cy + 6, R, true);
-      api.ellipse(cx - 2, cy - 1, cx + 4, cy + 5, belly, true);
-      const wy = flap === 0 ? cy - 8 : flap === 2 ? cy - 1 : cy - 5;
-      api.line(cx - 2, cy - 2, cx - 8, wy, wing, 2);
-      api.line(cx - 8, wy, cx - 5, wy + 4, wing, 1);
-      api.line(cx + 2, cy - 2, cx + 8, wy, wing, 2);
-      api.line(cx + 8, wy, cx + 5, wy + 4, wing, 1);
-      api.ellipse(cx + 2, cy - 7, cx + 9, cy - 1, R, true);
-      api.line(cx + 3, cy - 7, cx + 1, cy - 11, '#fee761', 1);
-      api.px(cx + 6, cy - 5, hurt ? '#181425' : '#fee761');
-      api.px(cx + 6, cy - 6, '#181425');
-      api.rect(cx + 8, cy - 4, cx + 11, cy - 2, R);
-      api.px(cx + 10, cy - 3, '#181425');
-      api.line(cx - 5, cy + 3, cx - 11, cy + 5, R, 2);
-      api.px(cx - 12, cy + 4, '#fee761');
+      const R = hurt ? '#ffffff' : '#e43b44', Dk = hurt ? '#e8e8e8' : '#a22633';
+      const belly = hurt ? '#ffffff' : '#ffd34e', wing = hurt ? '#e8e8e8' : '#f07b2d', wingDk = hurt ? '#c0c0c0' : '#a22633';
+      /* The old drake was a circle with a second, almost-as-big circle of belly
+         dropped in the middle of it and four 2px lines for wings. At size that
+         reads as a red animal carrying a beach ball. A flying reptile needs:
+         a body LONGER than it is tall, the pale belly as a crescent along the
+         underside rather than a disc in the centre, membrane wings with actual
+         spars, and a neck that puts the head clear of the shoulders. */
+      const wy = flap === 0 ? cy - 10 : flap === 2 ? cy + 1 : cy - 5;
+      // far wing first: darker, shorter, behind everything
+      const fan = (sx, sy, tx, ty, mem, spar, drop) => {
+        for (let i = 1; i <= 5; i++) {
+          const t = i / 5;
+          const x = Math.round(sx + (tx - sx) * t), y = Math.round(sy + (ty - sy) * t);
+          api.line(x, y, x, y + Math.round(drop * (1 - t * 0.6)), i % 2 ? mem : spar, 1);
+        }
+        api.line(sx, sy, tx, ty, spar, 2);
+        api.px(tx, ty, '#fee761');                    // wing claw
+      };
+      fan(cx + 1, cy - 1, cx + 6, wy + 2, wingDk, wingDk, 4);
+      // body: a long oval, tail-heavy, with the belly as an underside crescent
+      api.ellipse(cx - 7, cy - 2, cx + 4, cy + 6, R, true);
+      api.ellipse(cx - 6, cy - 2, cx - 1, cy + 2, Dk, true);   // haunch shadow
+      api.ellipse(cx - 4, cy + 3, cx + 4, cy + 7, belly, true);
+      api.line(cx - 4, cy + 3, cx + 3, cy + 2, hurt ? '#e8e8e8' : '#f77622', 1); // belly seam
+      // hind leg + foot, so it has somewhere to land
+      api.rect(cx - 3, cy + 6, cx - 1, cy + 9, Dk);
+      api.rect(cx - 4, cy + 9, cx, cy + 9, belly);
+      api.px(cx - 4, cy + 9, '#fee761'); api.px(cx, cy + 9, '#fee761');
+      // tail: tapers over three segments to a barb
+      api.line(cx - 7, cy + 2, cx - 11, cy + 4, R, 3);
+      api.line(cx - 11, cy + 4, cx - 14, cy + 2, R, 2);
+      api.line(cx - 12, cy + 3, cx - 14, cy + 2, Dk, 1);
+      api.px(cx - 15, cy + 1, '#fee761'); api.px(cx - 15, cy + 2, '#fee761');
+      // neck + head, clear of the shoulder line
+      api.line(cx + 3, cy, cx + 6, cy - 4, R, 3);
+      api.ellipse(cx + 4, cy - 8, cx + 10, cy - 2, R, true);
+      api.ellipse(cx + 5, cy - 8, cx + 8, cy - 6, hurt ? '#ffffff' : '#f6757a', true);  // brow light
+      api.rect(cx + 9, cy - 6, cx + 13, cy - 4, R);              // snout
+      api.rect(cx + 9, cy - 4, cx + 13, cy - 4, Dk);             // jaw line
+      api.px(cx + 13, cy - 5, belly);                            // nostril highlight
+      api.px(cx + 9, cy - 3, '#e8ecf5'); api.px(cx + 11, cy - 3, '#e8ecf5');  // teeth
+      api.line(cx + 4, cy - 8, cx + 1, cy - 12, '#fee761', 2);   // horn
+      api.line(cx + 7, cy - 9, cx + 6, cy - 11, '#fee761', 1);   // crest spike
+      api.px(cx + 8, cy - 6, hurt ? '#181425' : '#fee761');
+      api.px(cx + 8, cy - 7, '#181425');
+      // near wing: over the body, full span
+      fan(cx, cy - 2, cx - 9, wy, wing, wingDk, 6);
       if (breath) {
-        api.ellipse(cx + 12, cy - 4, cx + 18, cy - 1, '#f07b2d', true);
-        api.ellipse(cx + 14, cy - 3, cx + 17, cy - 2, '#ffe27a', true);
-        api.px(cx + 19, cy - 3, '#ffffff');
+        api.ellipse(cx + 13, cy - 7, cx + 20, cy - 3, '#f07b2d', true);
+        api.ellipse(cx + 15, cy - 6, cx + 19, cy - 4, '#ffe27a', true);
+        api.px(cx + 21, cy - 5, '#ffffff');
       }
       finish(buf, W, H);
     };

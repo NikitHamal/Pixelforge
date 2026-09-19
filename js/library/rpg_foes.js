@@ -123,9 +123,14 @@ PF.RPG.foes = (() => {
   const SDIR = [-1.5, -0.5, 0.5, 1.5]; // back pair points back, front pair forward
   const SPIDER_PAL = { body: '#3e2347', sh: '#262b44', hi: '#68386c', leg: '#5b3a6e', legHi: '#8f6fae', eye: '#ff0044' };
   const LING_PAL = { body: '#265c42', sh: '#193c3e', hi: '#3e8948', leg: '#3e8948', legHi: '#63c74d', eye: '#fee761' };
-  const QUEEN_PAL = { body: '#3e2731', sh: '#262b44', hi: '#733e39', leg: '#733e39', legHi: '#b86f50', eye: '#ff0044' };
+  /* `hi` and `leg` were both #733e39, so every near leg was painted in exactly
+     the colour of the carapace highlight it crosses — eight limbs erased into
+     the body (AGENTS.md rule 10). The legs now run a full step lighter than the
+     shell, and the far rank clears the #181425 outline instead of sinking into
+     it, so the brood mother has a leg span again rather than a brown outline. */
+  const QUEEN_PAL = { body: '#452a2c', sh: '#2c1f2a', hi: '#6d4038', leg: '#9c6041', legHi: '#d9a06b', eye: '#ff0044' };
   const GEO = {
-    giant: { shadowW: 6, hips: [9, 13, 17, 21], hipY: 20, footY: 25, wFar: 2, wNear: 3,
+    giant: { shadowW: 6, hips: [8, 12, 17, 21], hipY: 19, footY: 25, wFar: 1, wNear: 2,
       ab: [4, 8, 17, 22], abHi: [5, 9, 10, 14], spots: [[12, 11], [14, 13], [10, 15]],
       waist: [17, 14, 17, 21], head: [19, 13, 26, 22], headHi: [20, 14, 23, 16],
       eye: [23, 15, 24, 17], sat: [[22, 14], [25, 14], [26, 16]],
@@ -135,13 +140,21 @@ PF.RPG.foes = (() => {
       waist: [17, 17, 17, 21], head: [18, 15, 23, 21], headHi: [19, 16, 21, 18],
       eye: [19, 17, 20, 18], sat: [[18, 16], [21, 16]],
       fangs: [[19, 21, 18, 23], [21, 21, 22, 23]], palp: [20, 21, 21, 22] },
-    queen: { shadowW: 8, hips: [8, 12, 16, 20], hipY: 19, footY: 25, wFar: 2, wNear: 4,
-      ab: [1, 7, 16, 22], abHi: [3, 9, 9, 15], spots: [[10, 10], [13, 12], [8, 16], [12, 19]],
-      waist: [16, 13, 16, 19], head: [18, 12, 27, 23], headHi: [19, 13, 23, 16],
-      eye: [24, 15, 25, 17], sat: [[23, 13], [26, 13], [27, 16], [22, 17]],
-      fangs: [[24, 21, 23, 24], [26, 21, 27, 24]], palp: [25, 21, 26, 23],
-      egg: [[5, 8], [8, 7], [11, 8], [6, 10], [9, 10], [12, 11], [7, 12]],
-      marks: [[9, 18], [11, 20], [6, 20]] }
+    /* The queen's legs were four pixels thick on hips spaced four apart, hung
+       from y19 to y25. Four thick stubs at that spacing merge into a single
+       skirt of chitin, and a boss spider with no daylight between its legs
+       reads as a brown quadruped — which is exactly what it looked like. Thin
+       them and hang them from higher up: the gap between legs IS the spider. */
+    /* Hips clustered, feet spread: legs that RADIATE from one point read as an
+       arachnid, legs that run parallel read as a mammal's. That single change
+       is most of the difference between this and the brown quadruped it was. */
+    queen: { shadowW: 8, hips: [11, 14, 18, 21], hipY: 17, footY: 26, wFar: 1, wNear: 2, reach: 4.8,
+      ab: [3, 6, 15, 18], abHi: [5, 8, 11, 12], spots: [[10, 9], [13, 11], [8, 14], [12, 16]],
+      waist: [16, 11, 16, 16], head: [17, 9, 26, 20], headHi: [18, 10, 22, 13],
+      eye: [23, 13, 24, 15], sat: [[22, 11], [25, 11], [26, 14], [21, 15]],
+      fangs: [[23, 19, 22, 22], [25, 19, 26, 22]], palp: [24, 19, 25, 21],
+      egg: [[5, 7], [8, 6], [11, 7], [6, 9], [9, 9], [12, 10], [7, 11]],
+      marks: [[9, 15], [11, 17], [6, 17]] }
   };
   function spiderFrame(o = {}) {
     return (buf, W, H) => {
@@ -156,13 +169,22 @@ PF.RPG.foes = (() => {
       const Y = y => y + lift;
       // one leg: hip under the body -> knee bowing out -> foot planted below.
       // far legs first (dark, 1px higher = depth), near legs over the body.
+      /* A spider is read from its legs, and the legs are read from the gaps
+         between them. The old form hung the far rank from the SAME hips as the
+         near rank with only a one-row lift, so eight legs rendered as four
+         thick columns under a pair of balls — a brown quadruped, not a spider.
+         The far rank now sits its own hips back along the body and plants its
+         feet two rows higher (further away), and every leg arches: knee well
+         above the hip, foot well outside it. Eight legs, eight gaps. */
       function leg(l, far) {
-        const hx = g.hips[l], hy = Y(g.hipY);
+        const hx = g.hips[l] - (far ? 2 : 0), hy = Y(g.hipY) - (far ? 2 : 0);
         const up = ((l + li) % 2 === 0) ? -2 : 0;
         const raised = rear && l >= 2 ? -5 : 0; // threat display lifts front legs
-        const dir = SDIR[l];
-        const kx = Math.round(hx + dir * 2.5), ky = hy - 2 + (up >> 1) + (raised ? -3 : 0);
-        const fx = Math.round(hx + dir * 4), fy = g.footY + (up >> 1) + (far ? -1 : 0) + (raised ? -5 : 0);
+        const dir = SDIR[l] * (far ? 0.8 : 1);
+        const kx = Math.round(hx + dir * 3), ky = hy - (far ? 3 : 4) + (up >> 1) + (raised ? -3 : 0);
+        const reach = g.reach || 5.2;   // the queen's hips sit wider, so she reaches less
+        const fx = Math.round(hx + dir * (far ? reach * 0.77 : reach));
+        const fy = g.footY + (up >> 1) + (far ? -2 : 0) + (raised ? -5 : 0);
         const c = far ? p.sh : p.leg, w = far ? g.wFar : g.wNear;
         api.line(hx, hy, kx, ky, c, w);
         api.line(kx, ky, fx, fy, c, w);

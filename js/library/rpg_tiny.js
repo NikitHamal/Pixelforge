@@ -195,10 +195,11 @@ PF.RPG.tiny = (() => {
           api.px(X(hc + s), HY(14), pal.skinSh);
           api.px(X(hc), HY(15), pal.lip); api.px(X(hc + s), HY(15), pal.lip);
         }
-        tblob(api, X(hc), HY(8), 6, 3, h.c, h.hi, h.sh);
+        tblob(api, X(hc), HY(8), 5, 3, h.c, h.hi, h.sh);
         if (gear.ridge) api.line(X(hc), HY(5), X(hc), HY(10), h.hi, 1);
-        api.rect(X(hc - 7), HY(10), X(hc + 7), HY(11), h.sh);
-        api.rect(X(hc - 7), HY(10), X(hc + 7), HY(10), RIM);
+        api.rect(X(hc - 6), HY(10), X(hc + 6), HY(11), h.sh);        // see the straight-on brim
+        api.rect(X(hc - 6), HY(10), X(hc + 6), HY(10), RIM);
+        api.px(X(hc - 7), HY(11), h.sh); api.px(X(hc + 7), HY(11), h.sh);
       } else if (h.type === 'hood') {
         if (bk) { tblob(api, X(hc), HY(10), 6, 5, h.c, null, h.sh); tblob(api, X(hc), HY(12), 4, 3, h.sh, null, null); }
         else {
@@ -236,10 +237,17 @@ PF.RPG.tiny = (() => {
         api.px(X(15), HY(15), pal.lip); api.px(X(16), HY(15), pal.lip);
       }
       const cx = side ? 15 : 16; // dome top y5 -> outline y4, always inside
-      tblob(api, X(cx), HY(8), 6, 3, h.c, h.hi, h.sh);
+      tblob(api, X(cx), HY(8), 5, 3, h.c, h.hi, h.sh);
       if (gear.ridge) api.line(X(cx), HY(5), X(cx), HY(10), h.hi, 1); // morion ridge
-      const bx0 = side ? 7 : 7, bx1 = side ? 23 : 24;
-      api.rect(X(bx0), HY(10), X(bx1), HY(11), h.sh); api.rect(X(bx0), HY(10), X(bx1), HY(10), RIM);
+      /* The brim used to run x7..x24 — eighteen pixels, wider than the figure's
+         own shoulders — which is why a kettle helm read as a white sunhat. A
+         brim is a LIP on a helmet: one pixel proud of the dome, tapering to a
+         single row at each tip. The dome came down with it (rx 6 -> 5), because
+         a skull cap wider than the skull underneath is the other half of the
+         same mistake. */
+      api.rect(X(cx - 6), HY(10), X(cx + 6), HY(11), h.sh);
+      api.rect(X(cx - 6), HY(10), X(cx + 6), HY(10), RIM);
+      api.px(X(cx - 7), HY(11), h.sh); api.px(X(cx + 7), HY(11), h.sh);
     } else if (h.type === 'hood') {
       // rounded cowl, no brim: face sits inset y12..15
       if (back) { tblob(api, X(16), HY(10), 7, 5, h.c, null, h.sh); tblob(api, X(16), HY(12), 4, 3, h.sh, null, null); }
@@ -517,7 +525,10 @@ PF.RPG.tiny = (() => {
   }
 
   /* ================= unit gears (all original) ================= */
-  const bladeGear = { head: { type: 'helm', c: '#8b9bb4', hi: '#e6ebf7', sh: '#5a6988' }, weapon: 'sword', shield: true,
+  // Steel, not snow: #8b9bb4 over an #e6ebf7 highlight put the brightest value
+  // on the sprite up on the helmet, which is how a kettle helm ended up reading
+  // as a white sunhat sitting on a small man.
+  const bladeGear = { head: { type: 'helm', c: '#7e8a9e', hi: '#c0cbdc', sh: '#4d5668' }, weapon: 'sword', shield: true,
     trim: (api, X, BY) => { api.line(X(11), BY(16), X(20), BY(21), '#3e2731', 1); api.rect(X(15), BY(18), X(16), BY(19), '#fee761'); api.px(X(15), BY(18), '#ffffff'); } };
   const pikeGear = { head: { type: 'helm', c: '#c0cbdc', hi: '#ffffff', sh: '#5a6988' }, weapon: 'spear', shield: true, ridge: true,
     trim: (api, X, BY) => { api.px(X(15), BY(15), '#fee761'); api.px(X(16), BY(15), '#fee761'); api.px(X(15), BY(17), '#fee761'); api.px(X(16), BY(17), '#fee761'); api.rect(X(12), BY(19), X(19), BY(19), '#feae34'); } };
