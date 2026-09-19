@@ -84,22 +84,37 @@ PF.Rig = (() => {
     /* Far limbs are drawn first and two tones darker than the near ones. Two
        tones is the minimum separation at 32px: at one tone the far leg merges
        with the torso and the walk cycle stops reading entirely. */
+    /* Two segments, not one bar. The old leg was a straight 3px column slid
+       sideways under the hip, which is a shuffle: the knee has to LEAD the
+       foot on the reach and TRAIL it on the push, and that break in the line
+       is the whole reason a stride reads at 32px. The hip socket and the
+       foot stay exactly where the caller put them, so ground contact and the
+       tool-holding states are untouched. */
     const leg = (x0, dx, phase, main, dark, shoe, shoeDark) => {
-      const x = x0 + dx, b = legY + phase;
-      a.rect(x, hip - 1, x + 2, b, dark);
-      a.rect(x, hip - 1, x, b, main);
-      a.px(x + 1, b - 2, dark);                                   // knee crease
-      a.rect(x - 1, b, x + 2, b + 2, shoe);
-      a.rect(x - 1, b, x + 2, b, lit(shoe));                      // cuff catches the light
-      a.rect(x - 1, b + 2, x + 2, b + 2, shoeDark);
+      const b = legY + phase, fx = x0 + dx;
+      const ky = Math.round((hip - 1 + b) / 2) + 1;               // knee height
+      // The knee breaks FORWARD on the leg that is off the ground: that
+       // kink is what separates a stride from a leg sliding under the hip.
+       const kx = x0 + Math.round(dx * 0.35) + (phase < 0 ? 1 : 0);
+      a.line(x0 + 1, hip - 1, kx + 1, ky, dark, 3);               // thigh
+      a.line(x0, hip - 1, kx, ky, main, 1);
+      a.line(kx + 1, ky, fx + 1, b, dark, 3);                     // shin
+      a.line(kx, ky, fx, b, main, 1);
+      a.px(kx + 1, ky, dark);                                     // knee crease
+      a.rect(fx - 1, b, fx + 2, b + 2, shoe);
+      a.rect(fx - 1, b, fx + 2, b, lit(shoe));                    // cuff catches the light
+      a.rect(fx - 1, b + 2, fx + 2, b + 2, shoeDark);
     };
     const st = o.stride || [0, up, 0, dn];                        // [farDx, farDy, nearDx, nearDy]
     leg(13, st[0], st[1], pal.legSh, pal.legSh, pal.shoeSh, pal.shoeSh);
-    // far arm, counter-swinging against the far leg
+    /* Far arm, counter-swinging against the far leg. The swing travels in x
+       as well as y: pumping straight up and down on the spot, the hands went
+       nowhere and the whole cycle read as a figure sliding along the ground. */
     const fa = hip - 3 - up;
-    a.rect(10, sh + 2, 12, fa, pal.shirtSh);
-    a.rect(10, fa, 12, fa, dim(pal.shirtSh));                     // cuff
-    a.rect(10, fa + 1, 12, hip - up, pal.skinSh);
+    const fax = 10 + Math.max(-2, Math.min(2, Math.round(up * 0.9)));
+    a.rect(fax, sh + 2, fax + 2, fa, pal.shirtSh);
+    a.rect(fax, fa, fax + 2, fa, dim(pal.shirtSh));               // cuff
+    a.rect(fax, fa + 1, fax + 2, hip - up, pal.skinSh);
 
     // torso
     a.ellipse(11, sh, 21, hip - 2, pal.shirt, true);
@@ -170,12 +185,13 @@ PF.Rig = (() => {
       /* Cuff then fist: without the cuff row the sleeve and the hand are one
          unbroken column and the arm reads as a stick. */
       const na = hip - 3 + up;
-      a.rect(20, sh + 2, 22, na, pal.shirt);
-      a.rect(20, sh + 2, 20, na, pal.shirtHi);
-      a.rect(20, na, 22, na, pal.shirtSh);
-      a.rect(20, na + 1, 22, hip + up, pal.skin);
-      a.px(22, hip + up, pal.skinSh);
-      if (o.hand) o.hand(a, 22, hip + up);
+      const ax = 20 - Math.max(-2, Math.min(2, Math.round(up * 0.9)));
+      a.rect(ax, sh + 2, ax + 2, na, pal.shirt);
+      a.rect(ax, sh + 2, ax, na, pal.shirtHi);
+      a.rect(ax, na, ax + 2, na, pal.shirtSh);
+      a.rect(ax, na + 1, ax + 2, hip + up, pal.skin);
+      a.px(ax + 2, hip + up, pal.skinSh);
+      if (o.hand) o.hand(a, ax + 2, hip + up);
     }
   }
   /* Going down is drawn, not rigged. A 3/4 rig tipped on its side reads as a
@@ -278,8 +294,8 @@ PF.Rig = (() => {
      floor while the hips drop on the weight beat. The previous form swung both
      legs vertically off one sine, which stretched them instead of stepping and
      read as a figure sliding along the ground. */
-  const WALK8 = [[0, -2, 0,  2, 0], [1, -1, 0,  1, 0], [0, 0, -2, 0, 0], [0,  1, -1, -1, 0],
-                 [0,  2, 0, -2, 0], [1,  1, 0, -1, 0], [0, 0, 0, 0, -2], [0, -1, 0,  1, -1]];
+  const WALK8 = [[0, -3, 0,  3, 0], [1, -2, 0,  2, 0], [0, -1, -2, 1, 0], [0,  1, -1, 0, 0],
+                 [0,  3, 0, -3, 0], [1,  2, 0, -2, 0], [0,  1, 0, -1, -2], [0,  0, 0, 1, -1]];
   /* Stride amplitude is a separate argument, NOT part of `extra`: passed
      inside the override object it replaces the per-frame pose outright and the
      run ends up with every frame at identical leg phase. */
@@ -287,7 +303,10 @@ PF.Rig = (() => {
     cyc(8, fps || 10, (a, i) => {
       const k = WALK8[i], g = (amp || 2) / 2, r = v => Math.round(v * g);
       return personRig(a, pal, Object.assign({
-        hip: 20 + k[0], legY: 25, swing: k[3] * 0.9 * g,
+        // Arm swing is deliberately shallower than the stride. Matched to it,
+        // a two-handed weapon rode from knee height to chest height inside one
+        // cycle and the walk read as someone shouldering and unshouldering.
+        hip: 20 + k[0], legY: 25, swing: k[3] * 0.7 * g,
         stride: [r(k[1]), r(k[2]), r(k[3]), r(k[4])], hand }, extra || {}));
     }));
 
