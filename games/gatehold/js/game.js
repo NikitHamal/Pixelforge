@@ -68,9 +68,9 @@
   /* The swarm. Workers chew buildings, soldiers hurt people, majors are the
      day-3 answer to a wall of palisades. */
   const ANTS = {
-    worker: { art: 'worker', hp: 26, dmg: 4, speed: 30, bite: 0.85, size: 12, score: 1 },
-    soldier: { art: 'soldier', hp: 62, dmg: 9, speed: 34, bite: 0.75, size: 14, score: 2 },
-    major: { art: 'major', hp: 260, dmg: 22, speed: 20, bite: 1.1, size: 20, score: 5 }
+    worker: { art: 'worker', hp: 26, dmg: 4, speed: 34, bite: 0.85, size: 12, score: 1 },
+    soldier: { art: 'soldier', hp: 62, dmg: 9, speed: 40, bite: 0.75, size: 14, score: 2 },
+    major: { art: 'major', hp: 260, dmg: 22, speed: 24, bite: 1.1, size: 20, score: 5 }
   };
 
   const NAMES = ['Klos', 'Bram', 'Ottil', 'Mera', 'Hesk', 'Vale', 'Runa', 'Torr',
@@ -139,6 +139,10 @@
   const has = cost => { for (const k in cost) if (G.res[k] < cost[k]) return false; return true; };
   const pay = cost => { for (const k in cost) G.res[k] -= cost[k]; };
   const popCap = () => 8 + G.buildings.filter(b => b.kind === 'house').length * 2;
+  /* A 3x2 hall is not its top-left tile: measure from the middle of the
+     footprint, or ants stand on the corner swinging at nothing. */
+  const bcx = b => (b.x + BUILDS[b.kind].w / 2 - 0.5) * T + T / 2;
+  const bcy = b => (b.y + BUILDS[b.kind].h / 2 - 0.5) * T + T / 2;
   const isHeart = b => !!BUILDS[b.kind].heart;
 
   function toast(text, kind) {
@@ -180,7 +184,8 @@
         const t = G.map.tiles[WD.idx(G.map, x, y)];
         if (t === WD.TERRAIN.WATER || t === WD.TERRAIN.SHORE) return false;
         if (buildingAt(x, y)) return false;
-        if (!d.ground && G.map.blocked[WD.idx(G.map, x, y)]) return false;
+        /* a tree is not a surface: nothing, road included, goes on top of one */
+        if (G.map.blocked[WD.idx(G.map, x, y)]) return false;
       }
     }
     return true;
@@ -219,7 +224,7 @@
     return { kind: 'villager', name: name || NAMES[(G.rand() * NAMES.length) | 0],
       x: px(tx), y: px(ty), dir: 'down', flip: false, hp: 60, maxHp: 60,
       job: job || 'Volunteer', state: 'idle', path: [], node: null, carry: 0,
-      carryKind: 'wood', t: G.rand(), anim: 0, dead: 0, cd: 0, flash: 0, work: 0, gather: 0 };
+      carryKind: 'wood', t: G.rand(), anim: 0, dead: 0, cd: 0, flash: 0, work: 0, gather: 0, reT: 0 };
   }
 
   function spawnAnt(kind, tx, ty) {
@@ -410,6 +415,7 @@
     const a = tileAt(e.x, e.y);
     e.path = WD.path(G.map, a.x, a.y, tx, ty, (x, y) => G.solid[y * WD.W + x]);
     e.goal = { x: tx, y: ty };
+    e.reT = 0.6;
     return e.path.length > 0;
   }
 
@@ -457,10 +463,13 @@
         continue;
       }
 
-      /* Anyone unarmed runs for the hearth when a soldier gets close. */
+      /* Anyone unarmed runs for the hearth when a soldier gets close. The
+         re-path is on a cooling timer: an A* per villager per frame is how you
+         turn a 60fps game into a 20fps one. */
       if (threat && Math.hypot(threat.x - v.x, threat.y - v.y) < 46) {
         v.state = 'flee';
-        if (!v.path.length || (v.t | 0) % 2 === 0) repath(v, g.cx, g.cy + 4);
+        v.reT -= dt;
+        if (!v.path.length || v.reT <= 0) { repath(v, g.cx, g.cy + 4); v.reT = 0.6; }
         moveAlong(v, dt, 42);
         continue;
       }
@@ -509,17 +518,26 @@
         for (const b of g.buildings) {
           if (!b.built || b.hp >= b.maxHp * 0.99) continue;
           const ratio = b.hp / b.maxHp;
-          if (ratio < worst && Math.hypot(px(b.x) - v.x, px(b.y) - v.y) < 150) { worst = ratio; hurt = b; }
+          if (ratio >= worst) continue;
+          if (Math.hypot(bcx(b) - v.x, bcy(b) - v.y) > 150) continue;
+          /* Nobody patches a wall with the swarm still on it. Without this the
+             village out-heals a raid and the settlement never falls. */
+          let contested = false;
+          for (const a of g.ants) {
+            if (!a.dead && Math.hypot(a.x - bcx(b), a.y - bcy(b)) < 72) { contested = true; break; }
+          }
+          if (contested) continue;
+          worst = ratio; hurt = b;
         }
         if (hurt) {
           v.state = 'repair';
-          if (Math.hypot(px(hurt.x) - v.x, px(hurt.y) - v.y) > 18) {
+          if (Math.hypot(bcx(hurt) - v.x, bcy(hurt) - v.y) > 18) {
             if (!repath(v, hurt.x, hurt.y)) { /* unreachable: fall through */ }
             moveAlong(v, dt, 26);
           } else {
             hurt.hp = Math.min(hurt.maxHp, hurt.hp + 1.6 * dt);
             v.anim += dt * 3;
-            if (((v.t * 4) | 0) !== (((v.t - dt) * 4) | 0)) puff(px(hurt.x), px(hurt.y) - 4, '#8a6134', 1);
+            if (((v.t * 4) | 0) !== (((v.t - dt) * 4) | 0)) puff(bcx(hurt), bcy(hurt) - 4, '#8a6134', 1);
           }
           continue;
         }
@@ -527,7 +545,7 @@
 
       /* work: pick a node for the job, walk to it, gather, carry it home */
       const want = v.job === 'Woodcutter' ? 'wood' : v.job === 'Quarrier' ? 'stone' : v.job === 'Farmer' ? 'food' : null;
-      if (!v.node || v.map !== g.map || g.map.props.indexOf(v.node) < 0) v.node = null;
+      if (v.node && g.map.props.indexOf(v.node) < 0) v.node = null;   // node was felled or hauled out
       if (!v.node && !v.path.length) {
         const n = nearestNode(want, v.x, v.y);
         if (n) { v.node = n; repath(v, n.x, n.y); }
@@ -581,17 +599,16 @@
   const BARRIER = { wall: 1, gate: 1 };
 
   function attackTarget(a, tgt, dt) {
-    a.flip = (tgt.kind === 'villager' ? tgt.x : px(tgt.x)) < a.x;
+    const tx0 = tgt.kind === 'villager' ? tgt.x : bcx(tgt);
+    a.flip = tx0 < a.x;
     const barrier = tgt.kind !== 'villager' && BARRIER[tgt.kind];
-    a.cd -= dt;
-    if (a.cd > 0) return;
+    if (a.cd > 0) return;                       // the caller already ticked it down
     a.cd = ANTS[a.breed].bite * (barrier ? 2 : 1);
     a.bite = 0.16;
-    tgt.hp -= barrier ? Math.max(1, Math.round(a.dmg * 0.35)) : a.dmg;
+    tgt.hp -= barrier ? Math.max(1, Math.round(a.dmg * 0.4)) : a.dmg;
     tgt.flash = 0.14;
     SFX.bite();
-    const tx = tgt.kind === 'villager' ? tgt.x : px(tgt.x);
-    const ty = tgt.kind === 'villager' ? tgt.y : px(tgt.y);
+    const tx = tx0, ty = tgt.kind === 'villager' ? tgt.y : bcy(tgt);
     puff(tx, ty, '#3f2a1c', 2);
     if (tgt.kind === 'villager') {
       if (tgt.hp <= 0 && !tgt.dead) {
@@ -602,9 +619,12 @@
       return;
     }
     if (tgt.hp <= 0 && !tgt.destroyed) {
-      tgt.destroyed = true;
-      puff(px(tgt.x), px(tgt.y), '#6b4a2a', 8);
+      /* The hall is not removed when it falls: it is the thing the run was
+         about, and it should still be standing in the frame behind the
+         game-over card. */
       if (isHeart(tgt)) return;
+      tgt.destroyed = true;
+      puff(bcx(tgt), bcy(tgt), '#6b4a2a', 8);
       toast(BUILDS[tgt.kind].name + ' destroyed', 'bad');
     }
   }
@@ -623,8 +643,8 @@
       let tgt = null, bd = 1e9;
       for (const b of g.buildings) {
         if (b.destroyed) continue;
-        const d = Math.hypot(px(b.x) - a.x, px(b.y) - a.y);
-        if (d < T * 1.15 && d < bd) { bd = d; tgt = b; }
+        const d = Math.hypot(bcx(b) - a.x, bcy(b) - a.y);
+        if (d < T * 1.3 && d < bd) { bd = d; tgt = b; }
       }
       for (const v of g.villagers) {
         if (v.dead) continue;
@@ -667,13 +687,13 @@
       let best = null, bd = (9 * T) * (9 * T);
       for (const a of g.ants) {
         if (a.dead) continue;
-        const d = (a.x - px(b.x)) * (a.x - px(b.x)) + (a.y - px(b.y)) * (a.y - px(b.y));
+        const d = (a.x - bcx(b)) * (a.x - bcx(b)) + (a.y - bcy(b)) * (a.y - bcy(b));
         if (d < bd) { bd = d; best = a; }
       }
       if (best) {
         b.cool = 1.1;
-        const ang = Math.atan2(best.y - px(b.y), best.x - px(b.x));
-        g.shots.push({ x: px(b.x), y: px(b.y) - 14, vx: Math.cos(ang) * 260, vy: Math.sin(ang) * 260, life: 1.2, dmg: 18 });
+        const ang = Math.atan2(best.y - bcy(b), best.x - bcx(b));
+        g.shots.push({ x: bcx(b), y: bcy(b) - 14, vx: Math.cos(ang) * 260, vy: Math.sin(ang) * 260, life: 1.2, dmg: 18 });
         SFX.shot();
       }
     }
@@ -738,9 +758,25 @@
       list.push({ y: wy + T, p });
     }
     for (const b of g.buildings) { if (!b.destroyed) list.push({ y: b.y * T + BUILDS[b.kind].h * T, b }); }
-    for (const v of g.villagers) if (!v.dead) list.push({ y: v.y, v });
+    for (const v of g.villagers) list.push({ y: v.y, v });   // the fallen stay in the sort
     for (const a of g.ants) if (!a.dead) list.push({ y: a.y, a });
     list.sort((p, q) => p.y - q.y);
+
+    /* ground-contact pass: every shadow goes down before any sprite, so a
+       nearer sprite can never paint over a further one's shadow */
+    const sh = ART.shadow();
+    for (const item of list) {
+      let cx, gy, w;
+      if (item.p) { cx = item.p.x * T + T / 2; gy = (item.p.y + 1) * T; w = item.p.kind === 'pine' ? 15 : 11; }
+      else if (item.v) { cx = item.v.x; gy = item.v.y + 1; w = 11; }      // the rig's feet sit at +1
+      else if (item.a) { cx = item.a.x; gy = item.a.y + 4; w = 10; }
+      else if (!BUILDS[item.b.kind].ground) {
+        const d = BUILDS[item.b.kind];
+        cx = item.b.x * T + d.w * T / 2; gy = (item.b.y + d.h) * T; w = d.w * T * 0.86;
+      } else continue;
+      ctx.drawImage(sh, Math.round(cx - cam.x - w / 2), Math.round(gy - cam.y - w * 0.21),
+        Math.round(w), Math.max(4, Math.round(w * 0.42)));
+    }
 
     for (const item of list) {
       if (item.p) {
@@ -858,7 +894,12 @@
   /* Villagers come off the library's rigged NPCs, so their walk cycle is the
      one the whole project already uses. This only picks the state. */
   function drawVillager(v, cam) {
-    const st = v.state === 'gather' ? 'idle' : 'walk';
+    if (v.dead) {                                  // let the rig play its own fall
+      const f = GB.frame('villager_m', 'death', (v.dead * 8) | 0) || GB.frame('villager_m', 'idle_down', 0);
+      if (f) ctx.drawImage(f.cv, Math.round(v.x - cam.x - f.w / 2), Math.round(v.y - cam.y - f.h + 6));
+      return;
+    }
+    const st = v.state === 'gather' || v.state === 'repair' ? 'idle' : 'walk';
     const nm = st + '_' + v.dir;
     const f = GB.frame(v.flip ? 'villager_f' : 'villager_m', nm, (v.anim * 6) | 0)
       || GB.frame('villager_m', nm, (v.anim * 6) | 0)
@@ -907,9 +948,24 @@
 
   /* --------------------------------------------------------------- HUD */
 
+  /* The HUD is DOM, so every readout is a text node — but a querySelector per
+     readout per frame is 700 layout-adjacent lookups a second for nothing.
+     The nodes are resolved once, when the run starts. */
+  const HUD_IDS = ['res-wood', 'res-food', 'res-stone', 'res-tools', 'res-pop',
+    'clock-txt', 'day-txt', 'wave-txt', 'killed-txt', 'hearth-txt'];
+  function hudCache() {
+    const c = {};
+    for (const id of HUD_IDS) c[id] = document.getElementById(id);
+    c.fill = document.getElementById('hearth-fill');
+    const panel = document.getElementById('panel');
+    c.cards = panel ? Array.prototype.slice.call(panel.children) : [];
+    return c;
+  }
+
   function hudUpdate() {
     const g = G;
-    const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    const el = g.hud;
+    const set = (id, text) => { const e = el[id]; if (e) e.textContent = text; };
     set('res-wood', Math.floor(g.res.wood));
     set('res-food', Math.floor(g.res.food));
     set('res-stone', Math.floor(g.res.stone));
@@ -926,23 +982,28 @@
     const hp = g.hearth ? Math.max(0, Math.ceil(g.hearth.hp)) : 0;
     const max = g.hearth ? g.hearth.maxHp : 1;
     set('hearth-txt', hp + '/' + max);
-    const fill = document.getElementById('hearth-fill');
-    if (fill) fill.style.transform = 'scaleX(' + clamp(hp / max, 0, 1).toFixed(3) + ')';
-    for (const c of document.querySelectorAll('#panel .bcard')) {
+    if (el.fill) el.fill.style.transform = 'scaleX(' + clamp(hp / max, 0, 1).toFixed(3) + ')';
+    for (const c of el.cards) {
       const k = c.dataset.build;
       if (k) c.classList.toggle('poor', !has(BUILDS[k].cost));
     }
   }
 
+  /* The top-bar pictograms. Addressed by id rather than by a class query: the
+     headless DOM has no selector engine, and a HUD that only paints in a
+     browser is a HUD the sim cannot check. */
+  const HUD_ICONS = { 'ico-wood': 'wood', 'ico-food': 'food', 'ico-stone': 'stone',
+    'ico-tool': 'tool', 'ico-pop': 'pop', 'ico-heart': 'heart', 'ico-skull': 'skull' };
+
   function paintIcons() {
-    for (const c of document.querySelectorAll('canvas.ico')) {
-      const name = c.dataset.ico;
-      if (!name) continue;
+    for (const id in HUD_ICONS) {
+      const c = document.getElementById(id);
+      if (!c || !c.getContext) continue;
       const gc = c.getContext('2d');
       if (!gc) continue;
       gc.imageSmoothingEnabled = false;
       gc.clearRect(0, 0, 16, 16);
-      gc.drawImage(ART.icon(name), 1, 1);
+      gc.drawImage(ART.icon(HUD_ICONS[id]), 1, 1);
     }
   }
 
@@ -978,7 +1039,8 @@
     $('#tip-line2').textContent = 'Health: ' + d.hp + '/' + d.hp;
     $('#tip-desc').textContent = d.desc;
     $('#tip').classList.add('show');
-    G.tipMode = 'build';
+    const hint = $('#hint'); if (hint) hint.classList.add('muted');
+    G.tipMode = 'build'; G.tipW = 0;
   }
   function showEntTip(lines) {
     $('#tip-name').textContent = lines.name;
@@ -986,25 +1048,36 @@
     $('#tip-line2').textContent = lines.b || '';
     $('#tip-desc').textContent = lines.desc || '';
     $('#tip').classList.add('show');
-    G.tipMode = 'ent';
+    const hint = $('#hint'); if (hint) hint.classList.add('muted');
+    G.tipMode = 'ent'; G.tipW = 0;
   }
-  function hideTip() { const el = $('#tip'); if (el) el.classList.remove('show'); if (G) G.tipMode = null; }
+  function hideTip() {
+    const el = $('#tip');
+    if (el) el.classList.remove('show');
+    const hint = $('#hint');
+    if (hint) hint.classList.remove('muted');
+    if (G) G.tipMode = null;
+  }
 
   function placeTip() {
     const el = $('#tip');
     if (!el) return;
-    const w = el.offsetWidth || 200, h = el.offsetHeight || 84;
+    if (!G.tipW) { G.tipW = el.offsetWidth || 200; G.tipH = el.offsetHeight || 84; }
+    const w = G.tipW, h = G.tipH;
     const vw = window.innerWidth, vh = window.innerHeight;
-    let x, y;
-    if (G.tipMode === 'build') { x = vw - w - 10; y = vh - h - 10; }
-    else { x = mouse.sx + 16; y = mouse.sy + 12; }
+    const x = mouse.sx + 16, y = mouse.sy + 12;
     el.style.left = clamp(x, 6, Math.max(6, vw - w - 6)) + 'px';
     el.style.top = clamp(y, 6, Math.max(6, vh - h - 6)) + 'px';
   }
 
+  function clearBuild() {
+    placing = null;
+    if (G.hud) for (const c of G.hud.cards) c.classList.remove('on');
+  }
+
   function selectBuild(kind) {
     placing = placing === kind ? null : kind;
-    for (const c of document.querySelectorAll('#panel .bcard')) c.classList.toggle('on', c.dataset.build === placing);
+    if (G.hud) for (const c of G.hud.cards) c.classList.toggle('on', c.dataset.build === placing);
     if (placing) toast(BUILDS[kind].name + ' \u2014 click the ground to place', '');
   }
 
@@ -1024,6 +1097,10 @@
   }
 
   function hoverUpdate() {
+    /* the camera can move under a still mouse, so the world cursor is derived
+       here rather than only in the mousemove handler */
+    mouse.wx = mouse.x + G.cam.x;
+    mouse.wy = mouse.y + G.cam.y;
     if (placing) { hoverEnt = null; if (G.tipMode === 'ent') hideTip(); return; }
     const e = entUnder(mouse.wx, mouse.wy);
     const b = buildingAt(Math.floor(mouse.wx / T), Math.floor(mouse.wy / T));
@@ -1057,8 +1134,42 @@
     mouse.wx = sx + G.cam.x; mouse.wy = sy + G.cam.y;
   }
 
+  /* Touch: a drag moves the camera, a tap is a click. Without this the game is
+     unplayable on a phone, which is half of what the reference runs on. */
+  let touch = null;
+  function touchStart(e) {
+    const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    if (!t) return;
+    touch = { x: t.clientX, y: t.clientY, sx: t.clientX, sy: t.clientY, moved: false, t: G ? G.minutes : 0 };
+    if (e.preventDefault) e.preventDefault();
+  }
+  function touchMove(e) {
+    if (!touch) return;
+    const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    if (!t) return;
+    const dx = t.clientX - touch.x, dy = t.clientY - touch.y;
+    if (Math.abs(t.clientX - touch.sx) + Math.abs(t.clientY - touch.sy) > 8) touch.moved = true;
+    const r = cv.getBoundingClientRect();
+    if (touch.moved && G) {
+      G.cam.x = clamp(G.cam.x - dx * (VW / (r.width || VW)), 0, WD.W * T - VW);
+      G.cam.y = clamp(G.cam.y - dy * (VH / (r.height || VH)), 0, WD.H * T - VH);
+    }
+    touch.x = t.clientX; touch.y = t.clientY;
+    if (e.preventDefault) e.preventDefault();
+  }
+  function touchEnd(e) {
+    if (touch && !touch.moved) {
+      const t = (e.changedTouches && e.changedTouches[0]) || touch;
+      onMove({ clientX: t.clientX, clientY: t.clientY });
+      onClick();
+    }
+    touch = null;
+    if (e.preventDefault) e.preventDefault();
+  }
+
   function onClick() {
     if (!G || G.over || G.hold) return;
+    SFX.on();
     if (placing) {
       const t = tileAt(mouse.wx, mouse.wy);
       if (place(placing, t.x, t.y)) {
@@ -1081,7 +1192,8 @@
     const k = (e.key || '').toLowerCase();
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
     keys.add(k);
-    if (k === 'escape') { placing = null; for (const c of document.querySelectorAll('#panel .bcard')) c.classList.remove('on'); }
+    SFX.on();
+    if (k === 'escape') clearBuild();
     if (k === 'p') togglePause();
     if (k === 'm') toggleMute();
     if (k === 'f') cycleSpeed();
@@ -1151,11 +1263,14 @@
     G.cam.y = clamp(px(G.cy) - VH / 2, 0, WD.H * T - VH);
     hideTip();
     buildPanel();
+    G.hud = hudCache();
     hudUpdate();
-    if (!hold) {
-      $('#screen-title').classList.add('hidden');
-      $('#screen-over').classList.add('hidden');
-    }
+    $('#screen-over').classList.add('hidden');
+    /* `hold` is the title screen: the valley is already standing behind it, so
+       the run starts the moment an opening is picked. */
+    $('#screen-title').classList.toggle('hidden', !hold);
+    const panel = $('#panel');
+    if (panel) panel.classList.toggle('hidden', !!hold);
   }
 
   function gameOver() {
@@ -1179,7 +1294,10 @@
     lastT = ts;
     if (!G.paused && !G.over && !G.hold) {
       panCamera(dt);
-      step(dt * (G.speed || 1));
+      /* Fast-forward runs N sub-steps rather than one big one: at 4x a single
+         200ms step would let an arrow cross its own hit radius between frames. */
+      const sub = Math.max(1, Math.round(G.speed || 1));
+      for (let i = 0; i < sub; i++) step(dt);
       hoverUpdate();
       hudUpdate();
       if (G.tipMode) placeTip();
@@ -1195,11 +1313,10 @@
     addEventListener('resize', resize);
     cv.addEventListener('mousemove', onMove);
     cv.addEventListener('mousedown', e => { if (G && !G.hold) onMove(e); onClick(e); });
-    cv.addEventListener('contextmenu', e => {
-      e.preventDefault();
-      placing = null;
-      for (const c of document.querySelectorAll('#panel .bcard')) c.classList.remove('on');
-    });
+    cv.addEventListener('contextmenu', e => { e.preventDefault(); clearBuild(); });
+    cv.addEventListener('touchstart', touchStart);
+    cv.addEventListener('touchmove', touchMove);
+    cv.addEventListener('touchend', touchEnd);
     const bp = $('#btn-pause'), bm = $('#btn-mute'), bs = $('#btn-speed');
     if (bp) bp.addEventListener('click', togglePause);
     if (bm) bm.addEventListener('click', toggleMute);

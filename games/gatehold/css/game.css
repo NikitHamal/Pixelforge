@@ -5,7 +5,7 @@ html, body { height: 100%; margin: 0; background: #100c10; overflow: hidden; col
   -webkit-tap-highlight-color: transparent; user-select: none; }
 #app { position: fixed; inset: 0; }
 #stage { position: absolute; inset: 0; display: grid; place-items: center; }
-canvas#cv { display: block; image-rendering: pixelated; image-rendering: crisp-edges;
+canvas#cv { display: block; touch-action: none; image-rendering: pixelated; image-rendering: crisp-edges;
   background: #2a2c1c; box-shadow: 0 0 0 2px #000, 0 8px 30px #000a; }
 .hidden { display: none !important; }
 #hud { position: absolute; inset: 0; pointer-events: none; }
@@ -66,6 +66,7 @@ canvas#cv { display: block; image-rendering: pixelated; image-rendering: crisp-e
 #hint { position: absolute; left: 12px; bottom: 12px; max-width: 46vw;
   font: 500 11px/1.5 ui-monospace, monospace; color: #7d7358; pointer-events: none; }
 #hint b { color: #a89a78; }
+#hint.muted { opacity: 0; }
 
 #toast { position: absolute; left: 50%; top: 46px; transform: translateX(-50%) translateY(-6px);
   background: #1b1318ee; border: 2px solid #3d2f2f; border-radius: 4px; padding: 6px 12px;

@@ -15,7 +15,7 @@ window.GH = window.GH || {};
 GH.World = (() => {
   'use strict';
 
-  const W = 76, H = 52;                 // tiles
+  const W = 70, H = 48;                 // tiles
   const TERRAIN = { GRASS: 0, GRASS2: 1, GRASS3: 2, TALL: 3, DIRT: 4, ROAD: 5,
     FIELD: 6, GRAVEL: 7, WATER: 8, SHORE: 9, STONY: 10 };
   const NAMES = ['grass', 'grass2', 'grass3', 'tall', 'dirt', 'road', 'field',
@@ -205,7 +205,7 @@ GH.World = (() => {
     const start = sy * m.w + sx, goal = ty * m.w + tx;
     g[start] = 0;
     let guard = 0;
-    while (open.length && guard++ < 6000) {
+    while (open.length && guard++ < 3000) {
       let bi = 0;
       for (let i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
       const cur = open.splice(bi, 1)[0].i;

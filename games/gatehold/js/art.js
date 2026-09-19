@@ -160,6 +160,14 @@ GH.ART = (() => {
 
   /* --------------------------------------------------------------- props */
 
+  /* Runtime drop shadow, per the house rule that sprites ship without one: a
+     baked contact ellipse the engine scales and fades per entity. Baked rather
+     than stroked so the headless screenshotter can see it too. */
+  const shadowSprite = () => mk(24, 12, api => {
+    api.ellipse(2, 4, 21, 10, PF.Color.fromRGBA(11, 10, 18, 96), true);
+    api.ellipse(5, 5, 18, 9, PF.Color.fromRGBA(11, 10, 18, 128), true);
+  });
+
   const props = {
     /* Trees are the wood nodes: a mass of leaf blobs over a trunk, with the
        outline pass fusing the blobs into one canopy. */
@@ -557,6 +565,7 @@ GH.ART = (() => {
 
   const api = {
     T, PAL, mk, outline, ground, props, build, swarm, icons, label, url,
+    shadow: () => mem('shadow', shadowSprite),
     tile: name => mem('g:' + name, () => ground[name]()),
     prop: name => mem('p:' + name, () => props[name]()),
     building: name => mem('b:' + name, () => build[name]()),
