@@ -45,7 +45,8 @@ const STEPS = [
     ? run('pixel baseline updated', ['scripts/sprite-hash.js', 'save', 'scripts/hashes-baseline.json'])
     : run('pixel regression', ['scripts/sprite-hash.js', 'diff', 'scripts/hashes-baseline.json']),
   () => run('game wiring', ['scripts/check-game.js']),
-  () => run('page integrity', ['scripts/check-pages.js'])
+  () => run('page integrity', ['scripts/check-pages.js']),
+  () => run('nik1 on-device models', ['scripts/check-nik1.js'])
 ];
 
 console.log('PixelForge verification\n' + '='.repeat(52));

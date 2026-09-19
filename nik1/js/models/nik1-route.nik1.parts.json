@@ -1,0 +1,20 @@
+{
+ "file": "nik1-route.nik1",
+ "bytes": 268319,
+ "sha256": "8dee28485b7b9e9bf46a844668387deea5403a45c9ab7b888f393a552fa18595",
+ "max": 90000,
+ "parts": [
+  {
+   "name": "nik1-route.nik1.part-00",
+   "bytes": 90000
+  },
+  {
+   "name": "nik1-route.nik1.part-01",
+   "bytes": 90000
+  },
+  {
+   "name": "nik1-route.nik1.part-02",
+   "bytes": 88319
+  }
+ ]
+}

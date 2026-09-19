@@ -1,0 +1,109 @@
+[
+ {
+  "raw": "{\"tool\":\"load_template\",\"args\":{\"id\":\"rpg_knight\"}}",
+  "utt": "give me the knight",
+  "call": {
+   "tool": "load_template",
+   "args": {
+    "id": "rpg_knight"
+   }
+  },
+  "source": "model",
+  "notes": []
+ },
+ {
+  "raw": "x{\"tool\":\"export\",\"args\":{\"format\":\"gif\",\"scale\":\"4\"}}y",
+  "utt": "export a gif at 4x",
+  "call": {
+   "tool": "export",
+   "args": {
+    "format": "gif",
+    "scale": 4
+   }
+  },
+  "source": "model",
+  "notes": []
+ },
+ {
+  "raw": "{\"tool\":\"load_template\",\"args\":{\"id\":\"x\",\"bogus\":1,\"open_studio\":\"yes\"}",
+  "utt": "open x",
+  "call": {
+   "tool": "get_document",
+   "args": {}
+  },
+  "source": "fallback-empty",
+  "notes": [
+   "truncated",
+   "closed-truncated",
+   "dropped:bogus",
+   "bad-ref:id",
+   "missing:id"
+  ]
+ },
+ {
+  "raw": "{\"tool\":\"does_not_exist\",\"args\":{}}",
+  "utt": "undo the last thing",
+  "call": {
+   "tool": "undo",
+   "args": {}
+  },
+  "source": "fallback-rules",
+  "notes": [
+   "unknown-tool"
+  ]
+ },
+ {
+  "raw": "not json at all",
+  "utt": "export a gif",
+  "call": {
+   "tool": "export",
+   "args": {
+    "format": "gif"
+   }
+  },
+  "source": "fallback-rules",
+  "notes": [
+   "no-json"
+  ]
+ },
+ {
+  "raw": "{\"name\":\"set_color\",\"arguments\":{\"color\":\"ff0044\"}}",
+  "utt": "use color #ff0044",
+  "call": {
+   "tool": "set_color",
+   "args": {
+    "color": "#ff0044"
+   }
+  },
+  "source": "model",
+  "notes": []
+ },
+ {
+  "raw": "{\"tool\":\"draw_rect\",\"args\":{\"x\":\"3\",\"y\":\"4\",\"width\":\"600\",\"height\":2,\"color\":\"red\"}}",
+  "utt": "draw a red rectangle at 3 4",
+  "call": {
+   "tool": "draw_rect",
+   "args": {
+    "x": 3,
+    "y": 4,
+    "width": 600,
+    "height": 2,
+    "color": "red"
+   }
+  },
+  "source": "model",
+  "notes": []
+ },
+ {
+  "raw": "{\"tool\":\"set_view\",\"args\":{\"zoom\":\"99999\"}}",
+  "utt": "zoom to 99999",
+  "call": {
+   "tool": "set_view",
+   "args": {
+    "zoom": 99999
+   }
+  },
+  "source": "model",
+  "notes": []
+ }
+]

@@ -130,6 +130,10 @@ js/library/rpg_props.js  dungeon traps, interior furniture, weather overlays
 js/library/index.js      PF.Library — THE template registry
 
 js/agent/*               in-browser agent tool surface (tools, studio-tools, agent, mcp)
+js/agent/nik1-tools.js   on-device model tools (route / search / palette / status)
+nik1/                    the Nik1 on-device model family: JS runtime, NumPy + torch
+                         trainers, exported .nik1 weights, tests, Kaggle recipes
+nik1/tools/split-model.js  split/join/verify sharded weights (see nik1/README.md)
 js/ui/*                  page boot scripts (landing, studio, panels)
 
 games/runefall/          demo game consuming the library

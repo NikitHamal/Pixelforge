@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nik1 — on-device models</title>
+<style>
+  :root { --bg:#14141c; --panel:#1c1c26; --line:#2e2e3c; --ink:#e8e8f0; --dim:#9a9ab0; --hi:#7dd3fc; --ok:#63c74d; --warn:#feae34; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:28px 20px 8px; max-width:980px; margin:0 auto; }
+  h1 { margin:0 0 6px; font-size:26px; letter-spacing:-.02em; }
+  h1 span { color:var(--hi); }
+  p.lede { color:var(--dim); margin:0 0 4px; max-width:70ch; }
+  main { max-width:980px; margin:0 auto; padding:12px 20px 60px; display:grid; gap:18px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 16px 14px; }
+  h2 { margin:0 0 4px; font-size:15px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  input[type=text] { flex:1 1 260px; min-width:180px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:#101018; color:var(--ink); font:inherit; }
+  button { padding:10px 14px; border-radius:8px; border:1px solid var(--line); background:#242432; color:var(--ink); font:inherit; cursor:pointer; }
+  button:hover { background:#2c2c3c; }
+  button:disabled { opacity:.5; cursor:default; }
+  pre { margin:10px 0 0; padding:10px 12px; background:#101018; border:1px solid var(--line); border-radius:8px; overflow:auto; font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--line); color:var(--dim); }
+  .badge.ok { color:var(--ok); border-color:#2c5a2a; }
+  .badge.repair { color:var(--warn); border-color:#5a4a1e; }
+  .meta { color:var(--dim); font-size:13px; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:14px; }
+  td, th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--dim); font-weight:500; font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+  canvas { image-rendering:pixelated; border:1px solid var(--line); border-radius:6px; background:#101018; cursor:crosshair; }
+  .flex { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+  .swatches { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; }
+  .sw { width:22px; height:22px; border-radius:4px; border:2px solid transparent; cursor:pointer; }
+  .sw.on { border-color:var(--ink); }
+  .pill { font:12px ui-monospace,Menlo,monospace; color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Nik1 <span>on-device</span> models</h1>
+  <p class="lede">Three specialists, running in this page. No server, no GPU, no network calls after load — the weights are 430 KB in total and they answer in milliseconds. Same code path as the Node benchmark.</p>
+  <p class="lede pill" id="status">loading models…</p>
+</header>
+<main>
+  <section>
+    <h2>1 · Router — utterance → tool call</h2>
+    <p class="meta">A 248k-parameter decoder proposes the call; the grammar and the schema validator decide whether it is allowed. Invalid output cannot escape: it is repaired, or a deterministic router answers instead.</p>
+    <div class="row">
+      <input type="text" id="utt" value="give me the knight" spellcheck="false">
+      <button id="route">Route</button>
+    </div>
+    <div class="row" id="samples"></div>
+    <pre id="route-out">…</pre>
+  </section>
+
+  <section>
+    <h2>2 · Search — brief → asset</h2>
+    <p class="meta">A 132k-parameter bi-encoder embeds your words, then scores a precomputed table of the catalogue. 81% of held-out briefs put an acceptable asset first.</p>
+    <div class="row">
+      <input type="text" id="q" value="cute farm animal" spellcheck="false">
+      <button id="search">Search</button>
+    </div>
+    <table id="search-out"><tbody><tr><td class="meta">…</td></tr></tbody></table>
+  </section>
+
+  <section>
+    <h2>3 · Palette — sprite → colour budget</h2>
+    <p class="meta">5 KB MLP over 41 hand-computable features. Draw on the grid; it tells you which palette family the sprite belongs to — useful when importing art of unknown provenance.</p>
+    <div class="flex">
+      <div>
+        <canvas id="pad" width="16" height="16" style="width:256px;height:256px"></canvas>
+        <div class="row"><button id="clear">Clear</button><button id="rand">Random</button></div>
+      </div>
+      <div>
+        <div class="swatches" id="swatches"></div>
+        <pre id="pal-out" style="min-width:260px">…</pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Model table</h2>
+    <table id="models"><tbody></tbody></table>
+    <p class="meta" style="margin-top:8px">Sizes are the files on disk (int8). Resident RAM is about 4× that after unpacking to float32; pass <span class="pill">keepQuantized</span> in a constrained build to stay at the packed size.</p>
+  </section>
+</main>
+<script src="nik1.js"></script>
+<script src="grammar.js"></script>
+<script>
+(async () => {
+  const BASE = 'models/';
+  const status = document.getElementById('status');
+  const table = document.getElementById('models').querySelector('tbody');
+  const tools = await (await fetch(BASE + 'tools.json')).json();
+  const templates = await (await fetch(BASE + 'templates.json')).json();
+  const catalog = Nik1Grammar.loadCatalog(templates);
+  const toolIndex = Nik1Grammar.loadTools(null, tools);
+
+  const rows = [];
+  const t0 = performance.now();
+  const [route, search, palette] = await Promise.all([
+    Nik1.loadModel('nik1-route', { baseUrl: BASE }),
+    Nik1.loadModel('nik1-search', { baseUrl: BASE, docTable: BASE + 'nik1-search.docs.f32' }),
+    Nik1.loadModel('nik1-palette', { baseUrl: BASE })
+  ]);
+  route.setTools(tools, catalog);
+  const loadMs = performance.now() - t0;
+  status.textContent = `models loaded in ${loadMs.toFixed(0)} ms · ${((route.bytes + search.bytes + search.docEmbeddings.count * search.docEmbeddings.dim * 4 + palette.bytes) / 1024).toFixed(0)} KB resident`;
+
+  rows.push(['nik1-route', 'utterance → tool call', route.bytes, route.config.cfg]);
+  rows.push(['nik1-search', 'brief → asset', search.bytes + search.docEmbeddings.count * search.docEmbeddings.dim * 4, search.config.cfg]);
+  rows.push(['nik1-palette', 'sprite → palette', palette.bytes, palette.config.cfg]);
+  for (const [name, task, bytes, cfg] of rows) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${name}</td><td class="meta">${task}</td><td class="pill">${(bytes / 1024).toFixed(1)} KB</td><td class="pill">${JSON.stringify(cfg).replace(/[{}"]/g, '').slice(0, 62)}</td>`;
+    table.appendChild(tr);
+  }
+
+  /* ---- router ---- */
+  const out = document.getElementById('route-out');
+  const runRoute = () => {
+    const text = document.getElementById('utt').value;
+    const t = performance.now();
+    const res = route.routeUtterance(text, Nik1Grammar, tools, catalog);
+    const ms = performance.now() - t;
+    out.textContent =
+      `source : ${res.source}${res.notes.length ? '  (' + res.notes.join(', ') + ')' : ''}\n` +
+      `call   : ${JSON.stringify(res.call)}\n` +
+      `raw    : ${res.raw}\n` +
+      `time   : ${ms.toFixed(1)} ms  ·  ${res.ids.length} tokens generated`;
+  };
+  document.getElementById('route').onclick = runRoute;
+  document.getElementById('utt').addEventListener('keydown', e => { if (e.key === 'Enter') runRoute(); });
+  const samples = ['give me the knight', 'add a walk state at 8 fps', 'export a gif at 4x', 'zoom to 8', 'undo', 'set color to #ff0044'];
+  const sampleRow = document.getElementById('samples');
+  for (const s of samples) {
+    const b = document.createElement('button');
+    b.textContent = s;
+    b.onclick = () => { document.getElementById('utt').value = s; runRoute(); };
+    sampleRow.appendChild(b);
+  }
+  runRoute();
+
+  /* ---- search ---- */
+  const sOut = document.getElementById('search-out').querySelector('tbody');
+  const runSearch = () => {
+    const q = document.getElementById('q').value;
+    const t = performance.now();
+    const hits = search.search(q, 5);
+    const ms = performance.now() - t;
+    sOut.innerHTML = hits.map((h, i) => {
+      const id = h.text.split(' | ')[0] || h.id;
+      return `<tr><td class="pill">${i + 1}</td><td>${h.id}</td><td class="meta">${id}</td><td class="pill">${h.score.toFixed(3)}</td></tr>`;
+    }).join('') + `<tr><td colspan="4" class="meta">${ms.toFixed(1)} ms (encode + rank ${search.docEmbeddings.count} assets)</td></tr>`;
+  };
+  document.getElementById('search').onclick = runSearch;
+  document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+  runSearch();
+
+  /* ---- palette ---- */
+  const cv = document.getElementById('pad'), ctx = cv.getContext('2d');
+  const PACK = { gb4: ['#0f380f', '#306230', '#8bac0f', '#9bbc0f'], grey4: ['#101010', '#4a4a4a', '#9a9a9a', '#e8e8e8'],
+    ink2: ['#0b0b0f', '#f2f2ef'], sepia4: ['#2b1d0e', '#6b4f2a', '#b08d57', '#f0e2c0'],
+    sweet16: ['#1a1c2c', '#b13e53', '#ffcd75', '#a7f070', '#41a6f6', '#73eff7', '#f4f4f4', '#566c86'],
+    nes16: ['#000000', '#7c7c7c', '#fcfcfc', '#3cbcfc', '#0078f8', '#58d854', '#e40058', '#fca044'],
+    neon10: ['#0b0420', '#37196b', '#c026d3', '#ff7ab8', '#22d3ee', '#f8fafc'],
+    pastel12: ['#3b2f4a', '#a08fb0', '#ffd6e0', '#ffb3c6', '#c6f0d8', '#bfe3ff', '#fff2c2', '#fffaf5'] };
+  const buf = new Uint32Array(16 * 16);
+  let colour = [255, 0, 68];
+  /* Nik1 buffers are ABGR little-endian (0xAABBGGRR) — the same layout as
+     ImageData, which is why a Uint32Array can be written straight into a canvas. */
+  const toU32 = (r, g, b) => (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
+  const draw = () => {
+    ctx.clearRect(0, 0, 16, 16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const v = buf[y * 16 + x];
+      if (!v) continue;
+      ctx.fillStyle = `rgb(${v & 255},${(v >> 8) & 255},${(v >> 16) & 255})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  };
+  const classify = () => {
+    const t = performance.now();
+    const res = palette.classifySprite(buf);
+    const ms = performance.now() - t;
+    const pal = PACK[res.label] || [];
+    document.getElementById('pal-out').textContent =
+      `palette : ${res.label}\nfeatures: ${res.features.length} dims\nconfidence: ${(Math.max(...res.logits) - Math.min(...res.logits)).toFixed(2)} margin\ntime    : ${ms.toFixed(3)} ms\nswatches: ${pal.join(' ')}`;
+  };
+  let painting = false;
+  const paint = e => {
+    const r = cv.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / r.width * 16), y = Math.floor((e.clientY - r.top) / r.height * 16);
+    if (x < 0 || y < 0 || x > 15 || y > 15) return;
+    buf[y * 16 + x] = toU32(...colour);
+    draw(); classify();
+  };
+  cv.addEventListener('pointerdown', e => { painting = true; paint(e); });
+  cv.addEventListener('pointermove', e => { if (painting) paint(e); });
+  window.addEventListener('pointerup', () => { painting = false; });
+  const sw = document.getElementById('swatches');
+  [['#ff0044', [255, 0, 68]], ['#2ce8f5', [44, 232, 245]], ['#63c74d', [99, 199, 77]], ['#fee761', [97, 231, 254]],
+   ['#ffffff', [255, 255, 255]], ['#181425', [37, 24, 24]]].forEach(([hex, rgb]) => {
+    const d = document.createElement('div');
+    d.className = 'sw'; d.style.background = hex; d.title = hex;
+    d.onclick = () => { colour = rgb; document.querySelectorAll('.sw').forEach(s => s.classList.remove('on')); d.classList.add('on'); };
+    sw.appendChild(d);
+  });
+  sw.firstChild.classList.add('on');
+  const randomFill = (pal) => {
+    buf.fill(0);
+    for (let i = 0; i < 256; i++) if (Math.random() < 0.55) buf[i] = toU32(...hexToRgb(pal[Math.floor(Math.random() * pal.length)]));
+    draw(); classify();
+  };
+  const hexToRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  document.getElementById('clear').onclick = () => { buf.fill(0); draw(); classify(); };
+  document.getElementById('rand').onclick = () => randomFill(PACK.gb4);
+  draw(); classify();
+})();
+</script>
+</body>
+</html>

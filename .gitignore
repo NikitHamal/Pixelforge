@@ -4,6 +4,14 @@ scripts/out/
 # Agent-local workspace state (memory logs, absolute machine paths)
 .workbuddy-ai/
 
+# Nik1 generated datasets and fp32 checkpoints — regenerate with:
+#   node nik1/tools/export-data.js && python3 nik1/python/train_*.py
+nik1/data/
+nik1/python/checkpoints/
+nik1/python/kaggle-out/
+nik1/python/torch/__pycache__/
+__pycache__/
+
 # Dependencies — this project has none; keep it that way
 node_modules/
 package-lock.json
