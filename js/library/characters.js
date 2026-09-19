@@ -318,7 +318,7 @@ PF.Chars = (() => {
     api.rect(bx, by + 4, bx + 1, by + 6, pal.skinSh);
 
     // 2. Back leg (darker pants & boot)
-    sideLeg(12 + kb + lB.dx, Y(22 + lB.dy), pal.pantsSh, dim(pal.boots), pal.boots);
+    sideLeg(12 + kb + lB.dx, Y(22), Y(26 + lB.dy), pal.pantsSh, dim(pal.boots), pal.boots);
 
     // 3. Torso (drawn cleanly over back arm & leg)
     const tx = 12 + kb, ty = Y(14);
@@ -341,17 +341,24 @@ PF.Chars = (() => {
     if (pal === ORC) api.rect(tx - 1, ty - 1, tx + 3, ty + 1, pal.pantsSh);
 
     // 4. Front leg (in front of torso)
-    sideLeg(15 + kb + lF.dx, Y(22 + lF.dy), pal.pants, pal.boots, lit(pal.boots));
+    sideLeg(15 + kb + lF.dx, Y(22), Y(26 + lF.dy), pal.pants, pal.boots, lit(pal.boots));
     /* In profile the boot points forward, so the toe pixel sits one past the
        shin. It is the only thing that tells a walk cycle which way it faces. */
-    function sideLeg(x, y, cloth, boot, cuff) {
-      api.rect(x, y, x + 2, y + 3, cloth);
-      api.px(x, y, dim(cloth));
-      api.px(x + 1, y + 2, dim(cloth));                        // knee crease
-      api.rect(x, y + 4, x + 2, y + 5, boot);
-      api.rect(x, y + 4, x + 2, y + 4, cuff);
-      api.px(x + 3, y + 5, boot);                              // toe
-      api.rect(x, y + 5, x + 2, y + 5, dim(boot));
+    /* The thigh spans HIP to boot instead of being a fixed six-pixel stick
+       hung off the foot. The foot is pinned to the ground (dy carries -bob so
+       it stays planted) while the torso rides the bob, so with the run's
+       three-pixel bob the body lifted clear of its own legs and the boots
+       came away from the sprite entirely. A leg that reaches is the whole
+       point of a leg. */
+    function sideLeg(x, hipY, bootTop, cloth, boot, cuff) {
+      const bt = Math.max(hipY + 2, bootTop);
+      api.rect(x, hipY, x + 2, bt - 1, cloth);
+      api.px(x, hipY, dim(cloth));
+      api.px(x + 1, bt - 2, dim(cloth));                       // knee crease
+      api.rect(x, bt, x + 2, bt + 1, boot);
+      api.rect(x, bt, x + 2, bt, cuff);
+      api.px(x + 3, bt + 1, boot);                             // toe
+      api.rect(x, bt + 1, x + 2, bt + 1, dim(boot));
     }
 
     // 5. Head profile (positioned at tx - 1 = 11 + kb). headDy sinks it for
@@ -370,8 +377,14 @@ PF.Chars = (() => {
     api.rect(fx, fy + ady + 3, fx + 2, fy + ady + 3, pal.shirtSh);   // cuff
     // Forearm & hand (skin)
     const hx = fx + 1 + adx, hy = fy + ady + 4;
+    /* The hand hangs at exactly belt height, and the belt is brown leather:
+       skin against leather at the same value made the arm read as another
+       strap. A column of the body's own shadow behind the hand is what
+       lifts it off the torso. */
+    api.rect(hx - 1, hy, hx - 1, hy + 2, dim(pal.shirtSh));
     api.rect(hx, hy, hx + 1, hy + 2, pal.skin);
     api.px(hx + 1, hy, pal.skinSh);
+    api.px(hx + 2, hy + 1, pal.skinSh);                              // thumb
     api.px(hx, hy + 2, lit(pal.skin));                               // knuckles
   }
 
@@ -383,6 +396,14 @@ PF.Chars = (() => {
     api.rect(hx + 7, hy + 2, hx + 10, hy + 8, pal.skinSh);
     api.px(hx + 9, hy + 3, pal.skin); api.px(hx + 9, hy + 5, pal.skin);   // lit nose bridge
     api.rect(hx + 2, hy + 1, hx + 4, hy + 2, lit(pal.skin));              // temple catches light
+    /* Without these a profile is a nine-by-nine field of flat peach carrying
+       one eye and a single lip pixel — at any zoom it reads as a slab of ham
+       with an eye painted on it. A brow over the socket, a shaded cheek and
+       an underlit jaw give the face a top, a middle and a bottom. */
+    api.rect(hx + 4, hy + 3, hx + 9, hy + 3, pal.skinSh);                 // brow over the socket
+    api.rect(hx + 1, hy + 7, hx + 5, hy + 8, pal.skinSh);                 // jaw in shadow
+    api.px(hx + 6, hy + 8, pal.skinSh);
+    api.px(hx + 9, hy + 6, pal.skinSh);                                   // under the nose
     // ear
     api.rect(hx + 2, hy + 4, hx + 3, hy + 5, pal.skinSh);
     api.px(hx + 3, hy + 4, dim(pal.skinSh));
@@ -402,9 +423,12 @@ PF.Chars = (() => {
       api.rect(hx, hy + 5, hx, hy + 8, pal.hairSh);
       api.px(hx + 1, hy + 8, pal.hairSh);
       api.rect(hx + 1, hy - 2, hx + 4, hy - 1, pal.hairHi);
-      // front fringe / bangs
-      api.rect(hx + 6, hy - 1, hx + 8, hy + 2, pal.hair);
-      api.px(hx + 8, hy + 3, pal.hair);
+      /* The fringe used to be a 3x4 brown block squared off across the brow,
+         which buried the forehead and left the face starting at the eye. It
+         sweeps back to a point instead. */
+      api.rect(hx + 6, hy - 1, hx + 8, hy + 1, pal.hair);
+      api.px(hx + 9, hy, pal.hair);
+      api.px(hx + 8, hy + 2, pal.hairSh);
 
       const female = (pal === FEMALE || pal === VILLAGER_F);
       if (female) {
@@ -412,7 +436,17 @@ PF.Chars = (() => {
         api.rect(hx - 2, hy + 8, hx, hy + 11, pal.hairSh);
         api.rect(hx + 2, hy - 3, hx + 5, hy - 2, pal.tie);
       }
-      if (pal === MERCHANT) api.rect(hx - 2, hy - 1, hx + 11, hy + 1, pal.hat);
+      if (pal === MERCHANT) {
+        /* A bare brim with the hair's flat-white highlight showing one row
+           proud of it read as a strip of paper balanced on the head. The crown
+           covers that highlight and the band gives the brim a joint — there is
+           no headroom above row 0 for anything taller. */
+        api.rect(hx, hy - 2, hx + 9, hy - 1, pal.hat);
+        api.rect(hx + 1, hy - 2, hx + 6, hy - 2, pal.shirtHi);
+        api.rect(hx - 2, hy, hx + 11, hy + 1, pal.hat);
+        api.rect(hx - 2, hy, hx + 11, hy, pal.hatBand);
+        api.rect(hx - 2, hy + 1, hx + 11, hy + 1, dim(pal.hat));
+      }
       if (pal === WIZARD) {
         api.rect(hx - 3, hy - 1, hx + 13, hy + 1, pal.hat);
         api.rect(hx, hy - 4, hx + 9, hy - 1, pal.hat);
@@ -420,9 +454,14 @@ PF.Chars = (() => {
         api.rect(hx + 2, hy - 7, hx + 7, hy - 4, pal.hat);
         api.rect(hx + 3, hy - 10, hx + 5, hy - 7, pal.hat);
         api.px(hx + 4, hy - 11, pal.hat);
+        /* All one white: beard, moustache and hair merged into a single
+           featureless mass with a nose poking out of it. */
         api.rect(hx + 5, hy + 7, hx + 9, hy + 11, pal.beard);
+        api.rect(hx + 5, hy + 10, hx + 9, hy + 11, pal.beardSh);
         api.rect(hx + 6, hy + 9, hx + 8, hy + 12, pal.beard);
-        api.px(hx + 7, hy + 13, pal.beard);
+        api.rect(hx + 6, hy + 12, hx + 8, hy + 12, pal.beardSh);
+        api.rect(hx + 5, hy + 7, hx + 7, hy + 7, pal.beardSh);        // moustache shadow
+        api.px(hx + 7, hy + 13, pal.beardSh);
       }
     }
     if (pal === ORC) {
@@ -432,8 +471,12 @@ PF.Chars = (() => {
     // eye (placed at hx + 6..7, hy + 4..5)
     const eye = cfg.eye || 'open', ex = hx + 6, ey = hy + 4;
     if (eye === 'open') {
-      api.rect(ex, ey, ex + 1, ey + 2, '#181425');
+      /* Two pixels wide by THREE tall spilled out of the socket and down over
+         the bridge of the nose, so the profile read as one big cartoon eye
+         stuck on a flat cheek. Square, in the socket, with a lash above it. */
+      api.rect(ex, ey, ex + 1, ey + 1, '#181425');
       api.px(ex, ey, '#ffffff');
+      api.rect(ex, ey - 1, ex + 1, ey - 1, pal.hairSh || pal.skinSh);
     } else if (eye === 'closed') {
       api.line(ex, ey + 1, ex + 1, ey + 1, '#181425', 1);
     } else {
@@ -445,7 +488,7 @@ PF.Chars = (() => {
     const mouth = cfg.mouth || 'closed', mx = hx + 8, my = hy + 7;
     if (mouth === 'open') api.rect(mx - 1, my - 1, mx, my, '#5c1a1a');
     else if (mouth === 'sad') { api.px(mx, my, pal.lip || '#a26a5a'); api.px(mx - 1, my + 1, pal.lip || '#a26a5a'); }
-    else api.px(mx, my, pal.lip || '#a26a5a');
+    else { api.rect(mx - 1, my, mx, my, pal.lip || '#a26a5a'); api.px(mx, my + 1, pal.skinSh); }
   }
 
   /* Tools overlay (uses hand positions approx) */
@@ -501,7 +544,18 @@ PF.Chars = (() => {
       else if (t.kind === 'axe') P.axe(api, hx, hy, t.angle, AXE_PAL);
       else if (t.kind === 'bow') P.bow(api, hx + 4, hy - 2, t.pull || 0, BOW_PAL, t.arrow === false ? 0 : 1);
       else if (t.kind === 'food') { api.rect(hx - 1, hy - 4, hx + 1, hy - 2, '#e43b44'); api.px(hx, hy - 5, '#63c74d'); }
-      else if (t.kind === 'staff') { api.line(hx, hy - 10, hx, hy + 4, '#b86f50', 2); api.rect(hx - 1, hy - 12, hx + 1, hy - 10, '#2ce8f5'); api.px(hx, hy - 11, '#ffffff'); }
+      else if (t.kind === 'staff') {
+        /* The shaft ran dead vertical from the fist at x18, which is the middle
+           of the face: it crossed the wizard's eye and parked its gem on his
+           cheek. It leans forward now, gripped at the fist and clear of the
+           head, with the crystal above the hat brim rather than in the socket. */
+        const tx2 = hx + 6, ty2 = hy - 13;
+        api.line(hx, hy + 6, tx2, ty2, '#b86f50', 2);
+        api.line(hx, hy + 6, tx2, ty2, '#733e39', 1);
+        api.rect(tx2 - 1, ty2 - 3, tx2 + 1, ty2 - 1, '#2ce8f5');
+        api.rect(tx2 - 1, ty2 - 3, tx2 + 1, ty2 - 3, '#9ff2fb');
+        api.px(tx2, ty2 - 2, '#ffffff');
+      }
       else if (t.kind === 'lute') { // pear body + neck angled up-right
         api.ellipse(hx - 4, hy - 2, hx + 2, hy + 4, '#b86f50', true);
         api.ellipse(hx - 3, hy - 1, hx + 1, hy + 3, '#e4a672', true);
