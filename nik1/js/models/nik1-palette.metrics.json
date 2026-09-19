@@ -1,0 +1,57 @@
+{
+ "task": "palette",
+ "params": 5032,
+ "train_rows": 13912,
+ "val_rows": 2960,
+ "classes": [
+  "gb4",
+  "grey4",
+  "ink2",
+  "nes16",
+  "sweet16",
+  "sepia4",
+  "neon10",
+  "pastel12"
+ ],
+ "majority_baseline": 0.125,
+ "val_accuracy": 1.0,
+ "per_class": {
+  "gb4": 1.0,
+  "grey4": 1.0,
+  "ink2": 1.0,
+  "nes16": 1.0,
+  "sweet16": 1.0,
+  "sepia4": 1.0,
+  "neon10": 1.0,
+  "pastel12": 1.0
+ },
+ "train": {
+  "history": [
+   {
+    "step": 200,
+    "loss": 0.03450528159737587,
+    "val_acc": 1.0
+   },
+   {
+    "step": 400,
+    "loss": 0.016228601336479187,
+    "val_acc": 1.0
+   },
+   {
+    "step": 600,
+    "loss": 1.2347752999630757e-05,
+    "val_acc": 1.0
+   },
+   {
+    "step": 800,
+    "loss": 1.3503009540727362e-05,
+    "val_acc": 1.0
+   }
+  ],
+  "best_step": 200,
+  "val_acc": 1.0,
+  "seconds": 0.3,
+  "params": 5032
+ },
+ "seconds_total": 0.4
+}

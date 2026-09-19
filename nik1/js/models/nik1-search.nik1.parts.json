@@ -1,0 +1,16 @@
+{
+ "file": "nik1-search.nik1",
+ "bytes": 145499,
+ "sha256": "13f861389c1fbe459358e1ded2a27e6d17323b31a9e2b43a0f1a09968b69504e",
+ "max": 90000,
+ "parts": [
+  {
+   "name": "nik1-search.nik1.part-00",
+   "bytes": 90000
+  },
+  {
+   "name": "nik1-search.nik1.part-01",
+   "bytes": 55499
+  }
+ ]
+}

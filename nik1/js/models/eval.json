@@ -1,0 +1,135 @@
+{
+ "router": {
+  "exact_call": 0.8833333333333333,
+  "valid_call": 1.0,
+  "model_only": 0.9866666666666667,
+  "repaired": 0.013333333333333334,
+  "fallback": 0.0,
+  "n": 300,
+  "ms_per": 33.94805828730265,
+  "examples": [
+   {
+    "utt": "save this project",
+    "want": {
+     "tool": "save_project",
+     "args": {}
+    },
+    "got": {
+     "tool": "save_project",
+     "args": {}
+    },
+    "source": "model",
+    "valid": true,
+    "exact": true
+   },
+   {
+    "utt": "make frame 8 last 167 milliseconds",
+    "want": {
+     "tool": "set_frame_duration",
+     "args": {
+      "index": 8,
+      "ms": 167
+     }
+    },
+    "got": {
+     "tool": "set_frame_duration",
+     "args": {
+      "index": 8,
+      "ms": 167
+     }
+    },
+    "source": "model",
+    "valid": true,
+    "exact": true
+   },
+   {
+    "utt": "redo that",
+    "want": {
+     "tool": "redo",
+     "args": {}
+    },
+    "got": {
+     "tool": "redo",
+     "args": {}
+    },
+    "source": "model",
+    "valid": true,
+    "exact": true
+   },
+   {
+    "utt": "render the current frame",
+    "want": {
+     "tool": "render_preview",
+     "args": {}
+    },
+    "got": {
+     "tool": "render_preview",
+     "args": {}
+    },
+    "source": "model",
+    "valid": true,
+    "exact": true
+   },
+   {
+    "utt": "list the animation states",
+    "want": {
+     "tool": "list_states",
+     "args": {}
+    },
+    "got": {
+     "tool": "list_states",
+     "args": {}
+    },
+    "source": "model",
+    "valid": true,
+    "exact": true
+   }
+  ]
+ },
+ "search": {
+  "any@1": 0.8095238095238095,
+  "any@5": 0.919047619047619,
+  "exact@1": 0.01904761904761905,
+  "n": 210,
+  "fp32": {
+   "any@1": 0.8095238095238095,
+   "any@5": 0.919047619047619
+  },
+  "ms_per_query": 0.8758454095749628
+ },
+ "palette": {
+  "accuracy": 1.0,
+  "fp32": 1.0,
+  "majority": 0.125,
+  "n": 2960,
+  "ms_per_sprite": 0.0003221872690561655
+ },
+ "fixtures": {
+  "nik1-route": 5,
+  "nik1-search": 3,
+  "nik1-palette": 5
+ },
+ "sizes": {
+  "nik1-route": {
+   "path": "nik1-route.nik1",
+   "bytes": 259679,
+   "kb": 253.6,
+   "bits": 8,
+   "tensors": 32
+  },
+  "nik1-search": {
+   "path": "nik1-search.nik1",
+   "bytes": 138843,
+   "kb": 135.6,
+   "bits": 8,
+   "tensors": 22
+  },
+  "nik1-palette": {
+   "path": "nik1-palette.nik1",
+   "bytes": 6205,
+   "kb": 6.1,
+   "bits": 8,
+   "tensors": 6
+  }
+ }
+}

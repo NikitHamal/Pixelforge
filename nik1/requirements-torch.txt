@@ -1,0 +1,5 @@
+# Only needed to train/scale on a GPU (Kaggle images already ship torch).
+# The runtime itself has zero dependencies.
+torch>=2.1
+transformers>=4.40   # only for --teacher hf
+accelerate>=0.30     # only for --teacher hf

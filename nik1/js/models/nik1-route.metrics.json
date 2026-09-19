@@ -1,0 +1,50 @@
+{
+ "task": "route",
+ "params": 248192,
+ "train_examples": 11492,
+ "val_examples": 2028,
+ "tools": 52,
+ "train": {
+  "best_step": 1000,
+  "best_exact": 0.8333333333333334,
+  "seconds": 235.1,
+  "params": 248192
+ },
+ "eval": {
+  "exact_free": 0.88,
+  "valid_json_free": 1.0,
+  "exact_grammar": 0.88,
+  "valid_json_grammar": 1.0,
+  "tool_accuracy": 1.0,
+  "exact_call_accuracy": 0.865,
+  "n": 200
+ },
+ "samples": [
+  {
+   "prompt": "task: route\nsave this project",
+   "target": "{\"tool\":\"save_project\",\"args\":{}}",
+   "pred": "{\"tool\":\"save_project\",\"args\":{}}"
+  },
+  {
+   "prompt": "task: route\nmake frame 8 last 167 milliseconds",
+   "target": "{\"tool\":\"set_frame_duration\",\"args\":{\"index\":8,\"ms\":167}}",
+   "pred": "{\"tool\":\"set_frame_duration\",\"args\":{\"index\":16,\"ms\":80}}"
+  },
+  {
+   "prompt": "task: route\nredo that",
+   "target": "{\"tool\":\"redo\",\"args\":{}}",
+   "pred": "{\"tool\":\"redo\",\"args\":{}}"
+  },
+  {
+   "prompt": "task: route\nrender the current frame",
+   "target": "{\"tool\":\"render_preview\",\"args\":{}}",
+   "pred": "{\"tool\":\"render_preview\",\"args\":{}}"
+  },
+  {
+   "prompt": "task: route\nlist the animation states",
+   "target": "{\"tool\":\"list_states\",\"args\":{}}",
+   "pred": "{\"tool\":\"list_states\",\"args\":{}}"
+  }
+ ],
+ "seconds_total": 257.4
+}
