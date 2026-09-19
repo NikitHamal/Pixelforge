@@ -286,41 +286,92 @@ PF.Monsters = (() => {
   }
 
   /* ---------- WOLF ---------- */
+  /* Rebuilt. Every part of the old wolf was an axis-aligned rectangle — a 20x8
+     box for the body, a 7x7 box for the head, four 3x6 boxes for legs — which
+     at 32px is the universal read for placeholder art: a grey slab on four
+     grey posts. A canine in profile is a deep chest and a round haunch with a
+     dip in the back between them, a head carried LOW and forward of the
+     shoulders, and legs that fold. Three values do the rest: dark saddle over
+     the spine, mid flank, pale belly and ruff. */
   function wolfFrame(gallop, hurt, lying, extraBob) {
     return (buf, W, H) => {
-      const api = apiFor(buf, W, H), cx = 16;
+      const api = apiFor(buf, W, H);
+      const Bk = hurt ? '#e8e8e8' : '#41506b';      // saddle along the spine
+      const F = hurt ? '#ffffff' : '#6d7d99';       // flank
+      const Lt = hurt ? '#ffffff' : '#b9c6da';      // belly, ruff, muzzle
+      const Dk = hurt ? '#c0cbdc' : '#333d52';      // far limbs and shadow
       if (lying) {
-        api.ellipse(6, 20, 26, 27, hurt === 'dead' ? '#5a6988' : '#8b9bb4', true);
-        api.ellipse(18, 16, 26, 23, hurt === 'dead' ? '#5a6988' : '#8b9bb4', true);
-        api.px(21, 19, '#181425');
+        // Collapsed on its side: the ribcage flattens, the legs fold forward
+        // and the head lies out along the ground rather than tucked under.
+        const D2 = hurt === 'dead' ? '#3b465e' : Dk, F2 = hurt === 'dead' ? '#55627d' : F;
+        api.ellipse(5, 21, 23, 27, F2, true);
+        api.ellipse(5, 21, 23, 23, D2, true);
+        api.ellipse(8, 25, 20, 27, hurt === 'dead' ? '#6d7d99' : Lt, true);
+        for (const lx of [9, 13, 17]) { api.rect(lx, 24, lx + 1, 27, D2); api.px(lx, 27, Bk); }
+        api.line(5, 23, 1, 20, D2, 2);                       // tail, limp
+        api.ellipse(21, 19, 29, 25, F2, true);               // head down on the ground
+        api.rect(28, 22, 30, 24, hurt === 'dead' ? '#6d7d99' : Lt);
+        api.px(30, 23, '#181425');
+        api.px(24, 21, '#181425'); api.px(25, 21, '#181425');  // eyes shut
         finish(buf, W, H); return;
       }
-      const F = hurt ? '#ffffff' : '#8b9bb4', Dk = hurt ? '#e8e8e8' : '#5a6988', belly = '#c0cbdc';
-      // extraBob carries the quarter-phase cosine that keeps a 6-frame gallop
-      // from repeating its magnitude on frames 1/2 and 4/5
       const bY = (gallop !== undefined ? Math.round(Math.sin(gallop * Math.PI * 2) * -1.5) : 0) + (extraBob || 0);
       const legSwing = gallop !== undefined ? Math.sin(gallop * Math.PI * 2) : 0;
       const Y = y => y + bY;
-      // legs (4)
       const l1 = Math.round(legSwing * 3), l2 = Math.round(-legSwing * 3);
-      api.rect(7 + l1, Y(22), 9 + l1, Y(27), Dk); api.rect(12 + l2, Y(22), 14 + l2, Y(27), F);
-      api.rect(19 + l2, Y(22), 21 + l2, Y(27), F); api.rect(23 + l1, Y(22), 25 + l1, Y(27), Dk);
-      // body
-      api.rect(6, Y(15), 25, Y(22), F);
-      api.rect(6, Y(20), 25, Y(22), belly);
-      api.rect(6, Y(15), 8, Y(22), Dk);
-      // tail
-      api.line(6, Y(16), 2, Y(12 + Math.round(legSwing * 2)), Dk, 2);
-      api.px(2, Y(12 + Math.round(legSwing * 2)), belly);
-      // head (right)
-      api.rect(22, Y(9), 29, Y(16), F);
-      api.line(22, Y(9), 24, Y(6), F, 2); api.line(27, Y(9), 29, Y(6), F, 2); // ears
-      api.px(24, Y(7), '#f6757a'); api.px(28, Y(7), '#f6757a');
-      api.px(26, Y(12), hurt ? '#181425' : '#ff0044'); // eye
-      api.rect(29, Y(13), 30, Y(15), belly); // snout
-      api.px(30, Y(14), '#181425'); // nose
-      // teeth
-      api.px(29, Y(16), '#ffffff');
+
+      /* A folded leg: thigh, shank kicked the other way, then a paw flat on the
+         ground. Four straight posts is what made the old one a table. */
+      const leg = (hx, sw, c, paw) => {
+        api.rect(hx + Math.round(sw * 0.4), Y(19), hx + 2 + Math.round(sw * 0.4), Y(22), c);
+        api.rect(hx + sw, Y(22), hx + 2 + sw, Y(26), c);
+        api.rect(hx - 1 + sw, Y(26), hx + 3 + sw, Y(27), paw);
+        api.px(hx - 1 + sw, Y(27), '#181425');
+      };
+      // far pair first, in shadow, so the near pair reads as nearer
+      leg(9, l2, Dk, Dk); leg(20, l1, Dk, Dk);
+
+      // barrel: haunch and chest as two masses with a dip between them
+      api.ellipse(3, Y(14), 15, Y(23), F, true);            // hindquarters
+      api.ellipse(13, Y(12), 24, Y(22), F, true);           // deep chest
+      api.ellipse(8, Y(16), 19, Y(22), F, true);            // the loin joining them
+      api.ellipse(3, Y(13), 22, Y(17), Bk, true);           // saddle over the spine
+      api.ellipse(6, Y(19), 21, Y(22), Lt, true);           // belly
+      api.line(4, Y(14), 13, Y(13), Bk, 1);
+      // shoulder ruff: the one place a wolf's coat breaks its own outline
+      for (const [rx, ry] of [[15, 12], [17, 11], [19, 12], [14, 14], [20, 14]]) api.px(rx, Y(ry), Lt);
+      // guard hairs, deterministic so build() stays pure
+      for (let x = 5; x < 22; x++) if (api.hash(x, 3, 91) > 0.72) api.px(x, Y(12 + (x % 3)), Dk);
+
+      // near pair, over the body
+      leg(6, l1, F, Lt); leg(18, l2, F, Lt);
+
+      // tail: carried low and bushy, swinging against the stride
+      /* Carried low and tapering. As a disc up at the top of the frame it read
+         as a pom-pom stuck to the rump. */
+      const tw = Math.round(legSwing * 2);
+      api.line(5, Y(17), 2, Y(15 + tw), Bk, 4);
+      api.line(2, Y(15 + tw), 0, Y(12 + tw), Bk, 3);
+      api.line(3, Y(16 + tw), 1, Y(13 + tw), F, 1);        // lit upper edge
+      api.px(0, Y(11 + tw), Bk); api.px(1, Y(11 + tw), F);
+
+      // neck and head, low and thrust forward the way a hunting canine carries it
+      api.line(21, Y(15), 25, Y(11), F, 5);
+      api.ellipse(22, Y(7), 29, Y(14), F, true);
+      api.ellipse(22, Y(7), 27, Y(10), Bk, true);           // dark brow and crown
+      api.rect(27, Y(11), 30, Y(13), Lt);                   // muzzle
+      api.rect(27, Y(13), 30, Y(13), F);                    // jaw line
+      api.px(30, Y(11), '#181425');                         // nose
+      api.px(28, Y(14), '#ffffff'); api.px(29, Y(14), '#ffffff');  // fangs
+      /* Short, broad-based triangles set close together. Two long 2px strokes
+         four pixels apart is a rabbit — or worse, antlers. */
+      const inner = hurt ? '#e8e8e8' : '#8b6b7a';
+      api.rect(22, Y(4), 23, Y(4), Bk); api.rect(22, Y(5), 24, Y(5), Bk); api.rect(22, Y(6), 25, Y(6), Bk);
+      api.px(23, Y(6), inner); api.px(23, Y(5), inner);
+      api.rect(28, Y(4), 29, Y(4), Bk); api.rect(27, Y(5), 29, Y(5), Bk); api.rect(26, Y(6), 29, Y(6), Bk);
+      api.px(28, Y(6), inner); api.px(28, Y(5), inner);
+      api.px(26, Y(9), hurt ? '#181425' : '#ff0044');       // eye
+      api.px(25, Y(9), '#181425');
       finish(buf, W, H);
     };
   }

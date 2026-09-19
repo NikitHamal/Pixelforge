@@ -556,11 +556,24 @@ PF.Iso = (() => {
         /* A redder, darker cooperage than MAT.wood, and iron hoops. The first
            draft used MAT.wood's own three tones byte for byte, which meant the
            barrel disappeared the moment it was placed on a plank tile. */
-        a.rect(cx - 4, cy - 13, cx + 4, cy - 1, '#7b4726');
-        a.rect(cx - 4, cy - 13, cx - 2, cy - 1, '#9a5f33');
-        a.rect(cx + 3, cy - 13, cx + 4, cy - 1, '#4f2c14');
-        a.rect(cx - 4, cy - 11, cx + 4, cy - 11, '#3f3f4c');
-        a.rect(cx - 4, cy - 4, cx + 4, cy - 4, '#3f3f4c');
+        /* Barrels BULGE. Straight-sided, this was a tin can with two bands
+           painted on it; one sine across the height turns the same silhouette
+           into cooperage, and the hoops have to follow the bulge or they sit
+           on it like rings floating around a pole. */
+        const bw = y => 4 + Math.round(Math.sin(((y + 13) / 12) * Math.PI) * 1.5);
+        for (let y = -13; y <= -1; y++) {
+          const w = bw(y);
+          a.rect(cx - w, cy + y, cx + w, cy + y, '#7b4726');
+          a.rect(cx - w, cy + y, cx - w + 1, cy + y, '#9a5f33');
+          a.px(cx + w, cy + y, '#3f2410'); a.px(cx + w - 1, cy + y, '#4f2c14');
+        }
+        for (const sx of [-2, 1, 3]) a.rect(cx + sx, cy - 12, cx + sx, cy - 2, '#65391d');  // stave seams
+        for (const hy of [-11, -7, -3]) {
+          const w = bw(hy);
+          a.rect(cx - w, cy + hy, cx + w, cy + hy, '#4b4b59');
+          a.rect(cx - w, cy + hy, cx - w + 1, cy + hy, '#767889');
+          a.px(cx + w, cy + hy, '#2e2e3a');
+        }
         /* Elliptical lid. A flat screen-space top edge is the single clearest
            tell that a prop was drawn side-on and dropped into an iso scene. */
         for (let dy = -2; dy <= 2; dy++) {

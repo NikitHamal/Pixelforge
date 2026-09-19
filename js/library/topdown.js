@@ -65,6 +65,22 @@ PF.TopDown = (() => {
     return k < -2.6 ? hi : k > 2.8 ? sh : base;
   };
 
+  /* FIGURE SCALE. The rig below is authored in proportion units that happened
+     to put a 15x11 person in the middle of a 32x32 cell — 45% of the width,
+     where every other character pack in this library fills 85-95%. Side by
+     side, the overhead cast looked like distant toys, and in a game that
+     scales the cell to a tile it means the top-down set renders at two thirds
+     the effective resolution of the iso and 3/4 sets.
+
+     The proportions were right; only the size was wrong. One factor scales the
+     whole body — torso, limbs, head, shadow and the weapon in its hands — so
+     the authoring numbers keep encoding shape rather than pixels. 1.28 is the
+     largest value at which a north-facing rifle muzzle still clears the top
+     row with a pixel to spare for the outline pass. */
+  const K = 1.28;
+  const kpt = (th, s, t, cx, cy) => pt(th, s * K, t * K, cx, cy);
+  const koval = (a, cx, cy, th, ra, rb, shade) => oval(a, cx, cy, th, ra * K, rb * K, shade);
+
   /* ------------------------------------------------------------ shadows */
 
   /* A translucent contact shadow, stamped AFTER the outline pass and only into
@@ -111,10 +127,10 @@ PF.TopDown = (() => {
      shirt the only saturated thing. */
   const SURVIVOR = { hair: '#45262a', hairHi: '#6e4239', skin: '#e8b796', skinSh: '#c28569',
     shirt: '#3e8948', shirtHi: '#63c74d', shirtSh: '#265c42',
-    boot: '#3e2731', bootHi: '#5a4433', gear: '#c0cbdc', pack: '#4b4f6b', reach: 0.45 };
+    boot: '#3e2731', bootHi: '#5a4433', gear: '#c0cbdc', pack: '#3b3f57', reach: 0.45 };
   const SOLDIER = { hair: '#4b5320', hairHi: '#6b7530', skin: '#e4a672', skinSh: '#b86f50',
     shirt: '#4b5d3a', shirtHi: '#6d8450', shirtSh: '#2f3a24',
-    boot: '#262b44', bootHi: '#3a4466', gear: '#181425', pack: '#5a5f3a', helmet: '#67735a', reach: 0.5 };
+    boot: '#262b44', bootHi: '#3a4466', gear: '#181425', pack: '#454a2c', helmet: '#67735a', reach: 0.5 };
   /* The zombie was a purple figure with green hands and read as a plum. Its
      silhouette has to differ from the living at a glance, so the difference is
      built into the POSE (arms out front) and the palette is pushed to grimy
@@ -129,9 +145,17 @@ PF.TopDown = (() => {
     shirt: '#4a5163', shirtHi: '#646d84', shirtSh: '#2e3340',
     boot: '#2a2630', bootHi: '#443d4a', gear: '#a22633', pack: null,
     reach: 1, rags: true, mouth: '#3a1620' };
-  const AGENT = { hair: '#181425', hairHi: '#3a4466', skin: '#f2c094', skinSh: '#c28569',
-    shirt: '#2f3350', shirtHi: '#4a5178', shirtSh: '#1c1f33',
-    boot: '#181425', bootHi: '#3a4466', gear: '#c0cbdc', pack: null, tie: '#a22633', reach: 0.4 };
+  /* The same trap the zombie's comment above describes, walked into again. Hair
+     and boots were both #181425 — the outline colour itself — over a suit whose
+     shadow tone was #1c1f33, one step off it. Lit from the north, where no face
+     is turned toward the camera, the whole figure collapsed into a black puddle
+     with two skin-coloured hands floating in it. The suit is now charcoal-blue
+     a clear step above the border, and the hair is warm dark brown so the skull
+     separates from the shoulders by hue as well as value when the agent walks
+     away from you. */
+  const AGENT = { hair: '#33262b', hairHi: '#6a4f52', skin: '#f2c094', skinSh: '#c28569',
+    shirt: '#464b6b', shirtHi: '#6a7199', shirtSh: '#2b2f47',
+    boot: '#2b2f47', bootHi: '#4a5178', gear: '#c0cbdc', pack: null, tie: '#a22633', reach: 0.4 };
 
   /* ---------------------------------------------------------- the figure */
 
@@ -177,52 +201,56 @@ PF.TopDown = (() => {
        animates nothing — you cannot see it — so the swing has to happen in
        the few pixels of clear ground aft of the shoulders. */
     for (const [side, ph] of [[-1, legSw], [1, -legSw]]) {
-      const [x, y] = pt(th, side * 3.3, -4.4 + ph, bx, by);
-      oval(a, x, y, th, 1.7, 2.5, round3(pal.boot, pal.bootHi, dim(pal.boot)));
-      const [hx, hy] = pt(th, side * 3.3, -5.8 + ph, bx, by);
+      const [x, y] = kpt(th, side * 3.3, -4.4 + ph, bx, by);
+      koval(a, x, y, th, 1.7, 2.5, round3(pal.boot, pal.bootHi, dim(pal.boot)));
+      const [hx, hy] = kpt(th, side * 3.3, -5.8 + ph, bx, by);
       a.px(hx, hy, dim(pal.boot));                        // heel, darkest point of the sole
     }
     // hips, narrower than the shoulders: the taper is what reads as a body
-    const [ix, iy] = pt(th + twist, 0, -2.9, bx, by);
-    oval(a, ix, iy, th + twist, 4.8, 3.0, round3(pal.shirtSh, pal.shirt, dim(pal.shirtSh)));
+    const [ix, iy] = kpt(th + twist, 0, -3.4, bx, by);
+    koval(a, ix, iy, th + twist, 5.0, 2.8, round3(pal.shirtSh, pal.shirt, dim(pal.shirtSh)));
     for (let k = -3.4; k <= 3.4; k += 0.6) {              // belt across the small of the back
-      const [lx, ly] = pt(th + twist, k, -1.4, bx, by);
+      const [lx, ly] = kpt(th + twist, k, -1.4, bx, by);
       a.px(lx, ly, dim(pal.shirtSh));
     }
     // shoulders: the widest mass, and the anchor everything else hangs off
-    oval(a, bx, by, th + twist, 6.5, 5.1 + breath, round3(pal.shirt, pal.shirtHi, pal.shirtSh));
+    /* Wide and shallow. At 6.5 x 5.1 the shoulder mass was very nearly a
+       circle, and a circle seen from above is a ball, not a person — the
+       facing had to be carried entirely by the head and the gun. Shoulders
+       that are twice as wide as they are deep read as shoulders on their own. */
+    koval(a, bx, by, th + twist, 6.8, 4.0 + breath, round3(pal.shirt, pal.shirtHi, pal.shirtSh));
     // spine: one darker run down the middle turns a flat oval into a back
-    for (let k = -3.6; k <= 1.8; k += 0.7) {
-      const [x, y] = pt(th + twist, 0, k, bx, by);
+    for (let k = -3.6; k <= 1.4; k += 0.7) {
+      const [x, y] = kpt(th + twist, 0, k, bx, by);
       a.px(x, y, pal.shirtSh);
     }
     // collar: a lit arc where the shoulders meet the neck, so the head reads
     // as sitting IN the body instead of resting on it
     for (let k = -1.0; k <= 1.0; k += 0.14) {
-      const [x, y] = pt(th + twist, k * 3.6, 3.4 - Math.abs(k) * 1.3, bx, by);
+      const [x, y] = kpt(th + twist, k * 3.6, 2.9 - Math.abs(k) * 1.1, bx, by);
       a.px(x, y, pal.shirtHi);
     }
     if (pal.rags) {
       // torn cloth: skin showing through, and blood that has had time to dry
       for (const [ss, tt] of [[-2.8, 1.2], [3.2, -0.8], [1.0, -3.2], [-3.6, -1.6]]) {
-        const [x, y] = pt(th + twist, ss, tt, bx, by);
+        const [x, y] = kpt(th + twist, ss, tt, bx, by);
         a.px(x, y, pal.skinSh); a.px(x + 1, y, pal.skin);
       }
       for (const [ss, tt] of [[2.0, 2.4], [-1.6, -2.2]]) {
-        const [x, y] = pt(th + twist, ss, tt, bx, by);
+        const [x, y] = kpt(th + twist, ss, tt, bx, by);
         a.px(x, y, pal.gear); a.px(x, y + 1, dim(pal.gear));
       }
     }
     if (pal.pack) {
-      const [x, y] = pt(th + twist, 0, -2.4, bx, by);
-      oval(a, x, y, th + twist, 3.4, 2.4, (s2, t2, dx, dy) =>
+      const [x, y] = kpt(th + twist, 0, -2.6, bx, by);
+      koval(a, x, y, th + twist, 2.9, 1.9, (s2, t2, dx, dy) =>
         (t2 > 1.5 ? SEAM : round3(pal.pack, lit(pal.pack), dim(pal.pack))(s2, t2, dx, dy)));
       // buckle: one bright pixel pair, which is what says "kit" rather than "rock"
-      const [bux, buy] = pt(th + twist, 0, -2.4, bx, by);
+      const [bux, buy] = kpt(th + twist, 0, -2.6, bx, by);
       a.px(bux, buy, pal.gear); a.px(bux, buy + 1, dim(pal.gear));
       for (const sd of [-1, 1]) {                         // straps over both shoulders
         for (let k = 0; k <= 1; k += 0.22) {
-          const [sx, sy] = pt(th + twist, sd * (1.6 + k * 1.4), -0.2 + k * 3.2, bx, by);
+          const [sx, sy] = kpt(th + twist, sd * (1.6 + k * 1.4), -0.2 + k * 3.2, bx, by);
           a.px(sx, sy, pal.gear);
         }
       }
@@ -236,10 +264,14 @@ PF.TopDown = (() => {
        first pass did — leaves two pale blobs floating either side of the head,
        and the pair of them read as mittens pinned to the shoulders. */
     for (const [side, ph] of [[-1, -armSw], [1, armSw]]) {
-      const as = side * (5.5 - reach * 2.2), at = 0.4 + ph + reach * 2.8;
-      const [x, y] = pt(th + twist, as, at, bx, by);
+      /* Outboard of the skull, not beside it. With the head at its new radius
+         the hands were touching it, and a pale hand welded to a pale face is a
+         single three-blob bar across the front of the sprite with no face in
+         it. 6.3 puts the inner edge of the hand a pixel clear of the head. */
+      const as = side * (6.3 - reach * 1.9), at = 0.4 + ph + reach * 2.8;
+      const [x, y] = kpt(th + twist, as, at, bx, by);
       const rb = 3.4 + reach * 1.5;
-      oval(a, x, y, th + twist, 1.9, rb, (s2, t2, dx, dy) => {
+      koval(a, x, y, th + twist, 1.9, rb, (s2, t2, dx, dy) => {
         const k = dx + dy;
         if (t2 > rb - 2.2 - reach * 2.2)                  // cuff forward: bare skin
           return k < -1.6 ? lit(pal.skin) : k > 1.6 ? pal.skinSh : pal.skin;
@@ -256,14 +288,17 @@ PF.TopDown = (() => {
        near-black all the way round and that ring, not the head, was what made
        the figure a mushroom; dark hair against a saturated shirt separates
        perfectly well on its own. */
-    const HT = 2.2, HR = 3.1;                             // forward offset, skull radius
-    const [hx, hy] = pt(th, 0, HT, bx, by);
+    /* Bigger than life, and deliberately. Overhead characters are read by
+       their heads; at the rig's true scale the skull is a four-pixel smudge
+       between two hands. Every top-down game worth copying oversizes it. */
+    const HT = 2.8, HR = 3.4;                             // forward offset, skull radius
+    const [hx, hy] = kpt(th, 0, HT, bx, by);
     /* The seam only goes where the skull overlaps the shoulders. Ringing the
        whole head puts a black line along the front edge too, where the sprite
        already has open air and the outline pass handles it — and that extra
        ring is most of what made the old head read as a hole. */
     if (pal.helmet === undefined) {
-      oval(a, hx, hy, th, HR, HR, (s2, t2, dx, dy) => {
+      koval(a, hx, hy, th, HR, HR, (s2, t2, dx, dy) => {
         const k = dx + dy;
         if (t2 < -0.3)                                    // hair: the back of the skull
           return k < -2.0 ? pal.hairHi : k > 2.2 ? dim(pal.hair) : pal.hair;
@@ -271,23 +306,23 @@ PF.TopDown = (() => {
       });
       /* Sideburns only. A fringe drawn across the brow instead ate two of the
          three rows of face the head has to spare and put the dark blob back. */
-      oval(a, hx, hy, th, HR, HR,
+      koval(a, hx, hy, th, HR, HR,
         (s2, t2) => (t2 >= -0.3 && t2 < 0.9 && Math.abs(s2) > 1.7 ? dim(pal.hair) : null));
-      for (const sd of [-1.2, 1.2]) { const [ex, ey] = pt(th, sd, HT + 1.6, bx, by); a.px(ex, ey, SEAM); }
-      const [nx, ny] = pt(th, 0, HT + 2.4, bx, by); a.px(nx, ny, pal.skinSh);
+      for (const sd of [-1.2, 1.2]) { const [ex, ey] = kpt(th, sd, HT + 1.6, bx, by); a.px(ex, ey, SEAM); }
+      const [nx, ny] = kpt(th, 0, HT + 2.4, bx, by); a.px(nx, ny, pal.skinSh);
       if (pal.mouth) for (const sd of [-1, 1]) {
-        const [mx, my] = pt(th, sd, HT + 2.3, bx, by); a.px(mx, my, pal.mouth);
+        const [mx, my] = kpt(th, sd, HT + 2.3, bx, by); a.px(mx, my, pal.mouth);
       }
-      if (pal.tie) { const [tx, ty] = pt(th + twist, 0, 4.4, bx, by); a.px(tx, ty, pal.tie); }
+      if (pal.tie) { const [tx, ty] = kpt(th + twist, 0, 4.4, bx, by); a.px(tx, ty, pal.tie); }
     } else {
       /* A helmet has no face, so the facing rides entirely on a bright forward
          brim. It also shares a family with the uniform, so this is the one head
          that does need a seam — on its rear arc, where it overlaps the pack. */
-      oval(a, hx, hy, th, HR + 0.8, HR + 0.8, (s2, t2) => (t2 < 0.4 ? SEAM : null));
-      oval(a, hx, hy, th, HR, HR, round3(pal.helmet, lit(pal.helmet), dim(pal.helmet)));
-      oval(a, hx, hy, th, HR, HR, (s2, t2) => (t2 > 0.4 && t2 <= 1.6 ? dim(pal.helmet) : null));
-      oval(a, hx, hy, th, HR, HR, (s2, t2) => (t2 > 1.6 ? lit(lit(pal.helmet)) : null));
-      const [cx2, cy2] = pt(th, -1.2, HT - 1.0, bx, by);
+      koval(a, hx, hy, th, HR + 0.8, HR + 0.8, (s2, t2) => (t2 < 0.4 ? SEAM : null));
+      koval(a, hx, hy, th, HR, HR, round3(pal.helmet, lit(pal.helmet), dim(pal.helmet)));
+      koval(a, hx, hy, th, HR, HR, (s2, t2) => (t2 > 0.4 && t2 <= 1.6 ? dim(pal.helmet) : null));
+      koval(a, hx, hy, th, HR, HR, (s2, t2) => (t2 > 1.6 ? lit(lit(pal.helmet)) : null));
+      const [cx2, cy2] = kpt(th, -1.2, HT - 1.0, bx, by);
       a.px(cx2, cy2, lit(pal.helmet));                    // netting boss, off-centre
     }
     if (o.after) o.after(a, th, bx, by);
@@ -303,8 +338,8 @@ PF.TopDown = (() => {
      than concentric: an overhead light directly above a sprite casts no
      visible shadow at all, so the whole scene is lit from up-screen-left and
      every shadow in this pack agrees with that. */
-  const FOOT = { rx: 6.8, ry: 4.8, cx: CX + 1.0, cy: CY + 1.9 };
-  const SPRAWL = { rx: 8.6, ry: 5.8, cx: CX + 1.0, cy: CY + 2.4 };
+  const FOOT = { rx: 6.8 * K, ry: 4.8 * K, cx: CX + 1.0, cy: CY + 1.9 };
+  const SPRAWL = { rx: 8.6 * K, ry: 5.8 * K, cx: CX + 1.0, cy: CY + 2.4 };
 
   function personSuite(pal, label, opts) {
     opts = opts || {};
@@ -344,7 +379,7 @@ PF.TopDown = (() => {
             else if (i >= 2) {
               // a swept arc in front of the shoulder line reads as a blow
               for (let k = -1.1; k <= 1.1; k += 0.22) {
-                const [x, y] = pt(ang, k * 4.5, 7.2 - Math.abs(k) * 1.6, bx, by);
+                const [x, y] = kpt(ang, k * 4.5, 7.2 - Math.abs(k) * 1.6, bx, by);
                 b.px(Math.round(x), Math.round(y), i === 2 ? '#ffffff' : '#c0cbdc');
               }
             }
@@ -372,23 +407,23 @@ PF.TopDown = (() => {
       if (i === 0) { topPerson(a, TAU / 2, pal, { twist: 0.6, sway: -1.6, arm: -2.2 }); return; }
       const g = [0, 0.35, 0.7, 0.9, 1][i];
       const th = TAU / 2 + 0.55 * g;
-      oval(a, CX, CY, th, 6.0 + 1.4 * g, 5.0 - 1.2 * g, round3(pal.shirt, pal.shirtHi, pal.shirtSh));
+      koval(a, CX, CY, th, 6.0 + 1.4 * g, 5.0 - 1.2 * g, round3(pal.shirt, pal.shirtHi, pal.shirtSh));
       for (const [side, ph] of [[-1, 3.0 * g], [1, -3.0 * g]]) {
-        const [x, y] = pt(th, side * (2.6 + 2.0 * g), -4.6 + ph);
-        oval(a, x, y, th, 1.7, 2.5, round3(pal.boot, pal.bootHi, dim(pal.boot)));
+        const [x, y] = kpt(th, side * (2.6 + 2.0 * g), -4.6 + ph);
+        koval(a, x, y, th, 1.7, 2.5, round3(pal.boot, pal.bootHi, dim(pal.boot)));
       }
       for (const [side, ph] of [[-1, 2.2 * g], [1, -2.2 * g]]) {
-        const [x, y] = pt(th, side * (5.0 + 2.4 * g), 0.6 + ph);
-        oval(a, x, y, th, 1.9, 3.0, (s2, t2, dx, dy) => {
+        const [x, y] = kpt(th, side * (5.0 + 2.4 * g), 0.6 + ph);
+        koval(a, x, y, th, 1.9, 3.0, (s2, t2, dx, dy) => {
           const k = dx + dy;
           if (t2 > 0.9) return k < -1.6 ? lit(pal.skin) : k > 1.6 ? pal.skinSh : pal.skin;
           return k < -2.0 ? pal.shirt : k > 2.2 ? dim(pal.shirtSh) : pal.shirtSh;
         });
       }
       const head = pal.helmet || pal.hair;
-      const [hx, hy] = pt(th, -1.8 * g, 2.0);
-      oval(a, hx, hy, th, 2.9, 2.9, round3(pal.skin, lit(pal.skin), pal.skinSh));
-      oval(a, hx - 1.2 * g, hy - 1.6 * g, th, 2.5, 2.3, round3(head, lit(head), dim(head)));
+      const [hx, hy] = kpt(th, -1.8 * g, 2.0);
+      koval(a, hx, hy, th, 2.9, 2.9, round3(pal.skin, lit(pal.skin), pal.skinSh));
+      koval(a, hx - 1.2 * g, hy - 1.6 * g, th, 2.5, 2.3, round3(head, lit(head), dim(head)));
       if (i >= 3) {                                       // blood starting to find the low ground
         for (const [ox, oy] of [[-7, 4], [-5, 6], [6, 5], [8, 3]])
           a.px(CX + ox * g, CY + oy * g, '#6a0f1e');
@@ -398,10 +433,10 @@ PF.TopDown = (() => {
        the corpse despawns, and so a squeamish project can simply not ship it. */
     states.push(D('blood_pool', 6, false, seq(4, 6, (a, i) => {
       const g = [0.3, 0.6, 0.85, 1][i];
-      oval(a, 15.5, 18, 0.4, 11 * g, 7.5 * g, (s2, t2, dx, dy) =>
+      koval(a, 15.5, 18, 0.4, 11 * g, 7.5 * g, (s2, t2, dx, dy) =>
         (a.hash(Math.round(15.5 + dx), Math.round(18 + dy), 7) < 0.12 ? '#6a0f1e' : '#8f1425'));
-      oval(a, 14.0, 17.0, 0.4, 6 * g, 4.0 * g, () => '#a22633');
-      oval(a, 13.0, 16.0, 0.4, 2.6 * g, 1.8 * g, () => '#c93a4a');
+      koval(a, 14.0, 17.0, 0.4, 6 * g, 4.0 * g, () => '#a22633');
+      koval(a, 13.0, 16.0, 0.4, 2.6 * g, 1.8 * g, () => '#c93a4a');
       for (const [dx, dy, r] of [[-11, 2, 1.6], [10, -3, 1.3], [7, 6, 1.1]])
         disc(a, 15.5 + dx * g, 18 + dy * g, r * g, '#8f1425');
     })));
@@ -424,28 +459,28 @@ PF.TopDown = (() => {
   };
   const gun = kind => (b, th, bx, by) => {
     const g = GUNS[kind];
-    const [x0, y0] = pt(th, g.s, g.t0, bx, by);
-    const [x1, y1] = pt(th, g.s, g.t0 + g.len, bx, by);
+    const [x0, y0] = kpt(th, g.s, g.t0, bx, by);
+    const [x1, y1] = kpt(th, g.s, g.t0 + g.len, bx, by);
     b.line(x0, y0, x1, y1, SEAM, g.w);                    // body, in silhouette
     b.line(x0, y0, x1, y1, '#4a5568', 1);                 // steel core
     // the top plane of the receiver is what the sun actually hits
-    const [x2, y2] = pt(th, g.s - 0.9, g.t0 + 0.8, bx, by);
-    const [x3, y3] = pt(th, g.s - 0.9, g.t0 + g.len * 0.6, bx, by);
+    const [x2, y2] = kpt(th, g.s - 0.9, g.t0 + 0.8, bx, by);
+    const [x3, y3] = kpt(th, g.s - 0.9, g.t0 + g.len * 0.6, bx, by);
     b.line(x2, y2, x3, y3, '#8b9bb4', 1);
     if (g.stock) {                                        // wood aft of the grip
-      const [sx, sy] = pt(th, g.s, g.t0 - 2.6, bx, by);
+      const [sx, sy] = kpt(th, g.s, g.t0 - 2.6, bx, by);
       b.line(sx, sy, x0, y0, SEAM, 3);
       b.line(sx, sy, x0, y0, '#6b4a2b', 1);
     }
     if (g.mag) {                                          // magazine hanging below
-      const [mx0, my0] = pt(th, g.s + 1.2, g.t0 + 1.2, bx, by);
+      const [mx0, my0] = kpt(th, g.s + 1.2, g.t0 + 1.2, bx, by);
       b.px(mx0, my0, '#2b3148'); b.px(mx0, my0 + 1, '#2b3148');
     }
     if (g.slide) {
-      const [px, py] = pt(th, g.s - 0.2, g.t0 + 0.4, bx, by);
+      const [px, py] = kpt(th, g.s - 0.2, g.t0 + 0.4, bx, by);
       b.px(px, py, '#6a7590');
     }
-    const [mx, my] = pt(th, g.s, g.t0 + g.len + 0.5, bx, by);
+    const [mx, my] = kpt(th, g.s, g.t0 + g.len + 0.5, bx, by);
     b.px(mx, my, '#c0cbdc');                              // muzzle
   };
   const rifle = gun('rifle');                             // kept: the old export name

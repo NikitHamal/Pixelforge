@@ -38,12 +38,17 @@ PF.RPG.medieval = (() => {
     boots: '#8b9bb4', belt: '#fee761', buckle: '#ffffff', lip: '#e43b44'
   };
 
+  /* Hair, beard, apron shadow and trousers were all #3e2731 — one colour doing
+     four jobs on adjacent parts, so the smith rendered as a brown blob with a
+     pair of eyes in it (AGENTS.md rule 10). The apron is now a warm russet
+     leather, the work trousers are cold blue-grey so they cannot be mistaken
+     for more of it, and the hair sits below both. */
   const BLACKSMITH = {
     skin: '#d99a78', skinSh: '#a26a5a',
-    hair: '#3e2731', hairSh: '#262b44', hairHi: '#733e39',
-    shirt: '#733e39', shirtSh: '#3e2731', shirtHi: '#b86f50',    // heavy leather apron
-    pants: '#3e2731', pantsSh: '#262b44',
-    boots: '#262b44', belt: '#262b44', buckle: '#c0cbdc', lip: '#a26a5a'
+    hair: '#2c1e24', hairSh: '#20181d', hairHi: '#54343a',
+    shirt: '#cbb08c', shirtSh: '#9b8464', shirtHi: '#e8d7b6',    // linen shirt UNDER the apron
+    pants: '#3c4a63', pantsSh: '#2a3449',                        // cold work trousers
+    boots: '#2b2230', belt: '#5a4433', buckle: '#c0cbdc', lip: '#a26a5a'
   };
 
   const JESTER = {
@@ -54,20 +59,28 @@ PF.RPG.medieval = (() => {
     boots: '#68386c', belt: '#733e39', buckle: '#fee761', lip: '#e43b44', blush: '#f6757a'
   };
 
+  /* Menacing, but still a figure. Hood, harness, trousers, boots and belt were
+     all #262b44 or #181425 — the outline colour and one step off it — so the
+     executioner was a silhouette-shaped hole with a face floating in it. Every
+     part now clears the border by a real step; the palette stays the darkest
+     in the pack without any of it touching the outline. */
   const EXECUTIONER = {
     skin: '#c28569', skinSh: '#a26a5a',
-    hair: '#262b44', hairSh: '#181425', hairHi: '#3a4466',
-    shirt: '#262b44', shirtSh: '#181425', shirtHi: '#3a4466',    // black leather harness
-    pants: '#3e2731', pantsSh: '#262b44',
-    boots: '#181425', belt: '#181425', buckle: '#5a6988', lip: '#5c1a1a'
+    hair: '#2b2438', hairSh: '#1f1a2b', hairHi: '#4a4266',
+    shirt: '#343b57', shirtSh: '#20253a', shirtHi: '#525d80',    // black leather harness
+    pants: '#2e2434', pantsSh: '#1f1826',
+    boots: '#251f2e', belt: '#3a2f2a', buckle: '#8b9bb4', lip: '#5c1a1a'
   };
 
+  /* Same fix, one rung colder: pants, pantsSh and boots were literally the
+     outline colour, so the legs did not exist — the knight ended at the belt
+     and stood on its own border. */
   const DEATHKNIGHT = {
-    skin: '#5a6988', skinSh: '#3a4466',
-    hair: '#262b44', hairSh: '#181425', hairHi: '#3a4466',
-    shirt: '#262b44', shirtSh: '#181425', shirtHi: '#5a6988',    // blackened gothic plate
-    pants: '#181425', pantsSh: '#181425',
-    boots: '#181425', belt: '#3a4466', buckle: '#2ce8f5', lip: '#181425'
+    skin: '#6b7fa3', skinSh: '#4a5878',
+    hair: '#2a3048', hairSh: '#1e2334', hairHi: '#4d5a80',
+    shirt: '#2f3650', shirtSh: '#1e2334', shirtHi: '#6b7aa0',    // blackened gothic plate
+    pants: '#242a3e', pantsSh: '#191d2c',
+    boots: '#1e2334', belt: '#4a5578', buckle: '#2ce8f5', lip: '#2a3048'
   };
 
   Object.assign(R.PAL, { CRUSADER, VALKYRIE, BLACKSMITH, JESTER, EXECUTIONER, DEATHKNIGHT });
@@ -193,7 +206,9 @@ PF.RPG.medieval = (() => {
       weapon: 'hammer',
       cast: true,
       castColors: ['#ff0044', '#f77622', '#fee761'],
-      head: { beard: '#3e2731', beardSh: '#262b44', beardLong: false },
+      // rust-brown, a clear step off the near-black hair above it: matched values
+      // merge hair and beard into one mask and the face disappears between them
+      head: { beard: '#5e3f31', beardSh: '#3d281f', beardLong: false },
       post: (api, cfg) => {
         const bob = cfg.bob || 0, kb = cfg.kb || 0;
         const side = cfg.facing === 'side', up = cfg.facing === 'up';
@@ -201,19 +216,30 @@ PF.RPG.medieval = (() => {
 
         if (cfg.lying || up) return;
 
-        // Artisan leather apron overlay + brass buckles
+        /* The apron only reads as a garment if there is a garment UNDER it, so
+           the torso is pale linen and the apron is the dark thing laid on it —
+           the reverse of the first cut, which painted a darker apron over an
+           apron-coloured shirt and produced one flat brown board. */
+        const LTH = '#6b3f28', LTHi = '#8f5a38', LTHs = '#452718', STUD = '#feae34';
         if (side) {
-          api.rect(X(13), BY(15), X(16), BY(23), '#733e39');
-          api.rect(X(14), BY(16), X(15), BY(22), '#b86f50');
-          api.px(X(14), BY(15), '#fee761'); // buckle
+          api.rect(X(12), BY(14), X(17), BY(24), LTH);
+          api.rect(X(12), BY(14), X(13), BY(24), LTHi);      // lit front edge
+          api.rect(X(12), BY(24), X(17), BY(24), LTHs);      // hem
+          api.line(X(15), BY(11), X(16), BY(14), LTHs, 1);   // shoulder strap
+          api.px(X(13), BY(17), STUD);
         } else {
-          api.rect(X(12), BY(15), X(19), BY(23), '#733e39');
-          api.rect(X(13), BY(16), X(18), BY(22), '#b86f50');
-          // Crossed leather neck strap
-          api.line(X(12), BY(13), X(14), BY(15), '#3e2731', 1);
-          api.line(X(19), BY(13), X(17), BY(15), '#3e2731', 1);
-          // Hammer holster loop & brass stud
-          api.px(X(13), BY(18), '#fee761'); api.px(X(18), BY(18), '#fee761');
+          api.rect(X(11), BY(14), X(20), BY(24), LTH);       // full bib, shoulder to thigh
+          api.rect(X(12), BY(15), X(19), BY(23), LTHi);      // sunlit panel
+          api.rect(X(11), BY(24), X(20), BY(24), LTHs);      // hem, the heaviest line on it
+          api.rect(X(11), BY(14), X(11), BY(24), LTHs); api.rect(X(20), BY(14), X(20), BY(24), LTHs);
+          // crossed neck straps, dark against the linen collar
+          api.line(X(12), BY(11), X(14), BY(14), LTHs, 1);
+          api.line(X(19), BY(11), X(17), BY(14), LTHs, 1);
+          // scorch marks: a smith's apron is not new
+          api.px(X(14), BY(20), LTHs); api.px(X(17), BY(18), LTHs); api.px(X(15), BY(22), LTHs);
+          api.px(X(12), BY(16), STUD); api.px(X(19), BY(16), STUD);   // brass studs
+          api.rect(X(16), BY(19), X(18), BY(21), LTHs);               // tool pocket
+          api.rect(X(16), BY(19), X(18), BY(19), '#c0cbdc');          // tongs poking out
         }
       }
     });
