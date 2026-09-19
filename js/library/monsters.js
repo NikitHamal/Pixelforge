@@ -252,36 +252,121 @@ PF.Monsters = (() => {
   }
 
   /* ---------- CHICKEN ---------- */
+  /* ---------- CHICKEN ---------- */
+  /* The old bird was three white ellipses and two orange sticks — no tail, no
+     feather structure, a wing you could only find by its outline. A chicken
+     reads at 32px from four things: the fanned sickle tail, a serrated comb,
+     a wattle under the beak, and a wing sitting on the flank as its own mass.
+     Build those four and the silhouette is unmistakable at 1x. */
+  const HEN = {
+    B: '#ffffff', S: '#d3dcea', SS: '#a7b4cb', D: '#7b879e',
+    comb: '#e43b44', combHi: '#f6757a', combSh: '#a22633',
+    beak: '#feae34', beakSh: '#c06a1e', leg: '#e4a672', legSh: '#a86b45', eye: '#181425'
+  };
   function chickenFrame(pose) {
     return (buf, W, H) => {
-      const api = apiFor(buf, W, H), cx = 16 + (pose.dx || 0);
-      const B = '#ffffff', Sh = '#c0cbdc', Comb = '#e43b44', Beak = '#feae34', Leg = '#feae34';
-      const hop = pose.hop || 0, Y = y => y - hop;
-      // legs
-      api.line(cx - 2, Y(24), cx - 2, Y(28), Leg, 1); api.line(cx + 2, Y(24), cx + 2, Y(28 - (pose.lift || 0)), Leg, 1);
-      // body
-      api.ellipse(cx - 6, Y(16), cx + 5, Y(25), B, true);
-      api.ellipse(cx + 1, Y(18), cx + 5, Y(25), Sh, true);
-      // wing
-      api.ellipse(cx - 5, Y(18 + (pose.wing || 0)), cx, Y(23 + (pose.wing || 0)), Sh, true);
-      // tail
-      api.line(cx - 6, Y(18), cx - 9, Y(15), B, 2);
-      // head — a peck drops the WHOLE head, not just the beak, otherwise the
-      // three peck frames are nearly identical
+      const api = apiFor(buf, W, H), C = HEN;
+      const cx = 15 + (pose.dx || 0), hop = pose.hop || 0, Y = y => y - hop;
+      const wing = pose.wing || 0;
       const peck = typeof pose.peck === 'number' ? pose.peck : (pose.peck ? 3 : 0);
-      api.ellipse(cx + 1, Y(9 + peck), cx + 8, Y(17 + peck), B, true);
-      api.rect(cx + 3, Y(6 + peck), cx + 5, Y(9 + peck), Comb); api.px(cx + 6, Y(7 + peck), Comb);
-      api.px(cx + 5, Y(11 + peck), '#181425');
-      api.line(cx + 8, Y(13 + peck), cx + 11, Y(14 + peck), Beak, 2);
+
+      /* Legs: a scaly shank with three forward toes and a spur behind. The far
+         one is a rung darker, or the pair merges into one post. */
+      const legAt = (x, up, c, cs) => {
+        const fy = Y(27) - up;
+        api.rect(x, Y(20), x + 1, fy, c);
+        api.px(x + 1, Y(23), cs); api.px(x + 1, Y(25), cs);      // scale breaks
+        api.rect(x - 1, fy, x + 3, fy, c);                        // toes
+        api.px(x + 3, fy - 1, c); api.px(x - 2, fy, cs);          // outer toe, spur
+      };
+      legAt(cx + 3, pose.lift || 0, C.legSh, '#7d4e30');          // far leg
+      /* Tail before the body: the sickles tuck UNDER the rump, which is what
+         makes them read as feathers growing out of it rather than sticks
+         leaning against it. */
+      api.line(cx - 4, Y(16), cx - 10, Y(8), C.S, 3);
+      api.line(cx - 4, Y(17), cx - 9, Y(11), C.B, 2);
+      api.line(cx - 4, Y(19), cx - 10, Y(15), C.SS, 2);
+      api.line(cx - 4, Y(20), cx - 9, Y(19), C.D, 1);
+
+      // body: an egg, big end forward, sunlit across the back
+      api.ellipse(cx - 6, Y(12), cx + 6, Y(23), C.B, true);
+      api.ellipse(cx - 6, Y(17), cx + 1, Y(23), C.S, true);
+      api.ellipse(cx + 2, Y(19), cx + 6, Y(23), C.S, true);
+      api.ellipse(cx - 4, Y(11), cx + 4, Y(16), C.B, true);
+      api.rect(cx - 3, Y(11), cx + 2, Y(11), '#ffffff');
+
+      // wing: its own almond, with covert rows and primaries laid over the flank
+      const wy = Y(14) + wing;
+      api.ellipse(cx - 5, wy, cx + 3, wy + 7, C.SS, true);
+      api.ellipse(cx - 5, wy, cx + 2, wy + 5, C.S, true);
+      api.ellipse(cx - 4, wy, cx + 1, wy + 3, C.B, true);
+      for (let k = 0; k < 3; k++) api.line(cx - 5 + k, wy + 4 + k, cx + 2 - k * 2, wy + 5 + k, C.D, 1);
+      api.px(cx - 3, wy + 1, '#ffffff');
+
+      legAt(cx - 1, 0, C.leg, C.legSh);                           // near leg
+
+      // neck: a tapered cone of hackle feathers, not a tube
+      const hy = Y(6) + peck, hxc = cx + 7;
+      for (let i = 0; i <= 6; i++) {
+        const t = i / 6;
+        const x = Math.round(cx + 2 + t * 5), y = Math.round(Y(14) + (hy + 5 - Y(14)) * t);
+        const w = Math.max(2, Math.round(4 - t * 1.6));
+        api.rect(x - w, y, x + w - 1, y, C.B);
+        api.px(x - w, y, C.SS); api.px(x + w - 1, y, C.S);
+        if (i % 2) api.px(x + w - 2, y, C.S);                     // feather partings
+      }
+
+      // head, comb, wattle, beak
+      api.ellipse(hxc - 3, hy, hxc + 3, hy + 6, C.B, true);
+      api.ellipse(hxc - 2, hy + 1, hxc + 2, hy + 4, '#ffffff', true);
+      api.rect(hxc - 3, hy + 5, hxc + 1, hy + 6, C.S);
+      api.rect(hxc - 3, hy - 1, hxc + 3, hy, C.comb);             // comb base
+      for (const [dx0, h] of [[-3, 2], [-1, 3], [1, 3], [3, 2]])  // serrations
+        api.rect(hxc + dx0, hy - h, hxc + dx0, hy - 1, C.comb);
+      api.px(hxc - 1, hy - 3, C.combHi); api.px(hxc + 3, hy - 2, C.combSh);
+      api.rect(hxc, hy + 6, hxc + 1, hy + 8, C.comb);             // wattle
+      api.px(hxc + 1, hy + 8, C.combSh); api.px(hxc, hy + 6, C.combHi);
+      for (let i = 0; i < 4; i++) {                               // beak: a closing wedge
+        const k = i >> 1;
+        api.rect(hxc + 3 + i, hy + 2 + k, hxc + 3 + i, hy + 5 - k, C.beak);
+      }
+      api.rect(hxc + 3, hy + 4, hxc + 5, hy + 4, C.beakSh);       // gape line
+      api.px(hxc + 3, hy + 2, '#fee761');
+      api.rect(hxc, hy + 1, hxc + 1, hy + 2, C.eye);
+      api.px(hxc + 1, hy + 1, '#ffffff');
       finish(buf, W, H);
     };
   }
   function chickenSuite() {
+    const C = HEN;
     return { width: 32, height: 32, name: 'chicken', layers: [{ name: 'Body' }], states: [
-      D('idle', 4, true, [Fr(ms(4), chickenFrame({})), Fr(ms(4), chickenFrame({ wing: 1 }))]),
-      D('walk', 6, true, [Fr(ms(6), chickenFrame({ hop: 0 })), Fr(ms(6), chickenFrame({ hop: 1, lift: 2 })), Fr(ms(6), chickenFrame({ hop: 0 })), Fr(ms(6), chickenFrame({ hop: 1, lift: 2, dx: 1 }))]),
-      D('peck', 6, true, [Fr(ms(6), chickenFrame({})), Fr(ms(6), chickenFrame({ peck: true })), Fr(ms(6), chickenFrame({ peck: 4, lift: 2 })), Fr(ms(6), chickenFrame({ wing: 1 }))]),
-      D('death', 8, false, [Fr(ms(8), chickenFrame({ hop: 0 })), Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.ellipse(9, 21, 23, 27, '#c0cbdc', true); api.px(12, 23, '#181425'); finish(buf, W, H); })])
+      D('idle', 5, true, [Fr(ms(5), chickenFrame({})), Fr(ms(5), chickenFrame({ wing: 1 })),
+        Fr(ms(5), chickenFrame({ peck: 1 })), Fr(ms(5), chickenFrame({ wing: 1, peck: 1 }))]),
+      D('walk', 8, true, [Fr(ms(8), chickenFrame({ hop: 0, peck: 1 })), Fr(ms(8), chickenFrame({ hop: 1, lift: 2 })),
+        Fr(ms(8), chickenFrame({ hop: 0, dx: 1 })), Fr(ms(8), chickenFrame({ hop: 1, lift: 2, dx: 1, peck: 1 }))]),
+      D('peck', 7, true, [Fr(ms(7), chickenFrame({})), Fr(ms(7), chickenFrame({ peck: 4 })),
+        Fr(ms(7), chickenFrame({ peck: 8, lift: 1 })), Fr(ms(7), chickenFrame({ peck: 3, wing: 1 }))]),
+      /* Death: flat on its back with the legs in the air. A grey puddle told
+         the player nothing; this reads as a dead chicken from across the map. */
+      D('death', 7, false, [
+        Fr(ms(7), chickenFrame({ wing: -2, peck: -1 })),
+        Fr(ms(7), chickenFrame({ hop: 2, wing: -3, peck: 2 })),
+        Fr(ms(7), (buf, W, H) => {
+          const api = apiFor(buf, W, H);
+          api.ellipse(8, 21, 24, 27, C.B, true);
+          api.ellipse(9, 24, 23, 27, C.S, true);
+          api.line(7, 22, 2, 18, C.S, 2); api.line(7, 23, 3, 21, C.SS, 2);   // tail, flopped
+          api.rect(13, 17, 14, 21, C.leg); api.rect(17, 16, 18, 21, C.leg);  // legs up
+          api.rect(12, 16, 15, 17, C.leg); api.rect(16, 15, 19, 16, C.leg);
+          api.ellipse(22, 22, 28, 27, C.B, true);                            // head, lolling
+          api.rect(22, 21, 27, 22, C.comb);
+          api.px(24, 20, C.comb); api.px(26, 20, C.comb);
+          api.rect(25, 24, 26, 25, '#181425'); api.px(26, 24, C.SS);         // shut eye, X
+          api.px(25, 25, C.SS);
+          api.rect(28, 25, 30, 26, C.beak);
+          finish(buf, W, H);
+        })
+      ])
     ] };
   }
 
@@ -398,12 +483,14 @@ PF.Monsters = (() => {
      edges, so legs begun at the centre line hang free of the shoulders), and
      the bob only ever LIFTS, or the hooves walk through the floor line into the
      engine's shadow row and the outline pass fuses them to it. */
+  /* The old hide and highlight were four luma apart, so every form on the
+     animal — hump, jowl, haunch — resolved to one brown mass. Widened. */
   const BOAR_PAL = {
-    hide: '#7a4230', hi: '#9c5a3c', sh: '#4a2418', rust: '#8f3f26', legFar: '#5a2f20',
+    hide: '#7a4230', hi: '#b06a44', rim: '#cf8a5b', sh: '#41200f', rust: '#8f3f26', legFar: '#552b1c',
     bristle: '#241a22', hoof: '#241318', muzzle: '#c9b6a8', tusk: '#f2ece0', eye: '#f6f0e0'
   };
   const BOAR_FLASH = {
-    hide: '#ffffff', hi: '#f4f4f4', sh: '#d8d8d8', rust: '#ececec', legFar: '#e4e4e4',
+    hide: '#ffffff', hi: '#f4f4f4', rim: '#ffffff', sh: '#d8d8d8', rust: '#ececec', legFar: '#e4e4e4',
     bristle: '#c4c4c4', hoof: '#b8b8b8', muzzle: '#ffffff', tusk: '#ffffff', eye: '#181425'
   };
   function boarFrame(o = {}) {
@@ -430,9 +517,20 @@ PF.Monsters = (() => {
          gallop — because two legs sharing a phase quantises to the same lift on
          frames 1 and 2 and stalls the cycle. */
       const lift = k => ph === undefined ? 0 : -Math.round(Math.max(0, Math.sin((ph + k) * Math.PI * 2)) * 2);
+      /* A boar's leg is heavy at the haunch and drops to a thin cannon bone
+         above a cloven trotter. The old one was a 3x7 rectangle with a dark
+         cap — four identical table legs under a good body. */
       const leg = (x, dy, near) => {
-        api.rect(x, Y(18 + dy), x + 2, Y(24 + dy), near ? c.hide : c.legFar);
-        api.rect(x, Y(25 + dy), x + 2, Y(26 + dy), c.hoof);
+        const col = near ? c.hide : c.legFar;
+        const hip = Y(17 + dy), knee = Y(21 + dy), toe = Y(24 + dy);
+        for (let y = hip; y <= knee; y++) {
+          const w = 2 - Math.round(((y - hip) / (knee - hip)) * 1);
+          api.rect(x, y, x + w + 1, y, col);
+          if (near) api.px(x, y, c.hi);
+        }
+        for (let y = knee; y <= toe; y++) { api.rect(x, y, x + 2, y, col); if (near) api.px(x, y, c.hi); }
+        api.rect(x, toe + 1, x + 2, toe + 2, c.hoof);
+        api.px(x + 1, toe + 1, c.sh);                    // the cleft in the trotter
       };
       leg(8, lift(0), true); leg(12, lift(0.75), false);
       leg(17, lift(0.5), true); leg(21, lift(0.25), false);
@@ -440,7 +538,15 @@ PF.Monsters = (() => {
       api.ellipse(6, Y(15), 15, Y(22), c.hide, true);
       api.ellipse(11, Y(12), 24, Y(22), c.hide, true);
       api.ellipse(13, Y(12), 22, Y(16), c.hi, true);          // sunlit shoulder cap
-      api.rect(9, Y(20), 22, Y(22), c.sh);                    // belly shadow
+      api.ellipse(14, Y(12), 21, Y(14), c.rim, true);         // rim along the hump
+      api.ellipse(7, Y(15), 13, Y(18), c.hi, true);           // the rump catches it too
+      /* Belly shadow following the barrel, not a rectangle stamped across it:
+         a straight dark bar under a curved body reads as a painted stripe. */
+      for (let x = 8; x <= 22; x++) {
+        const u = (x - 8) / 14, d = Math.round(Math.sin(u * Math.PI) * 1.6);
+        api.rect(x, Y(21 - d), x, Y(22), c.sh);
+        api.px(x, Y(21 - d), c.legFar);
+      }
       if (o.saddle) {
         // War-mount blanket over the shoulders. Drawn BEFORE the crest so the
         // bristles still poke out of its top edge — a saddle that buries the
@@ -454,23 +560,45 @@ PF.Monsters = (() => {
       }
       // bristle crest: follows the real back line, rump to neck
       const backY = x => (x <= 17 ? 16 - (x - 7) * 0.4 : 12 + (x - 17) * 0.25) + bob - br;
-      for (let x = 8; x <= 23; x++) {
+      for (let x = 8; x <= 21; x++) {
         api.px(x, Math.round(backY(x)), c.rust);
         api.px(x, Math.round(backY(x)) - 1, c.bristle);
         if ((x & 1) === 0) api.px(x, Math.round(backY(x)) - 2, c.bristle);
       }
-      api.px(6, Y(16), c.bristle); api.px(5, Y(15), c.bristle); api.px(5, Y(13), c.bristle); // curled tail
+      // curled tail, connected: three loose pixels left one floating island
+      // that the outline pass boxed in behind the rump.
+      api.px(6, Y(16), c.bristle); api.px(5, Y(15), c.bristle);
+      api.px(5, Y(14), c.bristle); api.px(6, Y(13), c.rust); api.px(7, Y(14), c.bristle);
       // head: low and forward, so the shoulder hump stays the highest point.
       // A head level with the back has no neck and reads as a pig.
       const hY = y => y + bob + hd + (o.attack ? 1 : 0);
-      api.rect(20, hY(15), 27, hY(21), c.hide);                        // skull wedge
-      api.rect(21, hY(14), 25, hY(14), c.hi);                           // brow
-      api.rect(22, hY(12), 24, hY(13), c.bristle);                      // ear
-      api.px(24, hY(17), c.eye); api.px(25, hY(17), c.bristle);         // eye + pupil
-      api.rect(26, hY(18), 29, hY(20), c.muzzle);                       // pale muzzle
-      api.px(29, hY(18), c.bristle);                                    // nostril
-      api.line(26, hY(21), 29, hY(17), c.tusk, 1);                      // upturned tusk
-      api.px(29, hY(16), c.tusk); api.px(30, hY(16), c.tusk);
+      /* Skull WEDGE, not a box: a boar's head narrows to the snout from a
+         broad jowl, and it DROPS as it narrows. That downward rake is the
+         whole difference between a boar and a brown crate with tusks. */
+      for (let x = 21; x <= 29; x++) {
+        const t = (x - 21) / 8;
+        const top = hY(15) + Math.round(t * 3), bot = hY(21) - Math.round(t * 1.5);
+        api.rect(x, top, x, bot, c.hide);
+        api.px(x, top, c.hi);
+        api.px(x, bot, c.sh);
+      }
+      /* Jowl shadow where the head meets the shoulder. Without it the skull is
+         painted in the same brown it sits on and the boar has no neck. */
+      for (let y = hY(15); y <= hY(20); y++) api.px(20, y, y > hY(17) ? c.sh : c.legFar);
+      api.px(21, hY(20), c.legFar);
+      api.rect(24, hY(16), 26, hY(16), c.rim);                          // brow ridge
+      // ear: a short triangle raked back off the poll
+      api.rect(22, hY(14), 25, hY(14), c.bristle);
+      api.rect(22, hY(13), 24, hY(13), c.bristle);
+      api.rect(22, hY(12), 23, hY(12), c.bristle);
+      api.px(22, hY(11), c.rust);
+      api.rect(25, hY(17), 26, hY(17), c.eye);                          // eye
+      api.px(26, hY(17), c.bristle);
+      api.rect(28, hY(19), 30, hY(21), c.muzzle);                       // pale snout disc
+      api.rect(28, hY(19), 29, hY(19), '#e6d9cd');
+      api.px(30, hY(20), c.bristle);                                    // nostril
+      api.line(28, hY(21), 30, hY(17), c.tusk, 1);                      // upturned tusk
+      api.px(30, hY(16), c.tusk); api.px(29, hY(20), '#c8bda8');
       if (o.dust) {
         // Earth, not the default slate: a boar turns up soil, and the cold tint
         // read as sparks flying off the tusks.

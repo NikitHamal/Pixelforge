@@ -18,60 +18,218 @@ PF.RPG.beasts = (() => {
   const S1 = (name, painter, fps = 6) => D(name, fps, true, [Fr(ms(fps), painter)]);
 
   /* ================= quadruped rig ================= */
-  /* g = geometry, p = palette, pose = { step, bob, headDy, graze, ear } */
+  /* The old rig was six axis-aligned rectangles: a slab torso, four bar legs
+     and a box head on a box neck. Nothing in that says "animal" — it says
+     "bench". This one builds the silhouette the way a quadruped reads at
+     32px: a barrel with a hip mound aft, a dip through the loin, withers
+     rising into a deep brisket, legs that fold at stifle and hock and lift
+     their feet through the swing half of the stride, and a wedge skull with
+     a muzzle that is a separate mass from it. Nothing is a bar. */
+  const CU = h => PF.Color.hexToU32(h);
+  const mixc = (hex, to, t) => {
+    const [r, g, b] = PF.Color.rgba(CU(hex));
+    const q = v => Math.max(0, Math.min(255, Math.round(v)));
+    return PF.Color.u32ToHex(PF.Color.fromRGBA(q(r + (to - r) * t), q(g + (to - g) * t), q(b + (to - b) * t), 255));
+  };
+  const lit = h => mixc(h, 255, 0.26);
+  const dim = h => mixc(h, 18, 0.32);
+
+  /* A tapered segment: walks the dominant axis and lays a run across the
+     other one, which is what keeps a diagonal limb from breaking into a
+     dotted line, and lerps the width, which is what stops every part of the
+     animal from being the same thickness end to end. */
+  const seg = (api, x0, y0, x1, y1, w0, w1, c, hi, lo) => {
+    const dx = x1 - x0, dy = y1 - y0;
+    const n = Math.max(1, Math.round(Math.max(Math.abs(dx), Math.abs(dy))));
+    const vert = Math.abs(dy) >= Math.abs(dx);
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, x = x0 + dx * t, y = y0 + dy * t, w = (w0 + (w1 - w0) * t) / 2;
+      if (vert) {
+        const a = Math.round(x - w), b = Math.round(x + w), yy = Math.round(y);
+        api.rect(a, yy, b, yy, c);
+        if (hi) api.px(a, yy, hi);
+        if (lo && b > a) api.px(b, yy, lo);
+      } else {
+        const a = Math.round(y - w), b = Math.round(y + w), xx = Math.round(x);
+        api.rect(xx, a, xx, b, c);
+        if (hi) api.px(xx, a, hi);
+        if (lo && b > a) api.px(xx, b, lo);
+      }
+    }
+  };
+  const gau = (u, c, w) => Math.exp(-Math.pow((u - c) / w, 2));
+
+  /* g = geometry, p = palette, pose = { step, bob, headDy, tailDy, ear } */
   function quad(g, p, pose = {}) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      const s = pose.step !== undefined ? Math.sin(pose.step * Math.PI * 2) : 0;
-      const bob = pose.step !== undefined ? Math.round(-Math.abs(s) * (g.bobAmp ?? 1)) : (pose.bob || 0);
+      const step = pose.step;
+      const s = step !== undefined ? Math.sin(step * Math.PI * 2) : 0;
+      const bob = step !== undefined ? Math.round(-Math.abs(s) * (g.bobAmp ?? 1)) : (pose.bob || 0);
       const Y = y => y + bob;
-      const sw = g.swing ?? 3, l1 = Math.round(s * sw), l2 = -l1;
-      const lt = Y(g.legTop), lb = Y(g.legBot), lw = g.legW - 1;
-      const L = g.legs;
-      // far leg pair first, in the darker shade (reads as depth)
-      api.rect(L[1] + l2, lt, L[1] + l2 + lw, lb, p.shade);
-      api.rect(L[3] + l1, lt, L[3] + l1 + lw, lb, p.shade);
-      api.rect(L[1] + l2, lb - 1, L[1] + l2 + lw, lb, p.hoof);
-      api.rect(L[3] + l1, lb - 1, L[3] + l1 + lw, lb, p.hoof);
-      // torso
-      api.rect(g.bodyL, Y(g.bodyTop), g.bodyR, Y(g.bodyBot), p.body);
-      api.rect(g.bodyL, Y(g.bodyBot - 2), g.bodyR, Y(g.bodyBot), p.belly);
-      api.rect(g.bodyL, Y(g.bodyTop), g.bodyL + 2, Y(g.bodyBot), p.shade);
-      api.rect(g.bodyL, Y(g.bodyTop), g.bodyR, Y(g.bodyTop), p.shade);
-      if (g.spots) g.spots.forEach(([sx, sy]) => api.px(sx, Y(sy), p.spot));
-      if (g.wool) { // sheep: bumpy fleece along the back
-        for (let x = g.bodyL + 1; x < g.bodyR; x += 3) api.ellipse(x, Y(g.bodyTop - 1), x + 3, Y(g.bodyTop + 2), p.body, true);
+      const B = p.body, Bl = lit(B), Bd = p.shade, Bdd = dim(Bd);
+      const HB = p.head || B, HBl = lit(HB), HBd = p.head ? dim(HB) : Bd;
+      const sw = g.swing ?? 3, lt = Y(g.legTop), lb = Y(g.legBot), L = g.legs;
+
+      /* ---- limbs ----------------------------------------------------- */
+      /* A quadruped walks the diagonal: near-fore with off-hind. Hind legs
+         break backward at the hock, forelegs forward at the knee — that one
+         difference is most of what makes four sticks read as four legs. */
+      const lift = step !== undefined ? (g.lift ?? 2) : 0;
+      const limb = (hx, ph, hind, col, hoofC) => {
+        const a = ph * Math.PI * 2;
+        const dx = Math.sin(a) * sw;
+        const fy = lb - Math.round(Math.max(0, Math.sin(a + Math.PI * 0.5)) * lift);
+        const ky = lt + Math.round((lb - lt) * 0.52);
+        const kx = hx + dx * 0.3 + (hind ? -1.7 : 1.5);
+        const fx = hx + dx;
+        seg(api, hx, lt - 2, kx, ky, g.legW + 2.4, g.legW, col, lit(col), dim(col));
+        seg(api, kx, ky, fx, fy - 2, g.legW, Math.max(1.6, g.legW - 1), col, lit(col));
+        api.rect(Math.round(fx) - 1, fy - 1, Math.round(fx) + 1, fy, hoofC);
+        api.px(Math.round(fx) - 1, fy - 1, mixc(hoofC, 255, 0.2));
+      };
+      const ph0 = step !== undefined ? step : 0.25, ph1 = ph0 + 0.5;
+      limb(L[1], ph1, true, Bd, dim(p.hoof));        // off hind
+      limb(L[3], ph0, false, Bd, dim(p.hoof));       // off fore
+
+      /* ---- torso ------------------------------------------------------ */
+      const bl = g.bodyL, br = g.bodyR, bt = g.bodyTop, bb = g.bodyBot;
+      const spn = br - bl, dep = bb - bt;
+      const prof = x => {
+        const u = Math.max(0, Math.min(1, (x - bl) / spn));
+        const cap = Math.pow(Math.sin(u * Math.PI), 0.36);   // rounds both ends
+        let top = bt + (1 - cap) * dep * 0.46
+          - gau(u, 0.20, 0.15) * (g.hip ?? 1.6)              // croup over the hip
+          + gau(u, 0.50, 0.22) * (g.loin ?? 1.2)             // dip through the loin
+          - gau(u, 0.80, 0.18) * (g.withers ?? 1.7);         // withers
+        let bot = bb - (1 - cap) * dep * 0.34
+          + gau(u, 0.76, 0.20) * (g.brisket ?? 1.2)          // brisket hangs low
+          - gau(u, 0.46, 0.22) * (g.tuck ?? 1.3);            // flank tucks up
+        top = Math.round(top); bot = Math.round(bot);
+        return [top, Math.max(bot, top + 2)];
+      };
+      for (let x = bl; x <= br; x++) {
+        const [t0, b0] = prof(x);
+        api.rect(x, Y(t0), x, Y(b0), B);
+        api.px(x, Y(t0), Bl);                                // sun along the spine
+        const u = (x - bl) / spn;
+        if (u > 0.12 && u < 0.92) api.px(x, Y(b0 - 1), p.belly);   // countershading, not a stripe
+        api.px(x, Y(b0), Bd);
       }
-      // tail — pose.tailDy flicks it without moving the feet
-      const t = g.tail, tw = t.w || 2, td = pose.tailDy || 0;
-      api.line(t.x, Y(t.y), t.x + t.dx, Y(t.y + t.dy + td), p.shade, tw);
-      if (t.tip) api.px(t.x + t.dx, Y(t.y + t.dy + td), t.tip);
-      // near leg pair
-      api.rect(L[0] + l1, lt, L[0] + l1 + lw, lb, p.leg);
-      api.rect(L[2] + l2, lt, L[2] + l2 + lw, lb, p.leg);
-      api.rect(L[0] + l1, lb - 1, L[0] + l1 + lw, lb, p.hoof);
-      api.rect(L[2] + l2, lb - 1, L[2] + l2 + lw, lb, p.hoof);
-      // neck + head
+      if (g.wool) {                                          // fleece: scallop the whole outline
+        for (let x = bl + 1; x < br - 3; x += 3) {
+          const [t0, b0] = prof(x);
+          api.ellipse(x - 1, Y(t0) - 2, x + 2, Y(t0) + 2, B, true);
+          api.ellipse(x - 1, Y(t0) - 2, x + 1, Y(t0), Bl, true);
+          api.ellipse(x - 1, Y(b0) - 2, x + 2, Y(b0) + 1, p.belly, true);
+          api.px(x + 2, Y(t0) + 2, Bd);
+        }
+      }
+      if (g.spots) g.spots.forEach(([sx, sy, r0]) => {        // blotches, not single pixels
+        const r = r0 || 2;
+        for (let x = Math.max(bl, sx - r); x <= Math.min(br, sx + r); x++) {
+          const [t0, b0] = prof(x);
+          for (let y = sy - r; y <= sy + r; y++)
+            if (Math.pow((x - sx) / r, 2) + Math.pow((y - sy) / (r - 0.4), 2) <= 1 && y > t0 && y < b0 - 1)
+              api.px(x, Y(y), p.spot);
+        }
+      });
+      if (g.udder) {
+        const ux = bl + Math.round(spn * 0.34), uc = p.udder || '#f6c1c6';
+        api.ellipse(ux - 2, Y(bb - 1), ux + 2, Y(bb + 2), uc, true);
+        api.rect(ux - 2, Y(bb - 1), ux, Y(bb), lit(uc));
+        api.px(ux - 1, Y(bb + 3), dim(uc)); api.px(ux + 1, Y(bb + 3), dim(uc));
+      }
+
+      /* ---- tail -------------------------------------------------------- */
+      const t = g.tail, td = pose.tailDy || 0;
+      const tx = t.x + t.dx, ty = Y(t.y + t.dy + td);
+      if (t.curl) {                                          // pig: a corkscrew, not a droop
+        api.rect(t.x, Y(t.y) + 1, t.x + 2, Y(t.y) + 2, Bd);          // root, into the rump
+        api.ellipse(t.x - 3, Y(t.y) - 1, t.x + 1, Y(t.y) + 3, Bd, false);
+        api.px(t.x - 3, Y(t.y) + 4 + (td > 0 ? 1 : 0), Bd);
+      } else {
+        seg(api, t.x, Y(t.y), tx, ty, (t.w || 2) + 1.4, 1.4, Bd, Bl);
+        if (t.tip) api.ellipse(tx - 1, ty - 1, tx + 1, ty + 3, t.tip, true);
+      }
+
+      /* ---- neck, skull, muzzle ------------------------------------------ */
+      const hwd = g.headW, hh = g.headH, hx = g.headX;
       const hy = Y(g.headY + (pose.headDy || 0));
-      api.rect(g.headX - 3, hy + 2, g.headX + 1, Y(g.bodyTop) + 1, p.body);
-      api.rect(g.headX, hy, g.headX + g.headW - 1, hy + g.headH - 1, p.body);
-      api.rect(g.headX, hy + g.headH - 2, g.headX + g.headW - 1, hy + g.headH - 1, p.shade);
-      // snout / muzzle
-      api.rect(g.headX + g.headW - 1, hy + g.headH - 4, g.headX + g.headW + 1, hy + g.headH - 2, p.belly);
-      api.px(g.headX + g.headW + 1, hy + g.headH - 3, p.shade);
-      // eye
-      api.px(g.headX + g.headW - 3, hy + 2, p.eye);
-      api.px(g.headX + g.headW - 3, hy + 2, p.eye);
-      // ears
-      if (g.ear === 'long') { api.line(g.headX + 1, hy, g.headX - 1, hy - 5, p.body, 2); api.line(g.headX + 3, hy, g.headX + 2, hy - 5, p.body, 2); }
-      else if (g.ear === 'flop') { api.ellipse(g.headX, hy - 1, g.headX + 3, hy + 2, p.shade, true); }
-      else { api.line(g.headX + 1, hy, g.headX, hy - 3, p.body, 2); api.line(g.headX + 4, hy, g.headX + 4, hy - 3, p.body, 2); }
-      // horns
-      if (g.horn) {
-        api.line(g.headX + 1, hy - 1, g.headX - 1, hy - 3, p.horn, 2);
-        api.line(g.headX + 4, hy - 1, g.headX + 6, hy - 3, p.horn, 2);
-        api.px(g.headX - 1, hy - 3, p.hornSh); api.px(g.headX + 6, hy - 3, p.hornSh);
+      const nw = g.neckW ?? 8;
+      seg(api, br - 4, Y(bt) + 3, hx + 2, hy + hh - 2, nw, nw - 3.5, B, Bl, Bd);
+      if (g.mane) {                                          // crest of hair down the neck
+        const mc = p.mane || Bdd;
+        for (let i = 0; i <= 7; i++) {
+          const k = i / 9;
+          const x = Math.round((br - 4) + ((hx + 1) - (br - 4)) * k);
+          const y = Math.round((Y(bt) + 2) + ((hy + 1) - (Y(bt) + 2)) * k);
+          api.rect(x - 1, y - 2 - (i % 2), x, y + 1, mc);
+        }
       }
+      api.ellipse(hx, hy + 1, hx + hwd - 1, hy + hh - 1, HB, true);
+      api.rect(hx + 1, hy, hx + hwd - 2, hy + 2, HB);
+      api.rect(hx + 1, hy, hx + hwd - 3, hy, HBl);           // lit brow
+      api.rect(hx, hy + hh - 2, hx + hwd - 3, hy + hh - 1, HBd);   // jaw in shade
+      /* The head is the same colour as the neck it sits on, so without a
+         shadow down the back of the jaw the two fuse into one lump — which is
+         exactly what a white cow's head did. This one line is the head. */
+      api.rect(hx, hy + 2, hx, hy + hh - 2, HBd);
+      api.px(hx + 1, hy + hh - 1, HBd);
+      if (g.faceSpot) {                                      // marking that lets a white face read
+        api.ellipse(hx + 1, hy, hx + hwd - 3, hy + 3, p.spot, true);
+        api.px(hx + 1, hy, HBl);
+      }
+      const mzc = p.muzzle || p.belly, mzd = g.muzzle ?? 3;
+      const mx = hx + hwd - 2, my = hy + (g.muzzleY ?? 3);
+      seg(api, mx, my, mx + mzd, my + (g.muzzleDrop ?? 2), Math.max(2.8, hh * 0.52), Math.max(2, hh * 0.34), mzc, lit(mzc), dim(mzc));
+      const nx = mx + mzd, ny = my + (g.muzzleDrop ?? 2);
+      if (g.snout) {                                         // pig: a flat disc, seen edge-on
+        api.rect(nx, ny - 2, nx + 1, ny + 2, mzc);
+        api.px(nx + 1, ny - 1, dim(mzc)); api.px(nx + 1, ny + 1, dim(mzc));
+      } else {
+        api.px(nx, ny - 1, dim(mzc));                        // nostril
+        api.rect(nx - 2, ny + 1, nx, ny + 1, dim(mzc));      // mouth line
+      }
+      const ex = hx + hwd - 4, ey = hy + 2 + (g.eyeDy || 0);
+      api.rect(ex, ey, ex + 1, ey + 1, p.eye);
+      api.px(ex, ey - 1, HBd);                               // brow
+      api.px(ex + 1, ey, p.glint || '#ffffff');
+
+      /* ---- ears --------------------------------------------------------- */
+      const ed = pose.ear || 0;
+      if (g.ear === 'long') {                                // horse, deer, rabbit
+        const el = g.earLen ?? 5;
+        seg(api, hx + 1, hy + 2, hx - 1, hy - el + 1 + ed, 3.4, 1.3, HBd);
+        seg(api, hx + 4, hy + 2, hx + 4, hy - el + ed, 3.6, 1.4, HB, HBl);
+        api.px(hx + 4, hy - el + 3 + ed, p.inner || mzc);
+      } else if (g.ear === 'flop') {                         // cow, sheep: sideways leaf
+        seg(api, hx + 1, hy + 2, hx - 2, hy + 4 + ed, 1.6, 2.8, HBd);
+        seg(api, hx + 3, hy + 2, hx, hy + 3 + ed, 1.6, 3, HB, HBl);
+      } else {                                               // pig: flopped forward over the brow
+        seg(api, hx + 1, hy, hx - 1, hy + 3 + ed, 2, 3.4, HBd);
+        seg(api, hx + 4, hy - 1, hx + 3, hy + 2 + ed, 2.2, 3.6, HB, HBl);
+      }
+
+      /* ---- horns -------------------------------------------------------- */
+      if (g.horn === 'cow') {                                // short crescents: out, up, forward
+        const hc = p.horn, hs = p.hornSh;
+        seg(api, hx + 2, hy + 1, hx, hy - 2, 1.8, 0.8, hs);
+        seg(api, hx + 4, hy + 1, hx + 6, hy - 1, 2, 0.8, hc, lit(hc));
+        api.px(hx + 6, hy - 2, hc);
+      } else if (g.horn === 'antler') {                      // deer: a beam with tines
+        const hc = p.horn, hs = p.hornSh;
+        seg(api, hx + 2, hy, hx, hy - 5, 1.6, 0.8, hs);
+        api.px(hx - 1, hy - 4, hs);
+        seg(api, hx + 4, hy, hx + 6, hy - 6, 1.8, 0.8, hc, lit(hc));
+        seg(api, hx + 5, hy - 3, hx + 8, hy - 4, 1.2, 0.8, hc);   // brow tine
+        seg(api, hx + 6, hy - 5, hx + 4, hy - 8, 1.2, 0.8, hc);   // top fork
+      }
+
+      /* near pair last: it overlaps torso and head, which is what puts the
+         far pair behind the body instead of beside it. */
+      limb(L[0], ph0, true, p.leg, p.hoof);
+      limb(L[2], ph1, false, p.leg, p.hoof);
       finish(buf, W, H);
     };
   }
@@ -79,40 +237,55 @@ PF.RPG.beasts = (() => {
   /* ================= animal table ================= */
   const A = {
     cow: {
-      geo: { shadow: 9, bodyL: 4, bodyR: 25, bodyTop: 13, bodyBot: 22, legs: [6, 10, 19, 23], legW: 3, legTop: 21, legBot: 27,
-        headX: 22, headY: 11, headW: 8, headH: 7, ear: 'flop', horn: true, swing: 2, bobAmp: 1,
-        tail: { x: 4, y: 14, dx: -3, dy: 4, w: 2, tip: '#262b44' }, spots: [[10, 16], [14, 19], [19, 15], [8, 20]] },
-      pal: { body: '#ffffff', shade: '#c0cbdc', belly: '#e8ecf5', leg: '#e8ecf5', hoof: '#262b44', eye: '#181425', horn: '#ead4aa', hornSh: '#c28569', spot: '#262b44' }
+      geo: { shadow: 9, bodyL: 3, bodyR: 23, bodyTop: 13, bodyBot: 22, legs: [6, 10, 18, 22], legW: 3, legTop: 20, legBot: 27,
+        headX: 24, headY: 12, headW: 6, headH: 7, neckW: 9, ear: 'flop', horn: 'cow', swing: 2, bobAmp: 1, lift: 2,
+        hip: 1.8, withers: 1.5, loin: 1.5, brisket: 1.4, tuck: 1.0, muzzle: 2, muzzleY: 4, muzzleDrop: 1, udder: true,
+        faceSpot: true, eyeDy: 1,
+        tail: { x: 3, y: 14, dx: -2, dy: 6, w: 2, tip: '#262b44' },
+        spots: [[8, 16, 3], [14, 20, 2], [18, 16, 2], [5, 20, 2]] },
+      pal: { body: '#ffffff', shade: '#bcc6d8', belly: '#dfe5f0', leg: '#f2f5fb', hoof: '#262b44', eye: '#181425',
+        horn: '#d9ae72', hornSh: '#9c6f42', spot: '#3a3b55', muzzle: '#f2a0a8', udder: '#f6c1c6', inner: '#f2a0a8', glint: '#c0cbdc' }
     },
     sheep: {
-      geo: { shadow: 8, bodyL: 5, bodyR: 24, bodyTop: 14, bodyBot: 22, legs: [7, 11, 18, 22], legW: 2, legTop: 21, legBot: 27,
-        headX: 21, headY: 12, headW: 7, headH: 6, ear: 'flop', wool: true, swing: 2, bobAmp: 1,
-        tail: { x: 5, y: 15, dx: -2, dy: 2, w: 2 } },
-      pal: { body: '#e8ecf5', shade: '#c0cbdc', belly: '#ffffff', leg: '#3e2731', hoof: '#181425', eye: '#181425', horn: '#c28569', hornSh: '#733e39', spot: '#c0cbdc' }
+      geo: { shadow: 8, bodyL: 4, bodyR: 22, bodyTop: 14, bodyBot: 22, legs: [7, 11, 17, 21], legW: 2, legTop: 21, legBot: 27,
+        headX: 23, headY: 14, headW: 6, headH: 6, neckW: 6, ear: 'flop', wool: true, swing: 2, bobAmp: 1, lift: 2,
+        hip: 1.2, withers: 1.0, loin: 0.5, brisket: 1.0, tuck: 0.5, muzzle: 3, muzzleY: 3, muzzleDrop: 1,
+        tail: { x: 5, y: 16, dx: -2, dy: 3, w: 3 } },
+      pal: { body: '#f2f5fb', shade: '#bcc6d8', belly: '#ffffff', leg: '#6b4c5c', hoof: '#2b1b24', eye: '#f2f5fb',
+        head: '#4a3341', horn: '#c28569', hornSh: '#733e39', spot: '#c0cbdc', muzzle: '#6b4c5c', inner: '#b55088', glint: '#181425' }
     },
     pig: {
-      geo: { shadow: 8, bodyL: 5, bodyR: 24, bodyTop: 15, bodyBot: 23, legs: [7, 11, 18, 22], legW: 3, legTop: 22, legBot: 27,
-        headX: 21, headY: 14, headW: 7, headH: 7, ear: 'up', swing: 2, bobAmp: 1,
-        tail: { x: 5, y: 16, dx: -2, dy: -1, w: 1 } },
-      pal: { body: '#f6757a', shade: '#b55088', belly: '#f2c094', leg: '#f6757a', hoof: '#3e2731', eye: '#181425', horn: '#ffffff', hornSh: '#c0cbdc', spot: '#b55088' }
+      geo: { shadow: 8, bodyL: 4, bodyR: 22, bodyTop: 15, bodyBot: 23, legs: [7, 11, 17, 21], legW: 3, legTop: 22, legBot: 27,
+        headX: 23, headY: 15, headW: 6, headH: 7, neckW: 9, ear: 'up', swing: 2, bobAmp: 1, lift: 1, snout: true,
+        hip: 1.7, withers: 0.8, loin: 0.3, brisket: 1.7, tuck: 0.2, muzzle: 2, muzzleY: 4, muzzleDrop: 0,
+        tail: { x: 5, y: 17, dx: -3, dy: -2, w: 2, curl: true } },
+      pal: { body: '#f6757a', shade: '#c05e77', belly: '#f8a9ad', leg: '#f6757a', hoof: '#3e2731', eye: '#181425',
+        horn: '#ffffff', hornSh: '#c0cbdc', spot: '#c05e77', muzzle: '#f2a0a8', inner: '#c05e77' }
     },
     horse: {
-      geo: { shadow: 9, bodyL: 4, bodyR: 24, bodyTop: 12, bodyBot: 21, legs: [5, 9, 19, 23], legW: 2, legTop: 20, legBot: 27,
-        headX: 22, headY: 7, headW: 6, headH: 8, ear: 'long', swing: 4, bobAmp: 2,
-        tail: { x: 4, y: 13, dx: -3, dy: 5, w: 3, tip: '#262b44' } },
-      pal: { body: '#b86f50', shade: '#733e39', belly: '#e4a672', leg: '#b86f50', hoof: '#262b44', eye: '#181425', horn: '#ead4aa', hornSh: '#c28569', spot: '#733e39' }
+      geo: { shadow: 9, bodyL: 3, bodyR: 22, bodyTop: 12, bodyBot: 20, legs: [5, 9, 17, 21], legW: 3, legTop: 19, legBot: 27,
+        headX: 24, headY: 9, headW: 5, headH: 9, neckW: 8, ear: 'long', earLen: 4, swing: 4, bobAmp: 2, lift: 3, mane: true,
+        hip: 1.9, withers: 1.7, loin: 1.3, brisket: 1.0, tuck: 1.7, muzzle: 2, muzzleY: 5, muzzleDrop: 2,
+        tail: { x: 3, y: 13, dx: -2, dy: 8, w: 4, tip: '#262b44' } },
+      pal: { body: '#b86f50', shade: '#8a4c39', belly: '#cf8d63', leg: '#b86f50', hoof: '#262b44', eye: '#181425',
+        horn: '#ead4aa', hornSh: '#c28569', spot: '#733e39', muzzle: '#7a4331', mane: '#3e2731', head: '#cf8d63', inner: '#f2a0a8', glint: '#f8d8b0' }
     },
     rabbit: {
-      geo: { shadow: 5, bodyL: 8, bodyR: 21, bodyTop: 17, bodyBot: 24, legs: [10, 13, 17, 20], legW: 2, legTop: 23, legBot: 27,
-        headX: 18, headY: 12, headW: 7, headH: 7, ear: 'long', swing: 2, bobAmp: 2,
-        tail: { x: 8, y: 19, dx: -3, dy: -1, w: 2, tip: '#ffffff' } },
-      pal: { body: '#ead4aa', shade: '#c8b28a', belly: '#fff6c9', leg: '#ead4aa', hoof: '#c8b28a', eye: '#181425', horn: '#ffffff', hornSh: '#c0cbdc', spot: '#c8b28a' }
+      geo: { shadow: 5, bodyL: 7, bodyR: 20, bodyTop: 16, bodyBot: 24, legs: [10, 12, 17, 19], legW: 2, legTop: 23, legBot: 27,
+        headX: 21, headY: 14, headW: 6, headH: 6, neckW: 5, ear: 'long', earLen: 7, swing: 2, bobAmp: 2, lift: 2,
+        hip: 2.2, withers: 0.6, loin: 1.0, brisket: 0.6, tuck: 0.8, muzzle: 2, muzzleY: 3, muzzleDrop: 1,
+        tail: { x: 7, y: 20, dx: -2, dy: -1, w: 3, tip: '#ffffff' } },
+      pal: { body: '#ead4aa', shade: '#bfa47c', belly: '#fff6c9', leg: '#ead4aa', hoof: '#bfa47c', eye: '#181425',
+        horn: '#ffffff', hornSh: '#c0cbdc', spot: '#c8b28a', muzzle: '#f2a0a8', inner: '#f2a0a8', glint: '#fff6c9' }
     },
     deer: {
-      geo: { shadow: 8, bodyL: 5, bodyR: 23, bodyTop: 13, bodyBot: 21, legs: [6, 10, 18, 22], legW: 2, legTop: 20, legBot: 27,
-        headX: 21, headY: 8, headW: 6, headH: 7, ear: 'long', horn: true, swing: 3, bobAmp: 2,
-        tail: { x: 5, y: 14, dx: -2, dy: 2, w: 2, tip: '#fff6c9' }, spots: [[10, 16], [13, 18], [16, 16], [19, 18]] },
-      pal: { body: '#d77643', shade: '#b86f50', belly: '#ead4aa', leg: '#d77643', hoof: '#3e2731', eye: '#181425', horn: '#ead4aa', hornSh: '#c28569', spot: '#fff6c9' }
+      geo: { shadow: 8, bodyL: 4, bodyR: 21, bodyTop: 14, bodyBot: 21, legs: [6, 10, 16, 20], legW: 2, legTop: 20, legBot: 27,
+        headX: 22, headY: 10, headW: 6, headH: 7, neckW: 6, ear: 'long', earLen: 4, horn: 'antler', swing: 3, bobAmp: 2, lift: 3,
+        hip: 1.8, withers: 1.6, loin: 1.2, brisket: 0.8, tuck: 1.5, muzzle: 2, muzzleY: 4, muzzleDrop: 1,
+        tail: { x: 4, y: 15, dx: -2, dy: 2, w: 2, tip: '#fff6c9' },
+        spots: [[8, 18, 1.6], [12, 19, 1.6], [16, 18, 1.6]] },
+      pal: { body: '#d77643', shade: '#a8552f', belly: '#c78f5c', leg: '#c06334', hoof: '#3e2731', eye: '#181425',
+        horn: '#ead4aa', hornSh: '#c28569', spot: '#f0d9a8', muzzle: '#3e2731', inner: '#f2a0a8', glint: '#e4a672' }
     }
   };
 
@@ -221,15 +394,18 @@ PF.RPG.beasts = (() => {
       const a = A[key], g = a.geo, p = a.pal;
       // Idle: the head settles and the tail flicks. Nothing lifts the feet —
       // a whole-body bob on a standing animal reads as hopping, not breathing.
-      const IDLE_H = [0, 1, 1, 0], IDLE_T = [0, -1, 1, 1];
-      const idle = [0, 1, 2, 3].map(i => Fr(ms(5), quad(g, p, { headDy: IDLE_H[i], tailDy: IDLE_T[i] })));
-      const walk = [0, 1, 2, 3].map(i => Fr(ms(6), quad(g, p, { step: i / 4 })));
-      // head dips a few pixels only: a deeper dip would invert the neck rect
-      // and merge the head into the torso. The last frame stays lifted-but-not-
-      // level so the loop has no dead repeat against frame 0.
-      const graze = [0, 2, 3, 1].map(d => Fr(ms(8), quad(g, p, { headDy: d })));
+      const IDLE_H = [0, 1, 1, 0], IDLE_T = [0, -1, 1, 1], IDLE_E = [0, 0, 1, 0];
+      const idle = [0, 1, 2, 3].map(i => Fr(ms(5), quad(g, p, { headDy: IDLE_H[i], tailDy: IDLE_T[i], ear: IDLE_E[i] })));
+      // Six frames, not four: a four-beat gait sampled four times puts a foot
+      // at the same place twice and the walk stutters. Six gives the stride a
+      // readable reach-plant-push-recover on every leg.
+      const walk = [0, 1, 2, 3, 4, 5].map(i => Fr(ms(9), quad(g, p, { step: i / 6 })));
+      // The neck is a tapered segment now, so the head can actually go down to
+      // the grass instead of dipping two pixels. The last frame stays
+      // lifted-but-not-level so the loop has no dead repeat against frame 0.
+      const graze = [0, 3, 5, 2].map((d, i) => Fr(ms(8), quad(g, p, { headDy: d, tailDy: i === 2 ? 1 : 0 })));
       states.push(D(key + '_idle', 5, true, idle));
-      states.push(D(key + '_walk', 6, true, walk));
+      states.push(D(key + '_walk', 9, true, walk));
       states.push(D(key + '_graze', 8, true, graze));
     }
     return { width: 32, height: 32, name: 'rpg-animals', layers: [{ name: 'Body' }], states };

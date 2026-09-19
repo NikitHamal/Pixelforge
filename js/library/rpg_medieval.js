@@ -399,81 +399,225 @@ PF.RPG.medieval = (() => {
 
   /* ================= 7. WARHORSE ================= */
   // Barded medieval destrier with steel chanfron, azure caparison & gold heraldry.
+  /* A tapered segment. It walks the dominant axis and lays a run across the
+     other one, which is what stops a diagonal limb from breaking into a dotted
+     line, and it lerps the width, which is what stops a horse's leg from being
+     the same plank from shoulder to hoof. */
+  const wseg = (api, x0, y0, x1, y1, w0, w1, c, hi, lo) => {
+    const dx = x1 - x0, dy = y1 - y0;
+    const n = Math.max(1, Math.round(Math.max(Math.abs(dx), Math.abs(dy))));
+    const vert = Math.abs(dy) >= Math.abs(dx);
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, x = x0 + dx * t, y = y0 + dy * t, w = (w0 + (w1 - w0) * t) / 2;
+      if (vert) {
+        const l = Math.round(x - w), r = Math.round(x + w), yy = Math.round(y);
+        api.rect(l, yy, r, yy, c);
+        if (hi) api.px(l, yy, hi);
+        if (lo && r > l) api.px(r, yy, lo);
+      } else {
+        const t0 = Math.round(y - w), b0 = Math.round(y + w), xx = Math.round(x);
+        api.rect(xx, t0, xx, b0, c);
+        if (hi) api.px(xx, t0, hi);
+        if (lo && b0 > t0) api.px(xx, b0, lo);
+      }
+    }
+  };
+  const gauss = (u, c, w) => Math.exp(-Math.pow((u - c) / w, 2));
+
   function warhorseFrame(pose = {}) {
     return (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      const bob = pose.bob || 0, rear = pose.rear || 0;
-      const step = pose.step !== undefined ? Math.sin(pose.step * Math.PI * 2) : 0;
-      const legBob = Math.round(step * 4);
-      const Y = y => y + bob - rear;
-      const RearY = y => y + bob;
+      const bob = pose.bob || 0, rear = pose.rear || 0, step = pose.step;
+      const F = pose.flash;
 
-      // Palette
-      const Coat = pose.flash ? '#ffffff' : '#262b44';
-      const CoatSh = pose.flash ? '#c0cbdc' : '#181425';
-      const Steel = pose.flash ? '#ffffff' : '#c0cbdc';
-      const Azure = '#124e89', AzureSh = '#1c2a44', Gold = '#fee761';
-      const Hoof = '#5a6988';
+      /* The old destrier was painted #262b44 over a #181425 outline — two
+         values apart, so the whole animal collapsed into its own silhouette and
+         the azure trapper was the only thing you could see. A bay coat gives
+         the steel and the azure something to sit against. */
+      const Coat = F ? '#ffffff' : '#6b4230';
+      const CoatHi = F ? '#ffffff' : '#9c6242';
+      const CoatSh = F ? '#c0cbdc' : '#40241a';
+      const Far = F ? '#c0cbdc' : '#4d2f21';          // off-side limbs, a value back
+      const Mane = F ? '#d4dae8' : '#241a22';         // black points
+      const ManeHi = F ? '#ffffff' : '#4a3341';
+      const Steel = F ? '#ffffff' : '#c0cbdc', SteelHi = '#ffffff';
+      const SteelSh = F ? '#c0cbdc' : '#7b86a8';
+      const Azure = F ? '#8b9bb4' : '#1a5fa8', AzureSh = F ? '#5a6988' : '#123f74';
+      const Gold = F ? '#ffffff' : '#fee761', Strap = F ? '#c0cbdc' : '#3e2731';
+      const Leather = F ? '#c0cbdc' : '#733e39';
+      const Hoof = F ? '#8b9bb4' : '#2b2233';
 
-      // 1. Far legs (back pair)
+      const bl = 4, br = 20, spn = br - bl;
+      /* Rearing pivots on the hocks: the croup barely moves and the withers
+         climb. Lerping the vertical offset along the barrel gets that for free,
+         where the old frame just teleported the whole front half upward. */
+      const tilt = x => bob - rear * Math.max(0, Math.min(1, (x - bl) / spn));
+      const Y = y => y + bob - rear;                  // forehand space
+      const G = y => y + bob;                         // hindquarters / ground
+
+      /* ---- legs. A horse is mostly leg; the old frame gave it four 3x7 bars
+         under a cloth that reached the floor, so it stood like a table. ---- */
+      const swing = step === undefined ? 0 : 2.8;
+      const lift = rear ? 0 : 3;
+      const leg = (hx, ph, hind, col, hi) => {
+        const a = ph * Math.PI * 2;
+        const dx = Math.sin(a) * swing;
+        const up = step === undefined ? 0 : Math.round(Math.max(0, Math.sin(a + Math.PI * 0.5)) * lift);
+        const top = G(hind ? 15 : 14), knee = G(21), foot = G(26) - up;
+        const kx = hx + dx * 0.35 + (hind ? -1.5 : 1.3);
+        const fx = hx + dx;
+        wseg(api, hx, top, kx, knee, hind ? 5 : 4, 2.4, col, hi, CoatSh);
+        wseg(api, kx, knee, fx, foot - 1, 2.2, 1.6, col, hi);
+        const r = Math.round(fx);
+        api.rect(r - 1, foot, r + 1, foot + 1, Hoof);
+        api.px(r - 1, foot, '#4a4360');               // light on the hoof wall
+      };
+      /* A rearing horse folds at the knee and the hoof tucks back under the
+         chest. Straight bars pointing forward read as a table. */
+      const foldFore = (sx0, sy, out, col, hi) => {
+        const kx = sx0 + 4 + out, ky = sy - 1;
+        wseg(api, sx0, sy, kx, ky, 4, 2.4, col, hi, CoatSh);    // upper arm, thrown forward
+        wseg(api, kx, ky, kx - 1, ky + 5, 2.2, 1.6, col, hi);   // cannon tucked back under
+        api.rect(kx - 2, ky + 5, kx, ky + 6, Hoof);
+        api.px(kx - 2, ky + 5, '#4a4360');
+      };
+
+      /* Every leg goes down BEFORE the barrel. A caparison drapes OVER the
+         shoulder and haunch — drawing the near legs last painted bare coat
+         across the bottom half of the cloth and left a blue saddle blanket. */
+      const ph0 = step !== undefined ? step : 0.25, ph1 = ph0 + 0.5;
       if (rear > 0) {
-        // Rearing pose: hind legs planted at ground y=26..27, forelegs lifted
-        api.rect(7, RearY(21), 10, RearY(26), CoatSh); api.rect(7, RearY(26), 10, RearY(27), Hoof);
-        api.rect(17, Y(16), 19, Y(21), CoatSh); api.rect(17, Y(21), 19, Y(22), Hoof);
+        leg(9, 0, true, Far, Far);
+        leg(7, 0.08, true, Coat, CoatHi);
       } else {
-        const l1 = legBob, l2 = -legBob;
-        api.rect(7 + l2, Y(20), 9 + l2, Y(26), CoatSh); api.rect(7 + l2, Y(26), 9 + l2, Y(27), Hoof);
-        api.rect(20 + l1, Y(20), 22 + l1, Y(26), CoatSh); api.rect(20 + l1, Y(26), 22 + l1, Y(27), Hoof);
+        leg(9, ph1, true, Far, Far);
+        leg(18, ph0, false, Far, Far);
+        leg(7, ph0, true, Coat, CoatHi);
+        leg(16, ph1, false, Coat, CoatHi);
       }
 
-      // 2. Torso (Horse body)
-      api.rect(5, Y(13), 23, Y(21), Coat);
-      // Caparison (azure armored cloth trapper covering body)
-      api.rect(6, Y(14), 22, Y(21), Azure);
-      api.rect(6, Y(20), 22, Y(21), AzureSh);
-      api.rect(6, Y(21), 22, Y(22), Gold); // gold heraldic hem trim
-      // Heraldic cross or fleur on caparison
-      api.rect(13, Y(16), 15, Y(18), Gold);
-      api.px(14, Y(15), Gold); api.px(14, Y(19), Gold);
-
-      // 3. Saddle & leather girth
-      api.rect(12, Y(12), 17, Y(14), '#733e39');
-      api.rect(14, Y(14), 15, Y(20), '#3e2731');
-      api.px(14, Y(18), Gold); // stirrup
-
-      // 4. Tail
-      const tailX = 4, tailY = Y(14), tailSw = pose.tailSw || 0;
-      api.line(tailX, tailY, tailX - 3 + tailSw, tailY + 6, CoatSh, 2);
-      api.line(tailX - 1, tailY + 2, tailX - 4 + tailSw, tailY + 8, Coat, 1);
-
-      // 5. Near legs (front pair)
-      if (rear > 0) {
-        api.rect(10, RearY(20), 13, RearY(26), Coat); api.rect(10, RearY(26), 13, RearY(27), Hoof);
-        api.rect(21, Y(15), 23, Y(20), Coat); api.rect(21, Y(20), 23, Y(21), Hoof);
-      } else {
-        const l1 = legBob, l2 = -legBob;
-        api.rect(5 + l1, Y(20), 7 + l1, Y(26), Coat); api.rect(5 + l1, Y(26), 7 + l1, Y(27), Hoof);
-        api.rect(18 + l2, Y(20), 20 + l2, Y(26), Coat); api.rect(18 + l2, Y(26), 20 + l2, Y(27), Hoof);
+      /* ---- barrel ---- */
+      const prof = x => {
+        const u = Math.max(0.001, Math.min(0.999, (x - bl) / spn));
+        const cap = Math.pow(Math.sin(u * Math.PI), 0.34);      // rounds both ends
+        const top = 11 + (1 - cap) * 3.6
+          - gauss(u, 0.18, 0.16) * 1.7                          // croup
+          - gauss(u, 0.86, 0.15) * 2.1                          // withers
+          + gauss(u, 0.52, 0.22) * 0.9;                         // loin dips between them
+        const bot = 18 - (1 - cap) * 2.6
+          + gauss(u, 0.80, 0.20) * 1.2                          // girth hangs deep
+          - gauss(u, 0.40, 0.24) * 1.2;                         // flank tucks up
+        return [Math.round(top), Math.round(bot)];
+      };
+      const topAt = [], botAt = [];
+      for (let x = bl; x <= br; x++) {
+        const o = tilt(x), [t0, b0] = prof(x);
+        topAt[x] = t0 + o; botAt[x] = b0 + o;
+        api.rect(x, topAt[x], x, botAt[x], Coat);
+        api.px(x, topAt[x], CoatHi);                            // sun along the spine
+        api.px(x, botAt[x], CoatSh);
       }
 
-      // 6. Neck & Head with Chanfron armor
-      const hy = Y(8 + (pose.headDy || 0) - (rear ? 4 : 0));
-      const hx = 21 + (rear ? -2 : 0);
-      // Muscular arched neck
-      api.rect(hx - 2, hy + 2, hx + 3, Y(15), Coat);
-      api.rect(hx - 2, hy + 4, hx + 1, Y(15), Azure); // crinet neck armor
-      // Head
-      api.rect(hx, hy, hx + 6, hy + 7, Coat);
-      // Steel Chanfron plate on face with crest spike
-      api.rect(hx + 1, hy, hx + 5, hy + 5, Steel);
-      api.line(hx + 3, hy - 2, hx + 3, hy, Steel, 2); // chanfron spike
-      api.px(hx + 3, hy - 3, '#ffffff');
-      // Eye & Muzzle
-      api.px(hx + 4, hy + 2, '#ff0044'); // war eye
-      api.rect(hx + 5, hy + 4, hx + 7, hy + 6, CoatSh); // nostrils
-      api.px(hx + 7, hy + 5, Hoof);
-      // Reins
-      api.line(hx + 5, hy + 4, 14, Y(13), '#733e39', 1);
+      /* ---- caparison: cloth draped ON the barrel, hem stopping well clear of
+         the hocks so the legs still read ---- */
+      const hemAt = [];
+      for (let x = bl + 1; x <= br - 1; x++) {
+        const t0 = topAt[x], b0 = botAt[x];
+        const hem = Math.round(20 + tilt(x)) + (Math.sin((x - bl) * 1.2) > 0.3 ? 1 : 0);
+        hemAt[x] = hem;
+        api.rect(x, t0 + 1, x, hem - 1, Azure);
+        api.px(x, t0 + 1, F ? '#ffffff' : '#2a7ac4');           // light on the fold crest
+        api.rect(x, b0, x, hem - 1, AzureSh);                   // the skirt below the barrel
+        api.px(x, hem, Gold);                                   // heraldic hem trim
+      }
+      /* One device, read off a single reference row — sampling topAt per corner
+         made the cross a lightning bolt. */
+      const cy0 = topAt[11] + 2;
+      api.rect(10, cy0 + 1, 12, cy0 + 2, Gold);
+      api.rect(11, cy0, 11, cy0 + 4, Gold);
+      api.px(11, cy0 + 1, F ? '#c0cbdc' : '#f9a31b');
+
+      /* ---- saddle over the withers ---- */
+      const sx = 15, sTop = topAt[sx] - 1;
+      api.rect(sx - 2, sTop + 1, sx + 3, sTop + 2, Leather);
+      api.rect(sx - 2, sTop + 1, sx + 3, sTop + 1, F ? '#ffffff' : '#a05a4a');
+      api.rect(sx - 3, sTop - 1, sx - 2, sTop + 2, Leather);    // cantle rises behind
+      api.px(sx - 3, sTop - 1, F ? '#ffffff' : '#a05a4a');
+      api.rect(sx + 3, sTop, sx + 4, sTop + 2, Leather);        // pommel
+      api.rect(sx - 1, sTop + 3, sx - 1, sTop + 6, Strap);      // stirrup leather
+      api.px(sx - 2, sTop + 7, Steel);                          // iron, a ring not a bar
+      api.px(sx, sTop + 7, Steel);
+      api.px(sx - 1, sTop + 7, SteelSh);
+      api.px(sx - 1, sTop + 8, Steel);
+
+      /* ---- tail: a mass, not a wire ---- */
+      const tsw = pose.tailSw || 0, ty = topAt[bl] + 2;
+      wseg(api, bl + 1, ty, bl - 2 + tsw * 0.4, ty + 4, 4, 3.4, Mane, ManeHi, ManeHi);
+      wseg(api, bl - 2 + tsw * 0.4, ty + 4, bl - 3 + tsw, ty + 9, 3.4, 1.6, Mane, ManeHi);
+      api.px(bl - 1, ty + 2, F ? '#ffffff' : '#6b4c5c');
+
+
+      /* ---- neck, head, chanfron ---- */
+      const hd = pose.headDy || 0;
+      const nx0 = br - 2, ny0 = topAt[br];
+      const pollX = 23, pollY = Y(6) + hd;
+      /* An arched crest: the neck grows out of the withers and narrows to the
+         poll. The old one was two stacked rectangles, which is why the head
+         looked bolted on. */
+      for (let i = 0; i <= 6; i++) {
+        const t = i / 6;
+        const x = Math.round(nx0 + (pollX - nx0) * t);
+        const cy = Math.round(ny0 + (pollY + 2 - ny0) * t);
+        const dep = Math.round(7 - t * 3);
+        api.rect(x, cy, x, cy + dep, Coat);
+        api.px(x, cy + dep, CoatSh);                            // throat in shade
+        api.rect(x, cy, x, cy + 1, Mane);                       // mane along the crest
+        if (i % 2) api.px(x, cy + 2, ManeHi);
+      }
+      api.rect(nx0 + 1, ny0 + 2, nx0 + 2, ny0 + 4, Steel);      // crinet lames
+      api.px(nx0 + 1, ny0 + 3, SteelSh);
+      api.px(nx0 + 2, ny0 + 4, SteelSh);
+
+      /* Head: a wedge that narrows AND rakes down to the muzzle. */
+      const hx = pollX, hy = pollY;
+      for (let x = hx; x <= hx + 5; x++) {
+        const t = (x - hx) / 5;
+        const top = hy + Math.round(t * 4), bot = hy + 5 + Math.round(t * 2);
+        api.rect(x, top, x, bot, Coat);
+        api.px(x, bot, CoatSh);
+      }
+      // chanfron: a steel plate down the face, with a short spike at the poll
+      for (let x = hx + 2; x <= hx + 5; x++) {
+        const t = (x - hx) / 5, top = hy + Math.round(t * 4);
+        api.rect(x, top, x, top + 1, Steel);
+        api.px(x, top + 2, SteelSh);
+      }
+      api.px(hx + 3, hy + 2, SteelHi);                          // one specular, not a white face
+      /* Rooted into the skull. Started a pixel clear of it, the spike became a
+         floating island and the outline pass framed it as a brick. */
+      api.rect(hx + 1, hy - 2, hx + 1, hy, Steel);
+      api.px(hx + 1, hy - 2, SteelHi);
+      // ear notched back off the poll
+      api.px(hx, hy - 1, Mane);
+      api.px(hx - 1, hy, Mane);
+      // war eye set under the plate, with a socket shadow keeping it off the cheek
+      api.px(hx + 3, hy + 3, CoatSh);
+      api.px(hx + 3, hy + 4, F ? '#ffffff' : '#ff0044');
+      // muzzle: coat, not a dark blob stuck on the end of the face
+      api.rect(hx + 5, hy + 5, hx + 6, hy + 7, Coat);
+      api.px(hx + 5, hy + 5, CoatHi);
+      api.rect(hx + 5, hy + 7, hx + 6, hy + 7, CoatSh);         // lip in shade
+      api.px(hx + 6, hy + 6, Mane);                             // nostril
+      // browband, and a rein that runs UNDER the jaw back to the pommel
+      api.px(hx + 2, hy + 4, Gold);
+      api.line(hx + 4, hy + 7, nx0 + 1, ny0 + 4, Strap, 1);
+
+      /* Forelegs of a rearing horse go down LAST. Behind the neck they were
+         invisible, which left the rear cycle looking like a tilted idle. */
+      if (rear > 0) {
+        foldFore(20, Y(16), 0, Far, Far);
+        foldFore(19, Y(17), 1, Coat, CoatHi);
+      }
 
       finish(buf, W, H);
       if (pose.fade) PF.RPG.fadeOut(buf, W, H, pose.fade, 3);
