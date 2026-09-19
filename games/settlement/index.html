@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <title>Hearthwall — Settlement Defence</title>
+  <meta name="description" content="A living pixel settlement defence game rendered entirely by PixelForge.">
+  <meta name="theme-color" content="#20271c">
+  <link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<main id="game">
+  <canvas id="world" aria-label="Hearthwall settlement"></canvas>
+  <header id="resources" aria-label="Settlement resources">
+    <div class="res food"><i>●</i><span id="r-food">128</span><small id="d-food"></small></div>
+    <div class="res wood"><i>◒</i><span id="r-wood">98</span><small id="d-wood"></small></div>
+    <div class="res stone"><i>⬟</i><span id="r-stone">112</span><small id="d-stone"></small></div>
+    <div class="res iron"><i>▰</i><span id="r-iron">18</span><small id="d-iron"></small></div>
+    <div class="res gold"><i>✹</i><span id="r-gold">42</span><small id="d-gold"></small></div>
+    <div class="res people"><i>⌂</i><span id="r-people">12/18</span></div>
+    <div class="res morale"><i>☻</i><span class="meter"><b id="morale-bar"></b></span><span id="r-morale">78/100</span></div>
+    <div class="clock"><button id="home" title="Centre settlement" aria-label="Centre settlement">↑</button><button id="pause" title="Pause" aria-label="Pause">Ⅱ</button><button class="active pace" data-speed="1" title="Normal speed" aria-label="Normal speed">▶</button><button class="pace" data-speed="2" title="Double speed" aria-label="Double speed">▶▶</button><button class="pace" id="speed-fast" data-speed="4" title="Quadruple speed" aria-label="Quadruple speed">▶▶▶</button><output class="day" id="day">Day 1</output><output class="time" id="time">06:00</output></div>
+  </header>
+  <nav id="tools" aria-label="Management tools">
+    <button class="tool" id="build-tool" data-tip="Construction (B)" aria-label="Construction">⚒</button><button class="tool" id="centre-tool" data-tip="Town overview" aria-label="Town overview">⌂</button><button class="tool" id="workers-tool" data-tip="Population" aria-label="Population">♟</button><button class="tool" id="defence-tool" data-tip="Defences" aria-label="Defences">⚔</button><button class="tool" id="map-tool" data-tip="Toggle map" aria-label="Toggle map">▦</button><button class="tool" id="help-tool" data-tip="How to play" aria-label="How to play">?</button><button class="tool" id="sound-tool" data-tip="Sound" aria-label="Sound">♪</button><button class="tool" id="settings-tool" data-tip="Settings" aria-label="Settings">⚙</button>
+  </nav>
+  <section id="build" class="panel" aria-label="Build menu">
+    <div class="build-head"><button id="build-tab">BUILD</button><button id="close-build" aria-label="Close build menu">×</button></div>
+    <div id="build-info"><b>Choose a structure</b>Build homes, industry and a defensive line before nightfall.</div><div id="build-grid">
+      <button class="build-item" data-build="house" title="Cottage">⌂<small>35</small></button><button class="build-item" data-build="farm" title="Crop Field">♨<small>18</small></button><button class="build-item" data-build="lumber" title="Woodcutter">♣<small>30</small></button><button class="build-item" data-build="quarry" title="Stone Quarry">◆<small>25</small></button><button class="build-item" data-build="tower" title="Scout Tower">♟<small>30</small></button><button class="build-item" data-build="wall" title="Wooden Wall">▥<small>16</small></button><button class="build-item" data-build="gate" title="Fortified Gate">Π<small>25</small></button><button class="build-item" data-build="barracks" title="Guard Post">⚔<small>45</small></button><button class="build-item" data-build="well" title="Village Well">◉<small>25</small></button><button class="build-item" data-build="torch" title="Watch Fire">♠<small>8</small></button>
+    </div>
+  </section>
+  <section id="inspect" class="panel hidden" aria-live="polite"></section>
+  <div id="message" class="hidden"></div>
+  <div id="hint">WASD / DRAG TO PAN · WHEEL TO ZOOM · B TO BUILD · ESC TO CANCEL</div>
+  <section id="title" class="overlay">
+    <div class="title-card"><div class="crest">♜</div><h1>HEARTH<span>WALL</span></h1><p>Raise a settlement. Hold the northern gate. Survive the night.</p><button id="start">FOUND SETTLEMENT</button><small>Every sprite and tile is generated at runtime by PixelForge.</small></div>
+  </section>
+  <section id="gameover" class="overlay hidden">
+    <div class="title-card"><div class="crest danger">☠</div><h2>THE HEARTH HAS FALLEN</h2><p id="final"></p><button id="restart">REBUILD</button></div>
+  </section>
+</main>
+<script src="../../js/core/raster.js"></script>
+<script src="../../js/core/palette.js"></script>
+<script src="../../js/core/effects.js"></script>
+<script src="../../js/core/gen.js"></script>
+<script src="../../js/core/tiles.js"></script>
+<script src="../../js/core/gif.js"></script>
+<script src="../../js/core/zip.js"></script>
+<script src="../../js/core/exporters.js"></script>
+<script src="../../js/library/pixel.js"></script>
+<script src="../../js/library/characters.js"></script>
+<script src="../../js/library/monsters.js"></script>
+<script src="../../js/library/world.js"></script>
+<script src="../../js/library/items.js"></script>
+<script src="../../js/library/rpg_heroes.js"></script>
+<script src="../../js/library/rpg_foes.js"></script>
+<script src="../../js/library/rpg_world.js"></script>
+<script src="../../js/library/rpg_items.js"></script>
+<script src="../../js/library/rpg_expand.js"></script>
+<script src="../../js/library/rpg_classes.js"></script>
+<script src="../../js/library/rpg_beasts.js"></script>
+<script src="../../js/library/rpg_props.js"></script>
+<script src="../../js/library/rpg_medieval.js"></script>
+<script src="../../js/library/rpg_tiny.js"></script>
+<script src="../../js/library/rpg_life.js"></script>
+<script src="../../js/library/fx2.js"></script>
+<script src="../../js/library/ui_kit.js"></script>
+<script src="../../js/library/fonts.js"></script>
+<script src="../../js/library/platformer.js"></script>
+<script src="../../js/library/scifi.js"></script>
+<script src="../../js/library/space.js"></script>
+<script src="../../js/library/rig.js"></script>
+<script src="../../js/library/modern.js"></script>
+<script src="../../js/library/farm.js"></script>
+<script src="../../js/library/iso.js"></script>
+<script src="../../js/library/topdown.js"></script>
+<script src="../../js/library/forge.js"></script>
+<script src="../../js/library/index.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

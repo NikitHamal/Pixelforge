@@ -69,6 +69,29 @@ const GAMES = {
           'nothing died \u2014 melee/foe collision is broken');
       return `clock ${clock}, hp ${hp}, keep ${keep}, renown ${renown}, ${doc.byId['wave-txt'].textContent}`;
     }
+  },
+  'games/settlement': {
+    start(doc) {
+      const start = doc.byId.start;
+      if (!start || typeof start.onclick !== 'function')
+        throw new Error('settlement: founding control was not wired');
+      start.onclick();
+      if (!doc.byId.title.classList.contains('hidden'))
+        throw new Error('settlement: founding did not dismiss the title screen');
+      doc.byId['speed-fast'].onclick();
+    },
+    keys: ['w', 'd', 's', 'a'],
+    check(doc) {
+      const day = doc.byId.day.textContent, time = doc.byId.time.textContent;
+      if (!/^Day \d+$/.test(day)) throw new Error('settlement: day readout malformed (' + day + ')');
+      if (!/^\d\d:\d\d$/.test(time) || time === '06:00')
+        throw new Error('settlement: clock never advanced (' + time + ')');
+      const food = Number(doc.byId['r-food'].textContent);
+      const gold = Number(doc.byId['r-gold'].textContent);
+      if (!(food >= 0 && gold >= 0)) throw new Error('settlement: economy readouts are invalid');
+      if (!(gold > 42)) throw new Error('settlement: a full raid passed but no raider was defeated');
+      return `${day}, clock ${time}, food ${food}, gold ${gold}, raid and economy loops active`;
+    }
   }
 };
 
@@ -122,14 +145,15 @@ function runGame(rel, frames) {
 
   const cfg = GAMES[rel] || {};
   if (cfg.start) cfg.start(doc);
+  const keys = cfg.keys || KEYS;
 
   let pumped = 0;
   const step = () => { if (!pump()) throw new Error(rel + ': the animation loop stopped'); pumped++; };
 
   /* Phase one: a player flailing at the controls. */
   for (let i = 0; i < frames; i++) {
-    if (i % 40 === 0) emit('keydown', { key: KEYS[(i / 40 | 0) % KEYS.length] });
-    if (i % 40 === 30) emit('keyup', { key: KEYS[(i / 40 | 0) % KEYS.length] });
+    if (i % 40 === 0) emit('keydown', { key: keys[(i / 40 | 0) % keys.length] });
+    if (i % 40 === 30) emit('keyup', { key: keys[(i / 40 | 0) % keys.length] });
     if (i % 3 === 0 && doc.byId['cv']) doc.byId['cv'].emit('mousemove', sweep(i));
     if (i === 30 && doc.byId['cv']) doc.byId['cv'].emit('mousedown', {});
     if (i === 1200) { global.innerWidth = 520; global.innerHeight = 900; emit('resize', {}); }
@@ -141,16 +165,18 @@ function runGame(rel, frames) {
 
   /* Release everything: a key left down sends the player sprinting away from
      the horde, and the phase below is meant to be a last stand. */
-  for (const k of KEYS) emit('keyup', { key: k });
+  for (const k of keys) emit('keyup', { key: k });
 
   /* Phase two: stand and shoot until it ends. The game-over and restart paths
      are the two least-travelled branches in any arcade game; run them. */
   let died = false;
   const over = doc.byId['screen-over'];
-  for (let i = 0; i < 4000 && !died; i++) {
-    if (i % 3 === 0 && doc.byId['cv']) doc.byId['cv'].emit('mousemove', sweep(i));
-    step();
-    if (over && !over.classList.contains('hidden')) died = true;
+  if (over) {
+    for (let i = 0; i < 4000 && !died; i++) {
+      if (i % 3 === 0 && doc.byId['cv']) doc.byId['cv'].emit('mousemove', sweep(i));
+      step();
+      if (!over.classList.contains('hidden')) died = true;
+    }
   }
   if (over && !died) throw new Error(rel + ': the player never died while standing in a horde');
 

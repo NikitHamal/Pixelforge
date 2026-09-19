@@ -48,6 +48,7 @@ node scripts/serve.js          # http://localhost:5173
 | `games/runefall/` | Side-on action demo, built entirely from library assets |
 | `games/nightfall/` | Top-down survival shooter on the top-down pack |
 | `games/ironvale/` | Isometric skirmish on the iso pack |
+| `games/settlement/` | Top-down settlement builder and night-raid defence game |
 
 **On the command line** — no install, no `node_modules`:
 
