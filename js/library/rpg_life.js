@@ -48,6 +48,14 @@ PF.RPG.life = (() => {
       const arm = k.arm || [2, -2];
       if (facing === 'side') cfg.armF = { dx: arm[0], dy: arm[1] };
       else cfg.armR = { dx: arm[0], dy: arm[1] };
+      /* Optional far-arm and per-leg overrides. Most actions here are one-handed
+         and stand still, so they never set these; a climb is neither, and
+         without them both arms track together and the legs are a fixed pair. */
+      if (k.arm2) { const o = { dx: k.arm2[0], dy: k.arm2[1] };
+        if (facing === 'side') cfg.armB = o; else cfg.armL = o; }
+      if (k.lf) { const o = { dx: k.lf[0], dy: k.lf[1] };
+        if (facing === 'side') cfg.legF = o; else cfg.legA = o; }
+      if (k.lb) cfg.legB = { dx: k.lb[0], dy: k.lb[1] };
       cfg.kb = k.kb || 0;
       /* Effort reads downward only. The hair is authored at y1, so any upward
          excursion of the head — a lifting body or a raised chin — puts it on
@@ -99,22 +107,55 @@ PF.RPG.life = (() => {
   /* Coal hearth on the ground at the far side of the cell, so the scene says
      "smithy" before the hammer does. Always left: the anvil owns the right for
      every facing, and on the back view the two props merged into one blob. */
-  function forge(api) {
-    const x = 1;
-    api.rect(x, 21, x + 7, 26, '#3a2a24');           // pit
-    api.rect(x, 21, x + 7, 21, '#5a6988');           // rim stones
-    api.rect(x + 1, 23, x + 6, 26, '#7a2f1a');       // coals
-    api.rect(x + 2, 24, x + 5, 26, '#f77622');
-    api.px(x + 3, 24, '#fee761'); api.px(x + 4, 25, '#ffffff');
-    api.px(x + 1, 22, '#f77622'); api.px(x + 6, 22, '#7a2f1a');
+  function forge(api, fi) {
+    const x = 1, f = fi || 0;
+    /* Hearth stones. A pit rectangle with one grey rule across the top and two
+       nested orange boxes inside it read as a television with a fire painted on
+       the screen. Broken courses and blocks that vary are what say masonry. */
+    for (let y = 22; y <= 27; y++) for (let xx = x; xx <= x + 7; xx++) {
+      const n = api.hash(xx, y * 3, 31);
+      api.px(xx, y, n > 0.7 ? '#4e4436' : n > 0.35 ? '#3e362c' : '#2e2820');
+    }
+    for (const [bx, by] of [[x, 24], [x + 3, 24], [x + 6, 24], [x + 1, 26], [x + 5, 26]])
+      api.rect(bx, by, bx, by + 1, '#241f1a');           // joints between the blocks
+    api.rect(x, 21, x + 7, 21, '#6b7a8f');               // dressed stone rim
+    api.rect(x, 22, x + 7, 22, '#4a5568');
+    api.px(x, 21, '#a8b8cc'); api.px(x + 4, 21, '#a8b8cc');
+    /* Coals heaped in the bowl rather than laid flat, with the value climbing
+       to white at the heart of it. The sample moves with the frame, so the fire
+       breathes across the cycle -- loose embers would each be rimmed by the
+       outline pass and come out as dark bricks hanging over the hearth. */
+    for (let xx = x + 1; xx <= x + 6; xx++) {
+      const d = Math.abs(xx - (x + 3.5)), h = 2 - Math.round(d * 0.5);
+      for (let y = 20 - h; y <= 20; y++) {
+        const n = api.hash(xx, y + f, 37) + (1 - d / 3) * 0.45;
+        api.px(xx, y, n > 1.1 ? '#ffffff' : n > 0.85 ? '#fee761' : n > 0.5 ? '#f77622' : '#a83a1a');
+      }
+    }
+    api.rect(x + 1, 21, x + 6, 21, '#7a2f1a');           // ash banked against the stone
+    api.px(x + 2, 21, '#f77622'); api.px(x + 5, 21, '#a83a1a');
   }
-  /* Quench barrel: staves, hoops and a dark water mouth. */
+  /* Quench barrel. */
   function barrel(api, x, y) {
-    api.rect(x, y, x + 6, y + 6, '#7d5539');
-    api.rect(x, y + 1, x + 6, y + 2, '#5a6988');
-    api.rect(x, y + 5, x + 6, y + 5, '#5a6988');
-    api.rect(x + 1, y - 1, x + 5, y, '#124e89');
-    api.px(x + 2, y, '#4a7fb5'); api.px(x + 4, y, '#2ce8f5');
+    /* Three stacked rectangles read as a crate with a blue screen on the front.
+       A barrel bulges at the belly, its staves run vertically in tones that do
+       not quite match, and the iron hoops stand proud of them. */
+    for (let i = 0; i <= 6; i++) {
+      const taper = (i === 0 || i === 6) ? 1 : 0;        // ends drawn in top and bottom
+      const n = api.hash(i, 3, 53);
+      api.rect(x + i, y + taper, x + i, y + 7 - taper,
+        i < 2 ? (n > 0.5 ? '#a8763f' : '#96693a') : i < 5 ? '#8a5f33' : '#5c4025');
+    }
+    api.rect(x + 1, y + 1, x + 1, y + 6, '#c08552');     // stave catching the light
+    for (const hy of [y + 3, y + 6]) {                   // iron hoops
+      api.rect(x, hy, x + 6, hy, '#5a6988');
+      api.px(x + 1, hy, '#a8b8cc'); api.px(x + 5, hy, '#3a4466');
+    }
+    api.rect(x, y, x + 6, y, '#7d5539');                 // cut ends of the staves
+    api.rect(x, y, x + 3, y, '#a8763f');
+    api.rect(x + 1, y + 1, x + 5, y + 2, '#124e89');     // water down in the mouth
+    api.rect(x + 1, y + 1, x + 5, y + 1, '#0d3f72');     // far side of it in shadow
+    api.px(x + 2, y + 2, '#4a7fb5'); api.px(x + 4, y + 1, '#2ce8f5');
   }
   /* Sparks leave the anvil in a fan along the strike, not a ring: the shared
      PF.Pixel.sparks is radially symmetric, which reads as a starfish sitting on
@@ -144,19 +185,49 @@ PF.RPG.life = (() => {
   }
   /* Leather apron over chest and thighs — the cheapest strong "smith" read,
      because it changes the silhouette mass instead of adding another prop. */
+  /* Scuffs and scorch in the leather. Across eight or nine rows the apron is
+     the largest single field on the sprite, and one unbroken brown of that size
+     stops reading as a garment and starts reading as the character. */
+  function grain(api, x, y, w, h, skip) {
+    for (let i = 0; i < 7; i++) {
+      const gy = y + Math.round(api.hash(i, 2, 59) * h);
+      if (gy === skip) continue;
+      api.px(x + Math.round(api.hash(i, 1, 59) * w), gy,
+        api.hash(i, 3, 59) > 0.55 ? FARMER.apronSh : FARMER.apronHi);
+    }
+  }
   function apron(api, cfg) {
     const b = cfg.bob || 0, kb = cfg.kb || 0;
+    /* Leather has a grain, a waist seam and a tool pocket. A plain panel the
+       width of the torso with three highlight pixels dropped on it is a brown
+       rectangle, and at 32px a brown rectangle that size IS the character. */
+    const seam = '#3e2a1a';
     if (cfg.facing === 'side') {
       api.rect(12 + kb, 14 + b, 18, 22 + b, FARMER.apron);
       api.rect(17 + kb, 15 + b, 18, 21 + b, FARMER.apronHi);   // lit front edge
       api.rect(12 + kb, 14 + b, 13, 14 + b, FARMER.apronHi);   // shoulder strap
+      api.rect(12 + kb, 15 + b, 12, 22 + b, FARMER.apronSh);   // it falls away behind
+      api.rect(12 + kb, 18 + b, 18, 18 + b, seam);             // waist band
+      api.rect(13 + kb, 18 + b, 16, 18 + b, FARMER.apronSh);
+      api.rect(14 + kb, 20 + b, 17, 21 + b, FARMER.apronSh);   // hip pocket
+      api.rect(14 + kb, 20 + b, 17, 20 + b, seam);
+      api.rect(12 + kb, 22 + b, 18, 22 + b, seam);             // stitched hem
       api.px(13 + kb, 21 + b, FARMER.apronSh);
+      grain(api, 13 + kb, 15 + b, 4, 6, 18 + b);
     } else if (cfg.facing === 'down') {
       api.rect(12 + kb, 16 + b, 19, 23 + b, FARMER.apron);
       api.rect(13 + kb, 13 + b, 18, 16 + b, FARMER.apron);     // bib over the chest
+      api.rect(13 + kb, 13 + b, 13, 16 + b, FARMER.apronHi);
+      api.rect(18 + kb, 14 + b, 18, 16 + b, FARMER.apronSh);
+      api.rect(12 + kb, 16 + b, 12, 23 + b, FARMER.apronHi);   // lit near edge
+      api.rect(19 + kb, 17 + b, 19, 23 + b, FARMER.apronSh);   // shaded far hem
+      api.rect(13 + kb, 16 + b, 18, 16 + b, seam);             // waist seam
+      api.rect(14 + kb, 19 + b, 17, 21 + b, FARMER.apronSh);   // tool pocket
+      api.rect(14 + kb, 19 + b, 17, 19 + b, seam);
+      api.px(15 + kb, 20 + b, FARMER.apronHi);
+      api.rect(12 + kb, 23 + b, 19, 23 + b, seam);             // stitched hem
       api.px(13 + kb, 13 + b, FARMER.apronHi); api.px(18 + kb, 13 + b, FARMER.apronHi);
-      api.rect(19 + kb, 17 + b, 19, 22 + b, FARMER.apronSh);   // shaded hem
-      api.px(14 + kb, 20 + b, FARMER.apronHi);
+      grain(api, 13 + kb, 17 + b, 5, 5, -1);
     } else {
       // Back view: the apron is on the far side of him, so all that shows is the
       // cross-ties and the waist knot. A full panel here reads as a second torso.
@@ -166,24 +237,80 @@ PF.RPG.life = (() => {
       api.px(15 + kb, 18 + b, FARMER.apronHi); api.px(16 + kb, 18 + b, FARMER.apronHi);
     }
   }
+  /* Bare earth for a hoe to bite and a crop to stand in. Swinging at nothing
+     and throwing a clod out of nowhere is the clearest tell that a prop is
+     missing, and a strip that runs wall to wall reads as ground rather than as
+     the free-standing brick an inset patch becomes once the outline pass rims
+     all four of its sides. */
+  function soilRow(api, y) {
+    /* Sampled per pixel and darkening with depth. Taking one hash per column
+       and running it down three rows ruled the strip into vertical bands of
+       flat colour, which with the stones lined up under them came out as a
+       planked floor rather than as broken earth. */
+    for (let yy = y; yy <= y + 4; yy++) for (let x = 0; x < 32; x++) {
+      const n = api.hash(x, yy * 3 + 1, 17), d = (yy - y) * 0.07;
+      api.px(x, yy, n > 0.72 + d ? '#5c3d24' : n > 0.34 + d ? '#4a2f1c' : '#3a2416');
+    }
+    for (let x = 0; x < 32; x++) {                           // crumbling sunlit crest
+      const n = api.hash(x, 91, 17);
+      api.px(x, y - (n > 0.74 ? 1 : 0), n > 0.46 ? '#7a5636' : '#5c3d24');
+    }
+    for (let k = 0; k < 8; k++) {                            // clods and turned stones
+      const cx = api.hash(k, 11, 23) * 30, cy = y + 1 + api.hash(k, 13, 23) * 3;
+      api.px(cx, cy, '#2a1a10'); api.px(cx + 1, cy, '#2a1a10');
+      api.px(cx, cy - 1, '#7a5636');
+    }
+  }
+  /* Wheat, not palings. Two-pixel bars of even width capped with one light
+     pixel read as green dominoes stood on end; a stalk leans as it rises,
+     carries a blade off one side and ends in a head heavy enough to nod. */
   function cropRow(api, y, n, seed) {
     for (let i = 0; i < n; i++) {
-      const x = 4 + i * 5, h = 2 + Math.round(P().clamp(api.hash(i, seed, 7) * 3, 0, 3));
-      api.rect(x, y - h, x + 1, y, '#63c74d');
-      api.px(x, y - h - 1, '#a8f28a'); api.px(x + 2, y - h, '#3e8948');
+      const x = 4 + i * 5, h = 5 + Math.round(api.hash(i, seed, 7) * 3);
+      const lean = api.hash(i, seed + 1, 7) > 0.5 ? 1 : -1;
+      for (let d = 0; d <= h; d++) {
+        const sx = x + Math.round((d / h) * lean);
+        api.px(sx, y - d, '#265c42');                        // shaded side of the stem
+        api.px(sx + 1, y - d, d > h - 3 ? '#63c74d' : '#3e8948');
+      }
+      const lx = x + (lean > 0 ? -1 : 2);                    // one blade off the stem
+      api.px(lx, y - 2, '#3e8948');
+      api.px(lx + (lean > 0 ? -1 : 1), y - 3, '#265c42');
+      const tip = x + lean;
+      api.rect(tip, y - h - 3, tip + 1, y - h, '#63c74d');   // seed head
+      api.rect(tip, y - h - 3, tip, y - h - 1, '#a8f28a');
+      api.px(tip + 1, y - h - 3, '#d9f5c0');
+      api.px(tip + (lean > 0 ? 1 : -1), y - h - 1, '#3e8948');
     }
   }
+  /* A stream leaves the spout as one unbroken thread, breaks up as it falls and
+     lands. Seven evenly-spaced dots alternating cyan and blue read as a short
+     blue blade held at arm's length -- nothing about them said water. */
   function waterArc(api, x, y, t) {
-    for (let i = 0; i < 7; i++) {
-      const k = i / 6, px = x + Math.round(k * 6), py = y + Math.round(k * k * 7) + 1;
-      if (k > t * 1.35) break;
-      api.px(px, py, i & 1 ? '#2ce8f5' : '#4a7fb5'); api.px(px, py + 1, '#124e89');
+    const N = 16, end = Math.min(1, t * 1.1);
+    for (let i = 0; i <= N * end; i++) {
+      const k = i / N, px = x + k * 7, py = y + k * k * 9 + 1;
+      api.px(px, py, k < 0.35 ? '#bdf6fb' : '#4a7fb5');
+      if (k < 0.5) api.px(px, py + 1, '#2ce8f5');            // solid near the spout
+      else if (api.hash(i, 2, 29) > 0.45) api.px(px + 1, py + 1, '#2ce8f5');
     }
+    if (end < 0.95) return;
+    const gx = x + 7, gy = y + 10;                           // it arrives somewhere
+    api.rect(gx - 3, gy, gx + 3, gy, '#1a5a94');
+    api.px(gx - 1, gy, '#4a7fb5'); api.px(gx + 2, gy, '#4a7fb5');
+    api.px(gx - 3, gy - 1, '#bdf6fb'); api.px(gx + 3, gy - 2, '#bdf6fb');
+    api.px(gx - 4, gy - 2, '#2ce8f5'); api.px(gx + 4, gy - 1, '#2ce8f5');
   }
+  /* Grain falls at its own rate and leaves a short trail behind it; five specks
+     all dropped the same distance on the same tick read as a fixed pattern
+     sliding down the cell rather than as anything being scattered. */
   function seeds(api, x, y, t) {
-    for (let i = 0; i < 5; i++) {
-      const dx = (api.hash(i, 3, 11) - 0.5) * 6;
-      api.px(x + Math.round(dx), y + Math.round(t * 7) + (i & 1), i & 1 ? '#fee761' : '#feae34');
+    for (let i = 0; i < 7; i++) {
+      const dx = (api.hash(i, 3, 11) - 0.5) * 7;
+      const fall = t * (5 + api.hash(i, 5, 11) * 5);
+      const sx = x + dx, sy = y + fall;
+      api.px(sx, sy - 1, '#a86d20');                         // the trail it fell along
+      api.px(sx, sy, i & 1 ? '#fee761' : '#feae34');
     }
   }
   function fish(api, x, y) {
@@ -213,11 +340,21 @@ PF.RPG.life = (() => {
      puts the face exactly where a raised elbow can drop it. */
   function hammer(api, hx, hy, angle) {
     const len = 5, tx = hx + Math.cos(angle) * len, ty = hy + Math.sin(angle) * len;
+    const ha = angle + Math.PI / 2, cx = Math.cos(ha), cy = Math.sin(ha);
+    const at = (d, o) => [tx + cx * d + Math.cos(angle) * (o || 0), ty + cy * d + Math.sin(angle) * (o || 0)];
+    /* A haft with a bound grip, then a head that has a flat face at one end and
+       a peen drawn out to a wedge at the other. A brown bar with a lighter bar
+       laid across it is a mallet at best and at this size mostly a smudge. */
     api.line(hx, hy, tx, ty, '#733e39', 2);
-    const ha = angle + Math.PI / 2;
-    api.line(tx - Math.cos(ha) * 2, ty - Math.sin(ha) * 2, tx + Math.cos(ha) * 2, ty + Math.sin(ha) * 2, '#5a6988', 3);
-    api.line(tx - Math.cos(ha) * 2, ty - Math.sin(ha) * 2 - 1, tx + Math.cos(ha) * 2, ty + Math.sin(ha) * 2 - 1, '#c0cbdc', 1);
-    api.px(hx, hy, '#3e2731');
+    api.line(hx, hy, hx + Math.cos(angle) * 1.5, hy + Math.sin(angle) * 1.5, '#3e2731', 2);
+    const [f0x, f0y] = at(-2), [f1x, f1y] = at(1);
+    api.line(f0x, f0y, f1x, f1y, '#6b7a8f', 3);                   // the head itself
+    api.line(f0x, f0y, f0x, f0y, '#8b9bb4', 3);                   // flat face, worn bright
+    const [p0x, p0y] = at(2), [p1x, p1y] = at(3);
+    api.line(p0x, p0y, p1x, p1y, '#5a6988', 1);                   // peen
+    const [c0x, c0y] = at(-2, -1), [c1x, c1y] = at(1, -1);
+    api.line(c0x, c0y, c1x, c1y, '#c0cbdc', 1);                   // lit crest
+    api.px(tx, ty, '#a8b8cc');
   }
 
   /* ================= SMITHING ================= */
@@ -227,11 +364,18 @@ PF.RPG.life = (() => {
      settle — the pause at the top is what sells the weight. */
   function smithSuite() {
     const AX = 21, AY = 16;
-    const SMITH = [{ dur: 150, arm: [2, -5], ang: -1.6 }, { dur: 210, arm: [3, -6], ang: -2.4, hd: 1 },
+    /* Angles keep the head clear of the skull. Straight up at x20 the hammer
+       came down across the smith's own face as a grey bar, and the wind-up
+       frame is flagged `behind` so the recoil reads as cocked over the shoulder
+       rather than resting on his hair. */
+    const SMITH = [{ dur: 150, arm: [3, -5], ang: -1.35 }, { dur: 210, arm: [3, -6], ang: -2.3, hd: 1 },
       { dur: 55, arm: [2, -6], ang: 0.8 }, { dur: 120, arm: [2, -4], ang: 0.2, kb: 1 },
       { dur: 230, arm: [3, -3], ang: -0.5 }];
-    const QUENCH = [{ dur: 180, arm: [2, -4], ang: -1.2 }, { dur: 110, arm: [2, -2], ang: 0.9, kb: 1 },
-      { dur: 150, arm: [2, -1], ang: 1.05 }, { dur: 240, arm: [2, -5], ang: -0.6, hd: 1 }];
+    /* The bar is carried out in front and then dipped. Held up at -1.2 with the
+       hand at eye level it crossed the cheek as a horizontal orange rule and
+       the smith read as having a beak. */
+    const QUENCH = [{ dur: 180, arm: [2, -3], ang: -0.35 }, { dur: 110, arm: [2, -1], ang: 0.75, kb: 1 },
+      { dur: 150, arm: [2, 0], ang: 1.0 }, { dur: 240, arm: [2, -4], ang: -0.25, hd: 1 }];
     /* The hammer rides cfg.tool, not a post hook: post runs after the outline
        pass, so a tool painted there has no rim and reads as a sticker laid on
        the sprite instead of something held. */
@@ -248,21 +392,38 @@ PF.RPG.life = (() => {
       draw: (api, hx, hy, t, cfg) => {
         const side = cfg.facing === 'side';
         const px = side ? hx : Math.min(hx, 21), a = side ? k.ang : flatCant(k.ang);
-        const tx = px + Math.cos(a) * 6, ty = hy + Math.sin(a) * 6;
-        api.line(px, hy, tx, ty, '#5a6988', 1);
-        api.line(px, hy + 1, tx, ty + 1, '#4a5568', 1);
-        const ha = a + Math.PI / 2;
-        api.line(tx - Math.cos(ha) * 2, ty - Math.sin(ha) * 2, tx + Math.cos(ha) * 2, ty + Math.sin(ha) * 2, '#f77622', 2);
-        api.px(tx, ty, '#fee761');
+        const c = Math.cos(a), s2 = Math.sin(a);
+        /* Two arms closing on a rivet rather than one grey rule, and a bar that
+           cools from the tip back: white at the heart, orange behind it, then
+           the dull red of metal that has been out of the fire a moment. */
+        const WATER = 21;                                            // surface in the barrel
+        const jx = px + c * 5, jy0 = hy + s2 * 5;
+        const sunk = jx > 19 && jy0 > WATER;
+        const jy = sunk ? WATER : jy0;
+        api.line(px, hy, jx, jy - 1, '#5a6988', 1);
+        api.line(px, hy + 1, jx, jy + 1, '#4a5568', 1);
+        api.px(px + c * 3, hy + s2 * 3, '#a8b8cc');                  // the rivet
+        /* Below the surface there is nothing to draw. Run on regardless and the
+           bar passes clean through the barrel and out of the bottom of it. */
+        for (let i = 0; i < 5; i++) {
+          const q = i / 4, ex = jx + c * i, ey = jy0 + s2 * i;
+          if (ex > 19 && ey > WATER) break;
+          api.px(ex, ey, q > 0.7 ? '#fff6c9' : q > 0.35 ? '#fee761' : '#f77622');
+          api.px(ex, ey + 1, q > 0.6 ? '#f77622' : '#a83a1a');
+        }
+        if (sunk) {                                                  // what the water shows instead
+          api.rect(jx - 2, WATER, jx + 1, WATER, '#f77622');
+          api.px(jx, WATER, '#fee761'); api.px(jx - 2, WATER, '#a83a1a');
+        }
       }
     });
     const build = keys => {
       const tool = keys === SMITH ? hammerTool : tongsTool;
       return f => action(f, keys.map(k => ({ ...k, tool: tool(k) })), {
-        pre: api => {
-          forge(api);
+        pre: (api, cfg, fi) => {
+          forge(api, fi);
           if (keys === SMITH) anvil(api, AX, AY, true);
-          else barrel(api, AX, 20);
+          else barrel(api, AX, 19);
         },
         post: (api, cfg, fi) => {
           apron(api, cfg);
@@ -289,16 +450,32 @@ PF.RPG.life = (() => {
     const specs = {
       till: { tool: k => hoe(k.a), keys: [{ dur: 170, arm: [3, -4], a: -2.1 }, { dur: 130, arm: [4, -5], a: -2.5 },
         { dur: 55, arm: [3, 0], a: 0.9, kb: 1 }, { dur: 120, arm: [3, -1], a: 0.2 }, { dur: 190, arm: [2, -2], a: -1.1 }],
-        post: (api, cfg, fi) => { if (fi === 2) { api.rect(11, 25, 13, 26, '#5a3a2a'); api.rect(15, 25, 17, 26, '#4a2418'); api.px(12, 24, '#733e39'); api.px(16, 24, '#733e39'); } } },
+        pre: api => soilRow(api, 26),
+        /* The blade opens a trench and the spoil goes up and over. The old cut
+           drew two brown bricks sitting on nothing at the farmer's heels. */
+        post: (api, cfg, fi) => {
+          if (fi < 2 || fi > 3) return;
+          const t = fi === 2 ? 0 : 1;
+          api.rect(20, 26, 25, 27, '#2a1a10');                // the trench, freshly opened
+          api.rect(20, 26, 25, 26, '#3a2416');
+          for (let i = 0; i < 6; i++) {
+            const a = 2.1 + i * 0.22, r = 3 + t * 6 + api.hash(i, 4, 19) * 3;
+            const cx = 23 + Math.cos(a) * r, cy = 25 - Math.sin(a) * r * 0.7 + t * t * 3;
+            api.px(cx, cy, i & 1 ? '#7a5636' : '#5c3d24');
+            api.px(cx, cy + 1, '#3a2416');
+          }
+        } },
       plant: { tool: () => bag, keys: [{ dur: 170, arm: [3, -3] }, { dur: 140, arm: [4, -1] },
         { dur: 70, arm: [3, 2], hd: 1 }, { dur: 110, arm: [3, 1] }, { dur: 190, arm: [2, -2] }],
-        post: (api, cfg, fi) => { if (fi === 2 || fi === 3) seeds(api, 24, 20 + (fi - 2) * 3, fi === 2 ? 0.4 : 1); } },
+        pre: api => soilRow(api, 26),
+        post: (api, cfg, fi) => { if (fi === 2 || fi === 3) seeds(api, 24, 18, fi === 2 ? 0.45 : 1); } },
       water: { tool: () => can, keys: [{ dur: 160, arm: [3, -3] }, { dur: 150, arm: [4, -1] },
         { dur: 90, arm: [4, 2], hd: 1 }, { dur: 130, arm: [4, 1] }, { dur: 180, arm: [3, -2] }],
-        post: (api, cfg, fi) => { if (fi === 2 || fi === 3) waterArc(api, 24, 18, fi === 2 ? 0.5 : 1); } },
+        pre: api => soilRow(api, 26),
+        post: (api, cfg, fi) => { if (fi === 2 || fi === 3) waterArc(api, 23, 16, fi === 2 ? 0.55 : 1); } },
       harvest: { tool: () => sick, keys: [{ dur: 150, arm: [3, -3] }, { dur: 120, arm: [4, -4] },
         { dur: 55, arm: [3, 0], kb: 1 }, { dur: 120, arm: [3, -2] }, { dur: 180, arm: [2, -4], hd: 1 }],
-        pre: api => cropRow(api, 26, 3, 4),
+        pre: api => { soilRow(api, 26); cropRow(api, 26, 3, 4); },
         post: (api, cfg, fi) => { if (fi === 3) P().dustPuff(api, 22, 26, 3, 0.5, '#63c74d'); } }
     };
     const build = spec => f => action(f, spec.keys.map(k => ({ ...k, tool: spec.tool(k) })),
@@ -329,12 +506,31 @@ PF.RPG.life = (() => {
         api.px(tx, ty, '#e8ecf5');
       }
     });
+    /* Three rows of flat blue under one cyan rule is a stripe painted on the
+       ground. The field is mottled, and the crests travel with the frame so the
+       surface is the thing that moves while the float sits still on it.
+       It also runs off the bottom-right corner rather than stopping short: a
+       free-standing 10x3 block gets rimmed on all four sides by the outline
+       pass and reads as a blue rug laid next to the fisherman. Flooding the
+       corner leaves only the bank edge outlined, which is the one edge water
+       actually has here. */
     const pool = (api, cfg, fi) => {
-      api.rect(21, WY, 30, 26, '#124e89');
-      api.rect(21, WY, 30, WY, '#2ce8f5');                        // lit surface
-      const r = fi % 3;
-      api.px(22 + r * 2, WY + 1, '#4a7fb5'); api.px(26 + r, WY + 2, '#1a5a94');
-      api.px(30 - r, WY + 1, '#4a7fb5');
+      for (let y = WY; y <= 29; y++) for (let x = 20; x <= 31; x++) {
+        const n = api.hash(x, y + fi, 13);
+        api.px(x, y, n > 0.68 ? '#1a5a94' : n > 0.3 ? '#124e89' : '#0d3f72');
+      }
+      api.rect(20, WY, 31, WY, '#2ce8f5');                        // lit surface
+      api.rect(20, WY + 1, 31, WY + 1, '#1a5a94');
+      /* Crests travel left to right and wrap, so the eight-frame cast reads as
+         moving water without any frame repeating its neighbour. */
+      for (let k = 0; k < 3; k++) {
+        const x0 = 20 + ((k * 4 + fi) % 12);
+        api.rect(x0, WY + 2, Math.min(31, x0 + 2), WY + 2, '#4a7fb5');
+        api.px(Math.min(31, x0 + 1), WY + 2, '#8ecbe8');
+        api.px(x0, WY + 3, '#0d3f72');
+        const x1 = 20 + ((k * 5 + 2 + fi * 2) % 12);
+        api.rect(x1, WY + 4, Math.min(31, x1 + 1), WY + 4, '#2a6aa4');
+      }
     };
     const keys = [{ dur: 150, arm: [1, -4], end: [28, 13] }, { dur: 90, arm: [4, -2], kb: 1, end: [29, 15] },
       { dur: 110, arm: [3, 0], end: [WX, WY] }, { dur: 210, arm: [3, 1], hd: 1, end: [WX, WY] },
@@ -380,14 +576,60 @@ PF.RPG.life = (() => {
      it holds still against a scrolling wall. Legs are posed, not walked — a climb
      is the one action no sine gait fits. */
   function climbSuite() {
-    const keys = [{ dur: 130, arm: [3, -5] }, { dur: 130, arm: [4, -3] }, { dur: 130, arm: [3, -2], hd: 1 },
-      { dur: 130, arm: [4, -4] }, { dur: 130, arm: [3, -5], hd: 1 }];
-    const hold = (api, cfg, fi) => {
-      const y = 12 + (fi % 3) * 3;
-      api.px(23, y, '#8a6a4a'); api.px(24, y + 1, '#5a3a2a'); api.px(22, y + 6, '#8a6a4a');
+    /* A climb needs something to climb. The first pass drew three loose brown
+       pixels beside the figure, which the outline pass boxed individually, so
+       the state read as an idle pose with crumbs floating next to it.
+       A ladder is now built behind the body in every facing: two rails set at
+       the reach of the rig's own hands, and rungs that scroll downward at a
+       rate closing exactly over the five-frame cycle, since the climber holds
+       station in frame and it is the ladder that has to move. */
+    /* Weathered timber, not skin. Painted in the tan ramp the forearms use, the
+       rails and the hands gripping them came out as one shape. */
+    const RP = { lit: '#8a7a56', mid: '#5f5238', dark: '#372f22' };
+    const ladder = (api, fi, lx, rx) => {
+      /* Rungs are set back behind the rails and are lit accordingly. Given the
+         rails' own highlight they ruled a grid of equal weight across the cell
+         and the climber looked caged rather than in front of a ladder. */
+      for (let y = 1 + ((fi * 2) % 10); y <= 27; y += 10) {    // rungs, travelling down
+        api.rect(lx, y, rx + 1, y, RP.mid);
+        api.rect(lx, y + 1, rx + 1, y + 1, RP.dark);
+      }
+      for (const x of [lx, rx]) {                              // rails drawn over the rungs
+        api.rect(x, 1, x + 1, 28, RP.mid);
+        api.rect(x, 1, x, 28, RP.lit);
+        api.rect(x + 1, 1, x + 1, 28, RP.dark);
+      }
     };
+    /* Edge-on the rails sit a torso apart and the body hides all but the ends of
+       every rung; head-on they stand out at the span of the arms. Either way
+       the rails land exactly where the rig puts the hands, which is what keeps
+       an extended arm from reading as a brick floating clear of the shoulder. */
+    const rig = (api, cfg, fi) => (cfg.facing || 'down') === 'side'
+      ? ladder(api, fi, 9, 21) : ladder(api, fi, 6, 24);
+    /* Fingers closing over the near rail. Without them the hand is a blunt end
+       laid against a post rather than a grip. */
+    const grip = (api, cfg, fi) => {
+      const k = keys[fi], side = (cfg.facing || 'down') === 'side';
+      const wrap = (x, y) => { api.rect(x, y, x + 1, y, FARMER.skinSh); api.px(x, y + 1, FARMER.skinSh); };
+      if (side) { wrap(21, 13 + k.arm[1] + (k.bob || 0) + 3); return; }
+      wrap(24, 13 + k.arm[1] + (k.bob || 0) + 3);
+      wrap(6, 13 + k.arm2[1] + (k.bob || 0) + 3);
+    };
+    /* The body is what rises, and the only vertical channel the rig offers runs
+       downward, so a reach is authored as the low point and the finished pull
+       as the high one. Two pixels of travel is enough to see at this size;
+       without it the whole cycle is a man standing beside a ladder waving.
+       Legs push off in the opposite phase to the pulling arm: as one knee comes
+       up under the chest the other drives straight down. */
+    const keys = [
+      { dur: 150, arm: [3, -6], arm2: [2, 1], lf: [2, -3], lb: [-2, 0], bob: 2 },
+      { dur: 110, arm: [3, -4], arm2: [2, 0], lf: [3, -1], lb: [-2, -1], bob: 1, hd: 1 },
+      { dur: 140, arm: [3, -1], arm2: [3, -2], lf: [1, 0], lb: [-1, -2], bob: 0, hd: 1 },
+      { dur: 150, arm: [2, 1], arm2: [3, -6], lf: [-2, 0], lb: [2, -3], bob: 2 },
+      { dur: 110, arm: [2, 0], arm2: [3, -4], lf: [-2, -1], lb: [3, -1], bob: 1, hd: 1 }
+    ];
     return { width: 32, height: 32, name: 'rpg-climber', layers: [{ name: 'Body' }], states:
-      [...facings('climb', f => action(f, keys, { post: hold }), 8)] };
+      [...facings('climb', f => action(f, keys, { pre: rig, post: grip }), 8)] };
   }
 
   /* ================= SPEAR COMBAT ================= */
@@ -451,12 +693,52 @@ PF.RPG.life = (() => {
   /* Two channels per cycle — the head settles and the torso follows half a beat
      later — so all four frames differ and the loop closes; a lone bob repeats on
      the half-cycle and hitches. */
+  /* A stool with a lit seat, a shadowed lip and splayed legs braced by a
+     stretcher. A plank on two dark posts sat under the figure at exactly the
+     height and colour of its boots, so the prop read as a second pair of feet
+     rather than as the thing being sat on. */
   function stool(api, x, y, w) {
-    const ww = w || 8;
-    api.rect(x, y, x + ww - 1, y + 1, '#5c4a3a');
-    api.rect(x, y, x + ww - 1, y, '#8b7455');
-    api.rect(x, y + 2, x + 1, y + 4, '#3e3227');
-    api.rect(x + ww - 2, y + 2, x + ww - 1, y + 4, '#3e3227');
+    const ww = w || 8, r = x + ww - 1;
+    api.rect(x, y, r, y + 1, '#5c4a3a');
+    api.rect(x, y, r, y, '#a8895f');                        // seat catching the light
+    api.rect(x, y + 1, r, y + 1, '#3e3227');                // shadow under the lip
+    for (const s of [-1, 1]) {
+      const lx = s < 0 ? x + 1 : r - 2;
+      api.rect(lx, y + 2, lx + 1, y + 3, '#5c4a3a');
+      api.rect(lx + (s < 0 ? 0 : 1), y + 2, lx + (s < 0 ? 0 : 1), y + 3, s < 0 ? '#7a6247' : '#3e3227');
+      api.rect(lx + s, y + 4, lx + 1 + s, y + 4, '#3e3227'); // foot, kicked outward
+    }
+    api.rect(x + 3, y + 3, r - 3, y + 3, '#4a3b2d');        // stretcher between the legs
+  }
+  /* Contact shadow for the poses that have no seat. Sitting cross-legged on
+     nothing reads as hovering, but a strip of flagstone is scenery, and scenery
+     baked into a character cell cannot be composited over whatever ground the
+     game actually has. A pool of shade touching the figure grounds it and
+     travels with it. Drawn in pre so it joins the silhouette and takes one rim
+     with the body rather than being outlined as a separate island. */
+  function shadow(api, cx, y, rx) {
+    /* Kept only a little darker than the outline it will be rimmed with. At
+       near-black it stopped reading as shade and became a hole with the figure
+       sunk into it, and at nine pixels of radius it was wider than the sprite. */
+    api.ellipse(cx - rx, y, cx + rx, y + 2, '#3a3250', true);
+    api.ellipse(cx - rx + 2, y, cx + rx - 2, y + 1, '#2c2640', true);
+  }
+  /* Sleep marks and a shock bang. Post hooks run after the outline pass, so a
+     glyph painted there has no rim of its own and dissolves into whatever it
+     is drawn over -- both of these carry one by hand. */
+  function glyph(api, stroke, c) {
+    /* A drop shadow, not a rim. Boxing a 2px glyph on all four sides fills its
+       own counters: the Z came out as a pair of grey squares and the bang as a
+       solid yellow bar with no gap above the dot. */
+    stroke(1, 1, OUT);
+    stroke(0, 0, c);
+  }
+  function zed(api, x, y, s, c) {
+    glyph(api, (ox, oy, col) => {
+      api.rect(x + ox, y + oy, x + ox + s, y + oy, col);
+      for (let d = 0; d <= s; d++) api.px(x + ox + s - d, y + oy + 1 + Math.round(d * (s - 1) / s), col);
+      api.rect(x + ox, y + oy + s, x + ox + s, y + oy + s, col);
+    }, c);
   }
   function restSuite() {
     /* Head-on the body is 12 columns wide, so a stool under it is entirely
@@ -467,26 +749,40 @@ PF.RPG.life = (() => {
       keys.map((k, i) => Fr(k.dur, R.N({ pal: FARMER, facing: f, sitting: true, legs: k.legs || 'dangle',
         arms: k.arms || 'lap', seatY: k.seatY || 22, lean: k.lean || 0, shin: k.shin || 0,
         bob: Math.max(0, k.bob || 0), headDy: Math.max(0, k.hd || 0), eye: k.eye || 'open',
-        mouth: k.mouth || 'closed', kb: k.kb || 0 }, { pre: k.props === false ? null : seatFor(f) }, i)))));
+        mouth: k.mouth || 'closed', kb: k.kb || 0 },
+        { pre: k.props === false ? (k.floor ? api => shadow(api, 16, 25, 7) : null) : seatFor(f), post: k.post }, i)))));
     /* Effort and settle both read DOWNWARD here: a positive bob sinks the torso
        into the seat, which is what resting does, and keeps the hair off row 0
        where the outline pass cannot reach it. */
     const B = [0, 0, 1, 1], H = [0, 1, 1, 0];
     const br = () => H.map((h, i) => ({ dur: 160, hd: h, bob: B[i] }));
-    const floor = e => H.map((h, i) => ({ dur: 160, hd: h, bob: B[i], props: false, ...e }));
+    const floor = e => H.map((h, i) => ({ dur: 160, hd: h, bob: B[i], props: false, floor: true, ...e }));
     const lean = () => H.map((h, i) => ({ dur: [220, 200, 200, 260][i], hd: h, bob: B[i],
       lean: -1, arms: 'crossed', shin: i > 1 ? 2 : 0 }));
     return { width: 32, height: 32, name: 'rpg-rest', layers: [{ name: 'Body' }], states: [
       ...pose('sit_stool', br(), 5),
       ...pose('sit_floor', floor({ legs: 'fold', arms: 'lap', seatY: 25 }), 5),
       ...pose('sit_knees', floor({ legs: 'knees', arms: 'knees', seatY: 25 }), 5),
+      /* Three sleep marks drifting up and out. Closed eyes alone are a blink at
+         this size; the glyphs are what make a doze read as a doze. */
       ...pose('doze', [0, 2, 3, 1].map((h, i) => ({ dur: [260, 220, 300, 160][i], hd: h, arms: 'crossed',
-        eye: i === 1 || i === 2 ? 'closed' : 'open', bob: i === 2 ? 1 : 0 })), 4),
+        eye: i === 1 || i === 2 ? 'closed' : 'open', bob: i === 2 ? 1 : 0,
+        post: api => {
+          zed(api, 21, 10 - i, 3, '#e8ecf5');
+          if (i >= 1) zed(api, 26, 5 - i, 2, '#c0cbdc');
+        } })), 4),
       ...pose('lean_back', lean(), 4),
       ...pose('drink', [{ dur: 190, arms: 'mug' }, { dur: 110, arms: 'mug', hd: 2, eye: 'closed' },
         { dur: 150, arms: 'mug', hd: 1, eye: 'closed', bob: -1 }, { dur: 230, arms: 'lap' }], 4),
-      ...pose('shocked', [{ dur: 120, arms: 'cheeks', mouth: 'open' },
-        { dur: 260, arms: 'cheeks', mouth: 'open', eye: 'closed', kb: 1, hd: 1 }], 5)
+      ...pose('shocked', [0, 1].map(i => ({ dur: [120, 260][i], arms: 'cheeks', mouth: 'open',
+        eye: i ? 'closed' : 'open', kb: i, hd: i,
+        post: api => {
+          const y = 2 + i * 2;
+          glyph(api, (ox, oy, c) => { api.rect(23 + ox, y + oy, 24 + ox, y + 3 + oy, c);
+            api.rect(23 + ox, y + 5 + oy, 24 + ox, y + 5 + oy, c); }, '#fee761');
+          api.px(23, y, '#ffffff');
+          if (i) { api.px(9, y + 7, '#8ecbe8'); api.px(9, y + 8, '#4a7fb5'); }   // sweat flicked off
+        } })), 5)
     ] };
   }
 

@@ -295,12 +295,28 @@ PF.Chars = (() => {
       api.rect(hx + 4, hy - 10, hx + 7, hy - 7, pal.hat);
       api.px(hx + 5, hy - 11, pal.hat);
     }
-    // backpack
-    if (cfg.pack !== false && pal !== SKELETON) {
-      api.rect(hx + 3, hy + 11, hx + 8, hy + 16, '#b86f50');
-      api.rect(hx + 3, hy + 11, hx + 8, hy + 12, '#733e39');
-      api.rect(hx + 3, hy + 16, hx + 8, hy + 17, '#733e39');
-    }
+    if (cfg.pack !== false && pal !== SKELETON) backpack(api, hx, hy + 11, 6);
+  }
+  /* Backpack, seen from behind. Two flat bands of brown over a third read as a
+     crate taped to the spine -- there was no flap, no strap and no indication
+     of which way up it went. Height is a parameter because the seated rig has
+     a five-row torso and the standing one has eight: keyed to the standing
+     figure, the pack hung straight down over a sitting character's folded legs
+     and ended on the floor beside their boots. */
+  function backpack(api, hx, py, h) {
+    const b = py + h;
+    api.rect(hx + 3, py, hx + 8, b, '#8f563b');
+    api.rect(hx + 3, py, hx + 3, b, '#b86f50');            // near edge catching the light
+    api.rect(hx + 8, py, hx + 8, b, '#5c3a24');            // far edge turning away
+    api.rect(hx + 2, py - 1, hx + 2, py + 2, '#5c3a24');   // shoulder straps
+    api.rect(hx + 9, py - 1, hx + 9, py + 2, '#5c3a24');
+    api.rect(hx + 3, py, hx + 8, py + 1, '#733e39');       // flap laid over the top
+    api.rect(hx + 3, py, hx + 8, py, '#b86f50');           // sunlit crest of the flap
+    api.rect(hx + 4, py + 2, hx + 7, py + 2, '#5c3a24');   // shadow under the flap lip
+    api.px(hx + 5, py + 2, '#c0cbdc');                     // buckle holding it shut
+    if (h < 5) return;                                     // no room for one on the seated rig
+    api.rect(hx + 4, b - 1, hx + 7, b, '#733e39');         // bedroll lashed underneath
+    api.px(hx + 4, b - 1, '#b86f50'); api.px(hx + 7, b, '#5c3a24');
   }
 
   /* Side view (right-facing). Use buf flip for left. */
@@ -512,9 +528,20 @@ PF.Chars = (() => {
       api.px(hx + 1, hy - 3, '#5a6988'); api.px(hx + 2, hy - 3, '#5a6988');
       api.px(hx, hy + 1, '#5a6988');
     } else if (t.kind === 'seedbag') {
-      api.rect(hx - 2, hy - 2, hx + 3, hy + 3, '#b86f50');
-      api.rect(hx - 2, hy - 2, hx + 3, hy - 1, '#733e39');
-      api.px(hx, hy + 1, '#fee761'); api.px(hx + 2, hy + 2, '#fee761');
+      // A cinched cloth sack. A 6x6 rectangle with a dark band across the top
+      // and two yellow specks in it read as a cardboard box held at arm's
+      // length -- the one silhouette a hand-sewn seed bag never has.
+      // Olive canvas. In leather brown the sack merged with the apron and its
+      // grain read as embers; in linen it matched the shirt exactly and the
+      // whole prop disappeared into the torso.
+      api.ellipse(hx - 3, hy - 1, hx + 3, hy + 5, '#8a9464', true);
+      api.ellipse(hx - 3, hy, hx, hy + 4, '#b6c08c', true);   // lit near side
+      api.rect(hx + 3, hy + 1, hx + 3, hy + 4, '#5c6a42');    // far side turning away
+      api.rect(hx - 1, hy - 3, hx + 1, hy - 1, '#5c6a42');    // gathered neck
+      api.px(hx - 1, hy - 3, '#8a9464');
+      api.rect(hx - 2, hy + 2, hx + 2, hy + 2, '#6e7a4e');    // fold across the belly
+      api.px(hx - 2, hy + 5, '#8a6a4a'); api.px(hx + 2, hy + 5, '#8a6a4a');
+      api.px(hx, hy + 4, '#fee761');                          // grain at the mouth
     } else if (t.kind === 'sickle') {
       // haft, blade out, tip hooked back — a 3px sliver of steel read as a
       // splinter rather than a harvesting tool
@@ -599,8 +626,11 @@ PF.Chars = (() => {
         api.px(hx + 6, hy - 6, '#fee761');
       }
       // front branch keeps the prop on the sword side, so it extends out from
-      // the right hand rather than back across the torso
-      else lifeTool(api, t, hx, hy, false);
+      // the right hand rather than back across the torso. Clamped inboard: head
+      // on, the grip sits at x23 plus the reach, and anything wider than a
+      // couple of pixels then floats clear of the sleeve with a full outline
+      // round it -- a held object rendered as a separate floating one.
+      else lifeTool(api, t, Math.min(hx, 21), hy, false);
       if (t.slash) P.slash(api, 16 + (cfg.kb || 0), 16 + (cfg.bob || 0), 11, t.slash[0], t.slash[1], '#ffffff', 2);
       // Square-on arcs pivot off the torso, not the hand: at x23 a 10px radius
       // would run the smear off the sprite sheet.
@@ -629,27 +659,36 @@ PF.Chars = (() => {
     const sh = pal.shirt, shS = pal.shirtSh, shH = pal.shirtHi, pn = pal.pants, pnS = pal.pantsSh, sk = pal.skin, skS = pal.skinSh;
     const legs = cfg.legs || 'dangle';
     if (cfg.facing !== 'side') return sitFront(api, cfg, pal, sy, bob, hd, kb + lean);
-    if (legs === 'dangle') {
-      // cfg.shin kicks the lower leg forward — the toe-tap of someone leaning
-      // back in a chair, which no amount of torso motion can stand in for
-      const sn = cfg.shin || 0;
-      api.rect(LX(13), sy - 1, LX(20), sy + 1, pn);
-      api.rect(LX(18 + sn), sy + 2, LX(20 + sn), sy + 4, pn);
-      api.rect(LX(17 + sn), sy + 5, LX(20 + sn), sy + 5, pal.boots);
-      api.rect(LX(15), sy, LX(20), sy, pnS);
-    } else if (legs === 'knees') {
-      api.rect(LX(12), sy - 1, LX(22), sy, pnS);
-      // knees need a lit edge or they merge into the torso above them
-      api.rect(LX(16), sy - 6, LX(19), sy - 1, pn);
-      api.px(LX(16), sy - 6, shH); api.px(LX(17), sy - 6, shH);
-      api.rect(LX(19), sy - 3, LX(22), sy - 1, pal.boots);
-      api.px(LX(16), sy - 6, shH);
-    } else {
-      api.rect(LX(12), sy - 2, LX(21), sy, pn);
-      api.rect(LX(12), sy - 2, LX(21), sy - 2, pnS);
-      api.rect(LX(19), sy - 3, LX(21), sy - 1, pal.boots);
-      api.px(LX(13), sy - 3, skS);
-    }
+    /* Dangling shins hang behind the seat, so they go down before the torso.
+       A cross-legged fold and a hugged knee are both IN FRONT of the chest, and
+       laying them first meant the torso painted over everything above the hem:
+       both poses came out as a head on a lump with no legs at all. */
+    const drawLegs = () => {
+      if (legs === 'dangle') {
+        // cfg.shin kicks the lower leg forward — the toe-tap of someone leaning
+        // back in a chair, which no amount of torso motion can stand in for
+        const sn = cfg.shin || 0;
+        api.rect(LX(13), sy - 1, LX(20), sy + 1, pn);
+        api.rect(LX(18 + sn), sy + 2, LX(20 + sn), sy + 4, pn);
+        api.rect(LX(17 + sn), sy + 5, LX(20 + sn), sy + 5, pal.boots);
+        api.rect(LX(15), sy, LX(20), sy, pnS);
+      } else if (legs === 'knees') {
+        api.rect(LX(13), sy, LX(21), sy + 2, pnS);            // thigh running forward
+        api.rect(LX(16), sy - 5, LX(20), sy + 1, pn);         // shin stood up in front
+        api.rect(LX(16), sy - 5, LX(17), sy + 1, pnS);        // inboard edge turning away
+        api.rect(LX(16), sy - 5, LX(20), sy - 5, shH);        // lit crest of the knee
+        api.rect(LX(16), sy + 2, LX(21), sy + 2, pal.boots);  // sole flat on the floor
+        api.px(LX(15), sy + 1, pnS);
+      } else {
+        api.rect(LX(11), sy, LX(22), sy + 2, pnS);            // far leg folded through
+        api.rect(LX(12), sy + 1, LX(21), sy + 2, pn);         // near leg crossed over it
+        api.rect(LX(19), sy, LX(22), sy, pnS);                // far knee out at the front
+        api.rect(LX(20), sy + 2, LX(22), sy + 2, pal.boots);  // far foot tucked under
+        api.rect(LX(12), sy + 2, LX(14), sy + 2, pal.boots);  // near foot, sole to camera
+        api.px(LX(16), sy + 1, skS);                          // ankle bare at the crossing
+      }
+    };
+    if (legs === 'dangle') drawLegs();
     // torso from the seat up; the lean slides the whole upper body as one mass
     const ty = B(sy - 9);
     api.rect(LX(11), ty, LX(17), B(sy - 1), sh);
@@ -657,6 +696,7 @@ PF.Chars = (() => {
     api.rect(LX(16), ty, LX(17), B(sy - 1), shH);
     api.rect(LX(11), B(sy - 3), LX(17), B(sy - 2), pal.belt);
     api.rect(LX(13), B(sy - 3), LX(14), B(sy - 2), pal.buckle);
+    if (legs !== 'dangle') drawLegs();
     drawHeadSide(api, LX(10), ty - 5 + hd, pal, cfg);
     // arms: a two-segment limb, because a seated arm always bends somewhere
     const sx = LX(14), syy = ty + 1;
@@ -667,7 +707,7 @@ PF.Chars = (() => {
     };
     const a = cfg.arms || 'lap';
     if (a === 'lap') arm(LX(16), B(sy - 5), LX(19), B(sy - 3), true);
-    else if (a === 'knees') { arm(LX(15), B(sy - 5), LX(18), B(sy - 5), true); api.line(LX(14), B(sy - 6), LX(19), B(sy - 7), sk, 1); }
+    else if (a === 'knees') { arm(LX(16), B(sy - 6), LX(19), B(sy - 4), true); api.line(LX(15), B(sy - 7), LX(20), B(sy - 6), sk, 1); }
     else if (a === 'crossed') {
       api.rect(LX(11), B(sy - 7), LX(18), B(sy - 5), shS);
       api.rect(LX(11), B(sy - 7), LX(13), B(sy - 5), sk);
@@ -675,9 +715,16 @@ PF.Chars = (() => {
       api.rect(LX(11), B(sy - 7), LX(18), B(sy - 7), shH);
     } else if (a === 'mug') {
       arm(LX(16), B(sy - 6), LX(17), ty + 3, true);
-      api.rect(LX(17), ty + 2, LX(20), ty + 5, '#b86f50');
-      api.rect(LX(17), ty + 2, LX(20), ty + 2, '#e4a672');
-      api.px(LX(20), ty + 4, '#733e39');
+      // A tankard has staves, a lip, a handle and something in it. A 4x4 block
+      // of one brown read as a crate held up to the chin.
+      api.rect(LX(17), ty + 2, LX(19), ty + 6, '#8b7455');
+      api.rect(LX(17), ty + 2, LX(17), ty + 6, '#b09272');    // lit stave
+      api.rect(LX(19), ty + 2, LX(19), ty + 6, '#5c4a3a');
+      api.rect(LX(20), ty + 3, LX(20), ty + 5, '#5c4a3a');    // handle
+      api.px(LX(20), ty + 4, '#8b7455');
+      api.rect(LX(17), ty + 3, LX(19), ty + 3, '#c9a227');    // ale
+      api.rect(LX(17), ty + 2, LX(19), ty + 2, '#e8dcc0');    // foam over the rim
+      api.px(LX(18), ty + 6, '#3e3227');
     } else if (a === 'cheeks') {
       arm(LX(13), B(sy - 6), LX(12), ty + 2, false);
       api.line(LX(16), B(sy - 6), LX(18), ty + 2, sk, 2);
@@ -699,30 +746,53 @@ PF.Chars = (() => {
     const tx = 10 + off, ty = sy - 6 + bob, hy = sy - 15 + hd;
     const sh = pal.shirt, shS = pal.shirtSh, shH = pal.shirtHi;
     const pn = pal.pants, pnS = pal.pantsSh, sk = pal.skin, skS = pal.skinSh;
-    if (legs === 'dangle') {
-      // Thighs as one mass across the seat, knees at its lower edge, shins
-      // dropping behind them. Two parallel leg columns read as standing; the
-      // horizontal block is what says the legs are coming toward the camera.
-      api.rect(tx + 1, sy - 2, tx + 10, sy + 1, pn);
-      api.rect(tx + 1, sy - 2, tx + 10, sy - 2, pnS);
-      api.rect(tx + 2, sy + 1, tx + 4, sy + 3, pn);
-      api.rect(tx + 7, sy + 1, tx + 9, sy + 3, pnS);
-      api.rect(tx + 1, sy + 4, tx + 4, sy + 5, pal.boots);   // feet at y27
-      api.rect(tx + 6, sy + 4, tx + 9, sy + 5, pal.boots);
-      api.px(tx + 3, sy + 1, shH); api.px(tx + 8, sy + 1, shH);
-    } else {
-      api.rect(tx + 1, sy - 3, tx + 10, sy, pn);             // folded legs as one mass
-      api.rect(tx + 1, sy - 3, tx + 10, sy - 3, pnS);
-      api.rect(tx + 2, sy - 5, tx + 5, sy - 1, legs === 'knees' ? pn : pnS);
-      api.rect(tx + 6, sy - 5, tx + 9, sy - 1, legs === 'knees' ? pn : pnS);
-      api.px(tx + 3, sy - 5, sk); api.px(tx + 8, sy - 5, sk);
-    }
+    /* Same ordering problem as the side view: a fold and a hugged knee sit in
+       front of the chest, and going down first they were painted over by the
+       torso -- head on, the pose was a face, a belt and two rows of trouser,
+       with no feet drawn anywhere. */
+    const drawLegs = () => {
+      if (legs === 'dangle') {
+        // Thighs as one mass across the seat, knees at its lower edge, shins
+        // dropping behind them. Two parallel leg columns read as standing; the
+        // horizontal block is what says the legs are coming toward the camera.
+        api.rect(tx + 1, sy - 2, tx + 10, sy + 1, pn);
+        api.rect(tx + 1, sy - 2, tx + 10, sy - 2, pnS);
+        api.rect(tx + 2, sy + 1, tx + 4, sy + 3, pn);
+        api.rect(tx + 7, sy + 1, tx + 9, sy + 3, pnS);
+        api.rect(tx + 1, sy + 4, tx + 4, sy + 5, pal.boots);   // feet at y27
+        api.rect(tx + 6, sy + 4, tx + 9, sy + 5, pal.boots);
+        api.px(tx + 3, sy + 1, shH); api.px(tx + 8, sy + 1, shH);
+        return;
+      }
+      const fy = sy - 2 + bob;                                 // clear of the torso hem
+      api.rect(tx + 1, fy, tx + 10, fy + 2, pn);               // thighs opening to camera
+      api.rect(tx + 1, fy, tx + 10, fy, pnS);
+      if (legs === 'knees') {
+        api.rect(tx + 1, fy - 3, tx + 4, fy + 1, pn);          // knees drawn up to the chest
+        api.rect(tx + 7, fy - 3, tx + 10, fy + 1, pn);
+        api.rect(tx + 1, fy - 3, tx + 4, fy - 3, shH);         // lit crests
+        api.rect(tx + 7, fy - 3, tx + 10, fy - 3, shH);
+        api.rect(tx + 4, fy - 2, tx + 4, fy + 1, pnS);
+        api.rect(tx + 10, fy - 2, tx + 10, fy + 1, pnS);
+        api.rect(tx + 2, fy + 3, tx + 4, fy + 4, pal.boots);   // soles flat on the floor
+        api.rect(tx + 7, fy + 3, tx + 9, fy + 4, pal.boots);
+      } else {
+        api.rect(tx + 2, fy + 2, tx + 4, fy + 3, pal.boots);   // shins crossed, soles tucked
+        api.rect(tx + 7, fy + 2, tx + 9, fy + 3, pal.boots);
+        api.rect(tx + 4, fy + 2, tx + 7, fy + 2, pnS);
+        api.px(tx + 5, fy + 3, skS); api.px(tx + 6, fy + 3, skS);
+      }
+    };
+    if (legs === 'dangle') drawLegs();
     api.rect(tx, ty, tx + 11, sy - 2 + bob, sh);
     api.rect(tx, ty, tx + 1, sy - 2 + bob, shS);
     api.rect(tx + 10, ty, tx + 10, sy - 2 + bob, shH);
     api.rect(tx, sy - 4 + bob, tx + 11, sy - 3 + bob, pal.belt);
     api.rect(tx + 5, sy - 4 + bob, tx + 6, sy - 3 + bob, pal.buckle);
-    if (back) drawHeadBack(api, tx, hy, pal, cfg); else drawHeadFront(api, tx, hy, pal, cfg);
+    if (legs !== 'dangle') drawLegs();
+    if (back) { drawHeadBack(api, tx, hy, pal, { ...cfg, pack: false });
+      if (cfg.pack !== false) backpack(api, tx, ty + 1, 4); }             // sized to the seated torso
+    else drawHeadFront(api, tx, hy, pal, cfg);
     // arms bend at the elbow and rest where the torso is, so they are keyed off
     // ty — the seat line sits well below the chest on this rig
     const a = cfg.arms || 'lap';
@@ -742,8 +812,13 @@ PF.Chars = (() => {
     } else if (a === 'mug') {
       api.rect(tx + 1, ty, tx + 3, ty + 3, sh);
       api.rect(tx + 8, ty, tx + 10, ty + 3, sh);
-      api.rect(tx + 4, ty + 1, tx + 7, ty + 4, '#b86f50');
-      api.rect(tx + 4, ty + 1, tx + 7, ty + 1, '#e4a672');
+      api.rect(tx + 4, ty + 1, tx + 7, ty + 5, '#8b7455');
+      api.rect(tx + 4, ty + 1, tx + 4, ty + 5, '#b09272');    // lit stave
+      api.rect(tx + 7, ty + 1, tx + 7, ty + 5, '#5c4a3a');
+      api.rect(tx + 8, ty + 2, tx + 8, ty + 4, '#5c4a3a');    // handle
+      api.px(tx + 8, ty + 3, '#8b7455');
+      api.rect(tx + 4, ty + 2, tx + 7, ty + 2, '#c9a227');    // ale
+      api.rect(tx + 4, ty + 1, tx + 7, ty + 1, '#e8dcc0');    // foam over the rim
       api.px(tx + 3, ty + 2, sk); api.px(tx + 8, ty + 2, sk);
     } else {
       api.rect(tx, ty + 1, tx + 2, sy - 4 + bob, sh);
