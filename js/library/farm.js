@@ -931,16 +931,22 @@ PF.Farm = (() => {
           a.rect(17, 14, 22, 18, '#7fc4d9');                 // wire window
           for (let x = 17; x <= 22; x += 2) a.rect(x, 14, x, 18, WOOD_D);
           for (let y = 14; y <= 18; y += 2) a.rect(17, y, 22, y, WOOD_D);
-          a.rect(15, 2, 16, 6, '#6b7079');                   // vane mast
-          /* Cockerel weather vane: body, up-swept tail, comb. A plain red slab
-             on a stick read as a flame. */
-          a.rect(16, 1, 20, 3, PAINT);
-          a.rect(16, 1, 19, 1, PAINT_HI);
-          a.rect(20, 2, 21, 4, PAINT_SH);                    // tail
-          a.px(21, 1, PAINT);
-          a.rect(13, 0, 15, 2, PAINT);                       // head
-          a.px(13, 0, PAINT_HI);
-          a.px(12, 1, '#e8c96a');                            // beak
+          a.rect(15, 3, 16, 6, '#6b7079');                   // vane mast
+          /* Cockerel weather vane: breast forward, head up on a neck, tail
+             sweeping back over the body. The old one was a horizontal slab
+             with a square block stuck on the front of it, which at this size
+             read as an axe head on a handle. */
+          a.rect(13, 3, 19, 5, PAINT);                       // body
+          a.rect(13, 3, 19, 3, PAINT_HI);
+          a.rect(13, 5, 19, 5, PAINT_SH);
+          a.rect(12, 1, 13, 3, PAINT);                       // neck and head
+          a.px(12, 1, PAINT_HI);
+          a.px(13, 0, PAINT_HI);                             // comb
+          a.px(11, 2, '#e8c96a');                            // beak
+          for (let d = 0; d < 5; d++) {                      // sickle tail
+            const tx = 19 + Math.round(d * 0.5);
+            a.rect(tx, 4 - d, tx + 1, 4 - d, d % 2 ? PAINT_SH : PAINT);
+          }
         })),
         D('well', 1, false, still(a => {
           for (let y = 20; y <= 27; y++) {                    // stone drum
@@ -1031,7 +1037,15 @@ PF.Farm = (() => {
           }
           a.rect(6, 28, 25, 29, '#7a6420');                  // contact shadow
           a.rect(6, 28, 25, 28, '#a07d22');
-          for (let k = 0; k < 6; k++) a.px(7 + k * 3, 7 - (k % 2), '#efd07a');   // loose ends
+          /* Loose ends pulled out of the roll. Laid along a flat row above the
+             bale they were detached pixels, and the outline pass drew a box
+             around every one of them. Each wisp now starts ON the rim. */
+          for (let k = 0; k < 6; k++) {
+            const dx = -8 + k * 3.2, t = dx / 11;
+            const top = 18 - Math.round(Math.sqrt(Math.max(0, 1 - t * t)) * 10.4);
+            a.px(15.5 + dx, top, '#efd07a');
+            a.px(15.5 + dx, top - 1, '#efd07a');
+          }
         })),
         D('fence', 1, false, still(a => {
           /* Three-rail post and rail, the rails running full width so the
@@ -1054,6 +1068,22 @@ PF.Farm = (() => {
     };
   }
 
+
+  /* A bail handle. Sampling the arc by ANGLE leaves gaps: near the apex
+     several samples land in the same column and near the ends they skip whole
+     rows, so the handle comes out as a row of comb teeth floating over the
+     vessel. Walking x and joining consecutive samples keeps it one unbroken
+     piece of wire. */
+  const bail = (a, cx, top, rx, ry, c, cSh) => {
+    let lx = null, ly = null;
+    for (let x = Math.round(cx - rx); x <= Math.round(cx + rx); x++) {
+      const t = (x - cx) / rx;
+      const y = Math.round(top - Math.sqrt(Math.max(0, 1 - t * t)) * ry);
+      if (lx !== null) { a.line(lx, ly, x, y, c, 1); a.line(lx, ly + 1, x, y + 1, cSh, 1); }
+      a.px(x, y, c); a.px(x, y + 1, cSh);
+      lx = x; ly = y;
+    }
+  };
 
   /* ============================================================== ITEMS ====
      Inventory icons. Each one lifts a pixel on the second frame so it reads as
@@ -1170,14 +1200,7 @@ PF.Farm = (() => {
           }
           a.rect(28, 14, 31, 16, '#5a5f68');                 // rose
           a.px(29, 14, '#c0c6cf'); a.px(31, 15, '#3f444c');
-          /* Handle in a LIGHT metal grey and two pixels thick. A one-pixel
-             arc in the darkest grey in the ramp merged with the outline pass
-             and read as a scorch mark floating over the can. */
-          for (let d = 0; d <= 12; d++) {
-            const ang = Math.PI + (d / 12) * Math.PI;
-            const hx = Math.round(14 + Math.cos(ang) * 6), hy = Math.round(11 - Math.abs(Math.sin(ang)) * 5);
-            a.px(hx, hy, '#b0b6bf'); a.px(hx, hy + 1, '#6b7079');
-          }
+          bail(a, 14, 11, 6, 5, '#b0b6bf', '#6b7079');
         }),
         bob('seedbag', a => {
           a.rect(7, 12, 24, 28, '#d8c27a');                  // sack
@@ -1232,12 +1255,7 @@ PF.Farm = (() => {
           a.rect(9, 12, 20, 12, '#ffffff');
           a.rect(8, 28, 23, 28, '#3f444c');
           a.rect(6, 19, 25, 19, '#5a5f68');                  // banding
-          /* Bail in a light grey, two pixels thick — see the watering can. */
-          for (let d = 0; d <= 16; d++) {
-            const ang = Math.PI + (d / 16) * Math.PI;
-            const hx = Math.round(15.5 + Math.cos(ang) * 10), hy = Math.round(11 - Math.abs(Math.sin(ang)) * 7);
-            a.px(hx, hy, '#c0c6cf'); a.px(hx, hy + 1, '#7f858f');
-          }
+          bail(a, 15.5, 11, 10, 7, '#c0c6cf', '#7f858f');
           a.px(12, 5, '#ffffff'); a.px(19, 6, '#e0e5ec');    // a splash on the way in
         })
       ]
@@ -1560,12 +1578,23 @@ PF.Farm = (() => {
 
         // --- row 3: water, crop rows, fence --------------------------------
         const water = cell(a, 0, 3);
-        for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++)
-          water.px(x, y, ((x + y) % 8) < 4 ? '#2f6f9a' : '#27618a');
-        for (let k = 0; k < 5; k++) {                          // ripple crests
-          const y = k * 3 + 1, x = Math.floor(water.hash(k, 14, 11) * 9);
-          water.rect(x, y, x + 4, y, '#6bb0d9');
-          water.px(x + 1, y, '#a8dcf2');
+        /* Two tones alternating on an (x+y)%8 period is a diagonally striped
+           carpet, not water. The field is mottled instead and all of the
+           value range is carried by the ripples, each of which gets a trough
+           behind it so the crest reads as a surface and not a painted dash. */
+        for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+          const n = water.hash(x, y, 7);
+          water.px(x, y, n > 0.72 ? '#35799f' : n > 0.28 ? '#2f6f9a' : '#27618a');
+        }
+        for (let k = 0; k < 4; k++) {                          // ripple crests
+          const y0 = k * 4 + 1, x0 = (k * 5 + Math.floor(water.hash(k, 14, 11) * 5)) % 16;
+          for (let d = 0; d < 6; d++) {
+            const x = (x0 + d) % 16, y = y0 + (d === 0 || d === 5 ? 1 : 0);
+            water.px(x, y, '#6bb0d9');
+            water.px(x, y + 1, '#1f4f74');
+          }
+          water.px((x0 + 2) % 16, y0, '#a8dcf2');
+          water.px((x0 + 3) % 16, y0, '#a8dcf2');
         }
 
         const cropA = cell(a, 1, 3);                           // young crop row
