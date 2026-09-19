@@ -273,9 +273,44 @@ PF.Iso = (() => {
     }
   };
 
+  /* ---- ground seams ----------------------------------------------------
+
+     Ground tiles are the one thing in this pack that gets laid edge to edge
+     by the hundred. Give each of them the library's hard #181425 rim and a
+     floor stops being a floor: every tile boundary is a 1px black line and
+     the result is graph paper with grass printed in the squares. A field of
+     grass has joints, not a lattice.
+
+     So ground rims in the material's own darkest tone taken most of the way
+     down instead of in the outline black. Two neighbouring tiles then meet in
+     a seam that reads as the shadow between clods, while a single tile on the
+     studio's dark canvas still has an edge the eye can find. Everything else
+     in the pack — blocks, props, walls — keeps the black rim, because those
+     are objects standing ON the floor and they need to cut out against it. */
+  const SEAM = {};                 // state name -> seam colour, for scripts/test.js
+  const seamOf = hex => {
+    const [r, g, b] = PF.Color.rgba(PF.Color.hexToU32(hex));
+    const q = v => Math.max(0, Math.min(255, Math.round(v * 0.56)));
+    return PF.Color.hexToU32(PF.Color.u32ToHex(PF.Color.fromRGBA(q(r), q(g), q(b), 255)));
+  };
+  const gdraw = (m, painter) => {
+    /* Off the TOP tone, not the left face: a ground tile has no left face,
+       and grass's is earth brown — seaming grass in brown drew a lattice of
+       mud between the clods. */
+    const c = seamOf(m.top);
+    SEAM[m.top] = c;
+    return (buf, W, H) => {
+      painter(PF.Pixel.makeApi(buf, W, H), W, H);
+      buf.set(PF.Raster.outline(buf, W, H, c));
+    };
+  };
+  const gstill = (m, painter) => [{ duration: 200, paint: gdraw(m, painter) }];
+  const gcyc = (m, n, fps, make) => Array.from({ length: n }, (_, i) =>
+    ({ duration: Math.round(1000 / fps), paint: gdraw(m, (a, W, H) => make(a, i, i / n, W, H)) }));
+
   /* Ground tiles are blocks of zero height: one call, and the diamond they
      produce is bit-identical to the top face of any block in the pack. */
-  const ground = (m, seed) => still(a => topFace(a, m, 0, seed));
+  const ground = (m, seed) => gstill(m, a => topFace(a, m, 0, seed));
 
   /* ---------------------------------------------------------- iso_ground */
 
@@ -283,7 +318,7 @@ PF.Iso = (() => {
      television static; a scrolled hash reads as a current, and it guarantees
      the >=8px inter-frame difference the quality gate wants without the whole
      surface strobing. */
-  const liquid = (m, seed, amp) => cyc(4, 6, (a, i, t) => {
+  const liquid = (m, seed, amp) => gcyc(m, 4, 6, (a, i, t) => {
     const sh = Math.round(Math.sin(t * TAU) * (amp || 2));
     quad(a, [proj(0, 0, 0), proj(1, 0, 0), proj(1, 1, 0), proj(0, 1, 0)], (x, y) => {
       const crest = Math.sin(x * 0.4 + y * 0.9 + i * 1.6);
@@ -303,7 +338,7 @@ PF.Iso = (() => {
       D('stone', 1, false, ground(MAT.stone, 11)),
       D('sand', 1, false, ground(MAT.sand, 17)),
       D('snow', 1, false, ground(MAT.snow, 23)),
-      D('wood', 1, false, still(a => {
+      D('wood', 1, false, gstill(MAT.wood, a => {
         topFace(a, MAT.wood, 0, 29);
         /* Plank seams run along u, so they converge on the tile's left vertex
            the way floorboards converge toward the viewer in every iso game. */
@@ -1156,5 +1191,5 @@ PF.Iso = (() => {
 
   return { groundSuite, blocksSuite, wallsSuite, stairsSuite, propsSuite,
     charSuite, buildingSuite, natureSuite, ISO_HERO, ISO_ORC, ISO_MAGE,
-    proj, quad, block, vol, MAT };
+    proj, quad, block, vol, MAT, SEAM, seamOf };
 })();
