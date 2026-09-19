@@ -28,10 +28,21 @@ PF.RPG.life = (() => {
     boots: '#3e2731', belt: '#262b44', buckle: '#c0cbdc', outline: OUT, lip: '#a26a5a',
     apron: '#8a5a3c', apronSh: '#5c3a24', apronHi: '#b8845c'
   };
+  /* Spear infantry. The suite ran on the farmer palette, so the one template in
+     this pack filed under Enemies was a man in a linen shirt holding a stick.
+     At 32px a soldier is read from three things: a steel coif, a gambeson in a
+     livery colour, and plate on the shoulder. Tones are kept clear of the
+     spearhead's own steel so the shaft crossing the chest still separates. */
+  const GUARD = {
+    skin: '#e8b796', skinSh: '#c28569', hair: '#8b9bb4', hairSh: '#5a6988', hairHi: '#e0e8f4',
+    shirt: '#9e3b3b', shirtSh: '#5c2323', shirtHi: '#c85f52', pants: '#4a5568', pantsSh: '#2f3847',
+    boots: '#3e2731', belt: '#3e2731', buckle: '#c0cbdc', outline: OUT, lip: '#a26a5a'
+  };
   const STEEL = ['#5a6988', '#c0cbdc', '#ffffff'];
   const HOT = ['#ffffff', '#fee761'];
   const HOE = { handle: '#8a6a4a', head: '#c0cbdc', shine: '#ffffff' };
-  const SPEAR = { handle: '#8a6a4a', head: '#c0cbdc', shine: '#ffffff', lug: '#5a6988' };
+  const SPEAR = { handle: '#8a6a4a', handleHi: '#b08c62', handleSh: '#5c4025',
+    head: '#c0cbdc', shine: '#ffffff', edge: '#8b9bb4', lug: '#5a6988' };
 
   /* One tool-use cycle from a list of poses. The strike frame is always the
      shortest: a held windup, one fast frame carrying the action, then a settle.
@@ -42,9 +53,10 @@ PF.RPG.life = (() => {
     for (let i = 0; i < keys.length; i++) {
       const k = keys[i];
       const extra = { tool: k.tool, eye: k.eye || 'open', mouth: k.mouth || 'closed' };
+      const pal = opts.pal || FARMER;
       const cfg = facing === 'side'
-        ? Ch().sidePose(i, keys.length, 0, FARMER, extra)
-        : Ch().frontPose(i, keys.length, 0, FARMER, facing, extra);
+        ? Ch().sidePose(i, keys.length, 0, pal, extra)
+        : Ch().frontPose(i, keys.length, 0, pal, facing, extra);
       const arm = k.arm || [2, -2];
       if (facing === 'side') cfg.armF = { dx: arm[0], dy: arm[1] };
       else cfg.armR = { dx: arm[0], dy: arm[1] };
@@ -64,6 +76,7 @@ PF.RPG.life = (() => {
       cfg.bob = Math.max(0, k.bob || 0);
       cfg.headDy = Math.max(0, k.hd || 0);
       if (opts.seated) Object.assign(cfg, opts.seated);
+      if (opts.cfg) Object.assign(cfg, opts.cfg);
       frames.push(Fr(k.dur, R.N(cfg, opts, i)));
     }
     return frames;
@@ -325,13 +338,32 @@ PF.RPG.life = (() => {
      middle keeps a couched point while the butt stays inside the cell too. */
   function lspear(api, hx, hy, angle) {
     const c = Math.cos(angle), s = Math.sin(angle);
-    const tx = hx + c * 8, ty = hy + s * 8, bx = hx - c * 4, by = hy - s * 4;
-    api.line(bx, by, tx, ty, SPEAR.handle, 2);
-    api.px(bx, by, SPEAR.lug);                             // iron butt-cap
-    const ha = angle + Math.PI / 2;
-    api.line(tx - c * 4, ty - s * 4, tx + c, ty + s, SPEAR.head, 2);
-    api.px(tx + c * 2, ty + s * 2, SPEAR.shine);           // needle point
-    api.line(tx - Math.cos(ha) * 2, ty - Math.sin(ha) * 2, tx + Math.cos(ha), ty + Math.sin(ha), SPEAR.lug, 1);
+    /* d runs along the shaft from the grip, o across it. */
+    const at = (d, o) => [hx + c * d - s * (o || 0), hy + s * d + c * (o || 0)];
+    const seg = (d0, o0, d1, o1, col, w) => {
+      const [x0, y0] = at(d0, o0), [x1, y1] = at(d1, o1);
+      api.line(x0, y0, x1, y1, col, w || 1);
+    };
+    /* A spear is mostly shaft, and reach is the whole point of carrying one.
+       The old weapon ran twelve units with a head taking five of them and two
+       more across, so it read as a hatchet lashed to a stick. */
+    /* Eleven units of reach ahead of the grip is the most a 32-cell will take:
+       at fourteen the whole blade fell off the right edge on the thrust frames,
+       which left the hit reading as a stick and an impact star. */
+    seg(-4.5, 0, 6.5, 0, SPEAR.handle, 2);
+    seg(-4.5, -1, 6.5, -1, SPEAR.handleHi, 1);             // lit side of the shaft
+    seg(-4.5, 1, 6.5, 1, SPEAR.handleSh, 1);               // and the side in shadow
+    seg(-2, 0, 0, 0, '#5c4025', 2);                        // bound grip under the hand
+    const [bx, by] = at(-5); api.px(bx, by, SPEAR.lug);    // iron butt-cap
+    seg(5.5, 0, 7, 0, SPEAR.lug, 2);                       // socket the head sits in
+    /* A leaf blade: off the socket it widens, holds, then draws to a needle. */
+    for (let i = 0; i <= 5; i++) {
+      const w = i === 0 ? 0.6 : i <= 2 ? 1.1 : i === 3 ? 0.8 : 0.4;
+      seg(7.5 + i * 0.65, -w, 7.5 + i * 0.65, w, SPEAR.head, 1);
+    }
+    seg(8, -0.9, 10, -0.3, SPEAR.shine, 1);                // ground edge catching light
+    seg(8, 0.9, 10.3, 0.3, SPEAR.edge, 1);                 // the flat turning away
+    const [px, py] = at(11); api.px(px, py, SPEAR.shine);  // needle point
   }
 
   /* Short, dark-headed and top-lit. The shared PF.Pixel.hammer is a 10-unit
@@ -639,6 +671,83 @@ PF.RPG.life = (() => {
      Every angle is chosen against the cell, not just the pose: the head must
      stay inside x2..x29 and y3..y26 at every grip offset so the outline pass can
      rim the whole shaft. */
+  /* Steel laid over the gambeson. It goes in post, which runs after the outline
+     pass, so it carries its own dark edge -- nothing drawn there gets a rim for
+     free, and a bare grey slab on the shoulder reads as damage rather than
+     armour. */
+  function plate(api, cfg) {
+    const bob = Math.max(0, cfg.bob || 0), kb = cfg.kb || 0, ty = 14 + bob;
+    const hy = 4 + bob + (cfg.headDy || 0);
+    if (cfg.facing === 'side') {
+      const tx = 12 + kb, hx = tx - 1;
+      /* The plate rides the shoulder it is strapped to. Pinned to the torso it
+         stayed at chest height while the weapon arm went up past the jaw, so
+         the guard stance had a steel tile floating clear of a bare red sleeve. */
+      const ay = ty + clampA((cfg.armF || {}).dy || 0, -1, 0);
+      api.rect(tx + 4, ay - 1, tx + 7, ay + 1, '#7d8aa0');    // pauldron on the near shoulder
+      api.rect(tx + 4, ay - 1, tx + 7, ay - 1, '#c0cbdc');    // lit crest of the plate
+      api.rect(tx + 4, ay + 2, tx + 7, ay + 2, '#3a4466');    // its lower lip, in shadow
+      api.px(tx + 3, ay, '#3a4466');
+      /* On a high windup the rig lifts the whole sleeve to cheek height, and
+         in a dark-red livery that landed on the profile as a wound. Mail on
+         the upper arm ties it back to the helm. Rows are counted from below
+         the shoulder so the plate never creeps up over the eye. */
+      const ady = (cfg.armF || {}).dy || 0;
+      if (ady <= -3) {
+        api.rect(tx + 4, ty + ady + 1, tx + 6, ty + ady + 2, '#5a6988');
+        api.px(tx + 6, ty + ady + 1, '#7d8aa0');
+        api.px(tx + 4, ty + ady + 2, '#3a4466');
+      }
+      api.rect(tx + 1, ty + 1, tx + 4, ty + 1, '#5a6988');    // mail showing under the arm
+      api.px(tx + 2, ty + 2, '#3a4466'); api.px(tx + 4, ty + 3, '#3a4466');
+      /* Steel-toned hair alone is a grey haircut. What says helm is hardware:
+         a browband, a cheek plate over the ear and a nasal down the face. */
+      api.rect(hx + 1, hy + 2, hx + 9, hy + 2, '#c0cbdc');
+      api.rect(hx + 1, hy + 3, hx + 3, hy + 3, '#5a6988');
+      api.rect(hx + 1, hy + 4, hx + 3, hy + 7, '#7d8aa0');    // cheek plate covering the ear
+      api.rect(hx + 1, hy + 7, hx + 3, hy + 7, '#3a4466');
+      api.px(hx + 1, hy + 4, '#c0cbdc');
+      api.rect(hx + 9, hy + 2, hx + 9, hy + 5, '#8b9bb4');    // nasal, standing off the brow
+      api.px(hx + 10, hy + 3, '#3a4466');
+      return;
+    }
+    const tx = 10 + kb, hx = tx;
+    /* Three pixels of plate a side, not four: at four the two pauldrons and the
+       mail between them ran together into one unbroken grey rule across the
+       whole chest and the livery underneath disappeared. */
+    /* One row of travel, and set two columns outboard of the chest. Head-on the
+       skull is as wide as the shoulders, so a plate that rides up or sits in
+       over the torso lands on the cheek: at four rows of travel the weapon-arm
+       plate climbed past the collar and gave the soldier a steel horn. */
+    for (const [ox, a] of [[tx - 2, cfg.armL || {}], [tx + 10, cfg.armR || {}]]) {
+      const ay = ty + clampA(a.dy || 0, -1, 0), sx = ox + clampA(a.dx || 0, -1, 1);
+      api.rect(sx, ay - 1, sx + 3, ay + 1, '#7d8aa0');
+      api.rect(sx, ay - 1, sx + 3, ay - 1, '#c0cbdc');
+      api.rect(sx, ay + 2, sx + 3, ay + 2, '#3a4466');
+    }
+    if (cfg.facing === 'up') {
+      api.rect(hx + 5, hy - 2, hx + 5, hy + 6, '#e0e8f4');    // comb running over the crown
+      api.rect(hx + 6, hy - 2, hx + 6, hy + 6, '#5a6988');
+      api.rect(hx + 1, hy + 7, hx + 10, hy + 9, '#7d8aa0');   // neck guard at the nape
+      api.rect(hx + 1, hy + 7, hx + 10, hy + 7, '#c0cbdc');
+      api.rect(hx + 1, hy + 9, hx + 10, hy + 9, '#3a4466');
+      api.px(hx + 2, hy + 8, '#3a4466'); api.px(hx + 9, hy + 8, '#3a4466');
+      return;
+    }
+    api.rect(tx + 4, ty + 2, tx + 7, ty + 2, '#5a6988');      // mail at the throat
+    api.px(tx + 5, ty + 3, '#3a4466'); api.px(tx + 6, ty + 4, '#3a4466');
+    /* The band has to start at hy+2. One row lower and the skin of the fringe
+       gap showed through above it as a dashed tan rule across the forehead. */
+    api.rect(hx + 1, hy + 2, hx + 10, hy + 4, '#8b9bb4');     // browband
+    api.rect(hx + 1, hy + 2, hx + 10, hy + 2, '#e0e8f4');
+    api.rect(hx + 1, hy + 4, hx + 10, hy + 4, '#5a6988');
+    api.rect(hx + 5, hy + 5, hx + 5, hy + 7, '#c0cbdc');      // nasal between the eyes
+    api.rect(hx + 6, hy + 5, hx + 6, hy + 7, '#5a6988');
+    api.rect(hx - 1, hy + 5, hx, hy + 7, '#7d8aa0');          // cheek plates
+    api.rect(hx + 11, hy + 5, hx + 12, hy + 7, '#5a6988');
+    api.px(hx - 1, hy + 5, '#c0cbdc'); api.px(hx + 12, hy + 7, '#3a4466');
+  }
+
   function spearSuite() {
     const tool = k => ({
       draw: (api, hx, hy, t, cfg) => {
@@ -660,21 +769,21 @@ PF.RPG.life = (() => {
         { dur: 110, arm: [3, -3], a: -1.1 }, { dur: 110, arm: [4, -3], a: -0.9 },
         { dur: 110, arm: [3, -4], a: -0.85 }, { dur: 110, arm: [4, -4], a: -1.05 }] },
       slash: { fps: 10, keys: [{ dur: 190, arm: [4, -5], a: -2.25 }, { dur: 120, arm: [3, -6], a: -2.5 },
-        { dur: 50, arm: [3, -1], a: -0.25, kb: 2, a0: -2.5 }, { dur: 80, arm: [3, 0], a: 0.5, kb: 2, hit: 1 },
+        { dur: 50, arm: [3, -1], a: -0.25, kb: 2, a0: -2.5 }, { dur: 80, arm: [1, 0], a: 0.5, kb: 2, hit: 1 },
         { dur: 130, arm: [3, -2], a: 0.1, kb: 1 }, { dur: 180, arm: [3, -3], a: -0.9 }] },
       thrust: { fps: 10, keys: [{ dur: 180, arm: [2, -4], a: -0.7 }, { dur: 130, arm: [1, -4], a: -1.05, kb: -1 },
-        { dur: 55, arm: [2, -3], a: -0.2, kb: 3, hit: 1, a0: -1.05 }, { dur: 90, arm: [3, -2], a: -0.45, kb: 2 },
+        { dur: 55, arm: [0, -3], a: -0.2, kb: 2, hit: 1, a0: -1.05 }, { dur: 90, arm: [1, -2], a: -0.45, kb: 1 },
         { dur: 150, arm: [2, -3], a: -0.75, kb: 1 }, { dur: 190, arm: [3, -3], a: -0.9 }] },
       thrust2: { fps: 10, keys: [{ dur: 170, arm: [3, -5], a: -1.9 }, { dur: 120, arm: [4, -5], a: -2.35 },
-        { dur: 50, arm: [4, -2], a: -0.85, kb: 2, a0: -2.35 }, { dur: 85, arm: [3, -1], a: -0.35, kb: 3, hit: 1 },
+        { dur: 50, arm: [4, -2], a: -0.85, kb: 2, a0: -2.35 }, { dur: 85, arm: [1, -1], a: -0.35, kb: 2, hit: 1 },
         { dur: 140, arm: [3, -2], a: -0.6, kb: 1 }, { dur: 190, arm: [3, -3], a: -0.9 }] },
       parry: { fps: 10, keys: [{ dur: 70, arm: [2, -5], a: -1.9, a0: -2.6 },
         { dur: 190, arm: [3, -6], a: -1.75 }, { dur: 140, arm: [3, -3], a: -1.2, kb: -1 }] },
       evade: { fps: 10, keys: [{ dur: 70, arm: [2, -3], a: -0.6 }, { dur: 110, arm: [1, -4], a: -0.7, kb: -2 },
         { dur: 110, arm: [1, -5], a: -0.85, kb: -3 }, { dur: 90, arm: [2, -3], a: -0.55, kb: -1 },
         { dur: 150, arm: [3, -3], a: -0.9 }] },
-      lunge: { fps: 10, keys: [{ dur: 130, arm: [3, -5], a: -1.5 }, { dur: 70, arm: [2, -3], a: -0.15, kb: 3, hit: 1, a0: -1.5 },
-        { dur: 90, arm: [2, -2], a: -0.35, kb: 2 }, { dur: 190, arm: [3, -3], a: -0.9, kb: 1 }] },
+      lunge: { fps: 10, keys: [{ dur: 130, arm: [3, -5], a: -1.5 }, { dur: 70, arm: [0, -3], a: -0.15, kb: 2, hit: 1, a0: -1.5 },
+        { dur: 90, arm: [1, -2], a: -0.35, kb: 1 }, { dur: 190, arm: [3, -3], a: -0.9, kb: 1 }] },
       retreat: { fps: 10, keys: [{ dur: 90, arm: [2, -4], a: -1.1, kb: -2 }, { dur: 90, arm: [1, -4], a: -1.4, kb: -3 },
         { dur: 110, arm: [2, -3], a: -1.2, kb: -1 }, { dur: 170, arm: [3, -3], a: -0.9 }] },
       hit: { fps: 8, keys: [{ dur: 60, arm: [1, -5], a: -1.85, kb: -3, hit: 1 },
@@ -683,7 +792,8 @@ PF.RPG.life = (() => {
         { dur: 120, arm: [1, -2], a: -0.5, kb: -4 }, { dur: 170, arm: [1, 0], a: 0.25, kb: -4 },
         { dur: 260, arm: [1, 1], a: 0.75, kb: -4 }] }
     };
-    const build = spec => f => action(f, spec.keys.map(k => ({ ...k, tool: tool(k) })));
+    const build = spec => f => action(f, spec.keys.map(k => ({ ...k, tool: tool(k) })),
+      { pal: GUARD, post: plate, cfg: { pack: false } });
     const out = [];
     for (const name of Object.keys(sets)) out.push(...facings(name, build(sets[name]), sets[name].fps, sets[name].loop));
     return { width: 32, height: 32, name: 'rpg-spearknight', layers: [{ name: 'Body' }], states: out };
