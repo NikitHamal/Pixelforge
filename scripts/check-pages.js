@@ -22,7 +22,8 @@ const PAGES = [
   ['studio.html', []],
   ['app/index.html', []],
   ['games/runefall/index.html', []],
-  ['games/nightfall/index.html', []]
+  ['games/nightfall/index.html', []],
+  ['games/ironvale/index.html', []]
 ];
 
 let fail = 0, pass = 0, note = 0;

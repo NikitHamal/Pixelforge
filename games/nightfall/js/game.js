@@ -608,6 +608,11 @@
        it, so a torch beam brightens nothing — it simply is not covered. ---- */
     dctx.setTransform(1, 0, 0, 1, 0, 0);
     dctx.globalCompositeOperation = 'source-over';
+    /* Clear first. Without this the fill below composites onto last frame's
+       overlay, saturates to opaque within a second, and the 0.62 chosen right
+       here to keep the world legible stops meaning anything. */
+    dctx.clearRect(0, 0, VW, VH);
+    dctx.globalAlpha = 1;
     /* 0.80 looked atmospheric in the abstract and played like a blindfold:
        the map, the props and most of the horde were simply not there. 0.62
        keeps the night reading as night while leaving the world legible. */

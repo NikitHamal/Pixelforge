@@ -6,7 +6,7 @@
    particles, the night overlay and all. Without this the demo games are the
    one part of the project nobody can look at before shipping.
 
-   Usage: node scripts/shot-game.js <gameDir> <outfile.png> [warmupFrames] */
+   Usage: node scripts/shot-game.js <gameDir> <outfile.png> [warmupFrames] [WxH] */
 const fs = require('fs');
 const path = require('path');
 const { boot, ROOT } = require('./lib-boot');
@@ -16,13 +16,16 @@ const R = require('./render');
 const rel = (process.argv[2] || 'games/nightfall').replace(/\/+$/, '');
 const out = process.argv[3] || '/tmp/shot.png';
 const warm = Number(process.argv[4] || 260);
+/* Zoom is derived from the viewport, so the shot size decides how close the
+   camera sits. 640x400 frames the world; 1200x750 frames the fight. */
+const size = (process.argv[5] || '640x400').split('x').map(Number);
 
 const dir = path.join(ROOT, rel);
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
 
 boot();
 const doc = makeDom(html, { canvas: 'soft' });
-const { emit, pump } = installGlobals(doc, { width: 640, height: 400, dpr: 1 });
+const { emit, pump } = installGlobals(doc, { width: size[0], height: size[1], dpr: 1 });
 loadScripts(html, dir);
 
 // past the title screen
@@ -42,7 +45,8 @@ for (let i = 0; i < warm; i++) {
   pump();
 }
 
-if (window.NIGHTFALL) console.log('  state: ' + JSON.stringify(window.NIGHTFALL.stats()));
+const probe = window.NIGHTFALL || window.IRONVALE;
+if (probe) console.log('  state: ' + JSON.stringify(probe.stats()));
 const backing = cv.data;
 if (!backing) throw new Error('no raster backing on #cv — is the soft canvas wired up?');
 fs.writeFileSync(out, R.toPNG(backing, cv.width, cv.height));

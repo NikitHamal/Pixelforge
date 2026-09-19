@@ -43,6 +43,32 @@ const GAMES = {
           'bullet/enemy collision is broken');
       return `clock ${clock}, hp ${hp}, ammo ${ammo}, score ${score}, ${doc.byId['wave-txt'].textContent}`;
     }
+  },
+  'games/ironvale': {
+    start(doc) {
+      const picker = doc.byId['picker'];
+      const first = picker && picker.children[0];
+      if (!first) throw new Error('ironvale: title screen produced no class buttons');
+      first.emit('click', {});
+      if (!doc.byId['screen-title'].classList.contains('hidden'))
+        throw new Error('ironvale: picking a class did not dismiss the title screen');
+    },
+    /* The keep meter is the one readout no other gate can fake: it only moves
+       when a foe walked the lattice, found the tower and swung at it. */
+    check(doc) {
+      const clock = doc.byId['clock-txt'].textContent;
+      if (!/^\d\d:\d\d$/.test(clock) || clock === '00:00')
+        throw new Error('ironvale: clock never advanced (' + clock + ')');
+      const hp = Number(doc.byId['hp-txt'].textContent);
+      if (!(hp >= 0)) throw new Error('ironvale: hp readout is not a number');
+      const keep = Number(doc.byId['keep-txt'].textContent);
+      if (!(keep >= 0)) throw new Error('ironvale: keep readout is not a number');
+      const renown = Number(doc.byId['score-txt'].textContent);
+      if (!(renown > 0))
+        throw new Error('ironvale: a whole warband walked into a swinging sword and ' +
+          'nothing died \u2014 melee/foe collision is broken');
+      return `clock ${clock}, hp ${hp}, keep ${keep}, renown ${renown}, ${doc.byId['wave-txt'].textContent}`;
+    }
   }
 };
 
