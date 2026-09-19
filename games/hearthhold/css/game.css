@@ -66,7 +66,7 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
 #palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
   gap: 4px; max-height: 40vh; overflow: auto; padding: 5px;
   background: #141928e6; border: 2px solid #232a42; border-radius: 5px;
-  box-shadow: 0 3px 0 #00000055; }
+  box-shadow: 0 3px 0 #00000055; pointer-events: auto; }
 .cell { display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 4px 2px 5px; background: #1b2136; border: 2px solid #232a42; border-radius: 4px;
   cursor: pointer; }

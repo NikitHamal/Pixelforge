@@ -78,6 +78,7 @@
       horn: () => { tone(180, 0.5, 'sawtooth', 0.06, 130); tone(240, 0.45, 'square', 0.03, 170); },
       dawn: () => { tone(440, 0.12, 'triangle', 0.04); tone(660, 0.18, 'triangle', 0.035); },
       pick: () => tone(700, 0.04, 'square', 0.03),
+      on,
       toggle(v) { muted = v === undefined ? !muted : !!v; return muted; },
       get muted() { return muted; }
     };
@@ -197,10 +198,19 @@
     return ok;
   }
 
+  /* Dragging a wall line along a forest edge refuses on every tile it crosses.
+     One buzz per burst is feedback; a dozen in a second is a machine gun. */
+  let refuseT = -9;
+  function refuse(msg) {
+    if (S.t - refuseT > 0.4) { SFX.deny(); refuseT = S.t; }
+    toast(msg);
+    return false;
+  }
+
   function place(def, x, y) {
     if (def.demolish) return demolish(x, y);
-    if (!canPlace(def, x, y)) { SFX.deny(); return false; }
-    if (!has(def.cost)) { SFX.deny(); toast('Not enough ' + shortfall(def.cost)); return false; }
+    if (!canPlace(def, x, y)) return refuse('No room for that here');
+    if (!has(def.cost)) return refuse('Not enough ' + shortfall(def.cost));
     spend(def.cost);
 
     if (def.ground) {                                 // roads are pure terrain
@@ -249,9 +259,13 @@
       return true;
     }
     if (S.world.wall[i]) {
-      for (const b of S.builds.values())
-        if (b.def.wall && b.x === x && b.y === y) { refund(b.def); removeBuild(b, false); }
-      S.world.wall[i] = 0;
+      /* A gate is one building across two tiles, so pulling on either tile has
+         to take the whole thing with it. Clearing just this square left a
+         half-gate that still governed passage and could be refunded again from
+         the other half. */
+      const b = findStructure(x, y);
+      if (b) { refund(b.def); removeBuild(b, false); }
+      else S.world.wall[i] = 0;
       SFX.place();
       return true;
     }
@@ -278,7 +292,7 @@
       if (v.place === b.id) { v.place = 0; v.job = null; }
       if (v.home === b.id) v.home = 0;
     }
-    if (S.sel && S.sel.kind === 'build' && S.sel.ref === b) S.sel = null;
+    if (S.sel && S.sel.kind === 'build' && S.sel.ref === b) { S.sel = null; showInspect(null); }
     recomputeCaps();
     if (b.def === HALL) lose('The hall has fallen.');
   }
@@ -366,7 +380,11 @@
   function decide(v) {
     v.path = null; v.timer = 0;
 
-    if (v.role !== 'soldier' && (v.hp < v.maxHp * 0.45 || nearestRaider(v.x, v.y, 6))) {
+    /* A hurt villager is skittish, not catatonic: it bolts from further off
+       than a healthy one but still needs something to bolt from. Fleeing on the
+       wound alone wedged it forever, because hit points only come back in bed
+       and this test ran before the decision to go to bed. */
+    if (v.role !== 'soldier' && nearestRaider(v.x, v.y, v.hp < v.maxHp * 0.45 ? 9 : 6)) {
       v.state = 'flee'; v.timer = 0; return;
     }
 
@@ -460,14 +478,22 @@
      wandering across the valley chasing the single closest tree. */
   function gatherJob(v, place) {
     const kinds = place.def.gather;
-    const ti = W.nearest(S.world, place.x, place.y, i => {
-      const d = W.nodeDef(S.world, i);
-      return !!d && d.res && S.world.amt[i] > 0 && kinds.includes(d.kind);
-    }, 20);
-    if (ti === null) { v.state = 'tend'; goTo(v, W.idx(place.x, place.y)); return true; }
-    const adj = adjacentTo(v, ti);
-    if (adj === null || !goTo(v, adj)) { v.state = 'wander'; return true; }
-    v.state = 'togather'; v.job = ti;
+    /* Walk down the nearest few nodes rather than demanding the closest one.
+       A seam on the far shore is nearest and unreachable, and a gatherer that
+       only ever asks for that one stands in the grass for the rest of the run. */
+    const tried = new Set();
+    for (let k = 0; k < 4; k++) {
+      const ti = W.nearest(S.world, place.x, place.y, i => {
+        if (tried.has(i)) return false;
+        const d = W.nodeDef(S.world, i);
+        return !!d && d.res && S.world.amt[i] > 0 && kinds.includes(d.kind);
+      }, 20);
+      if (ti === null) break;
+      tried.add(ti);
+      const adj = adjacentTo(v, ti);
+      if (adj !== null && goTo(v, adj)) { v.state = 'togather'; v.job = ti; return true; }
+    }
+    v.state = 'tend'; goTo(v, W.idx(place.x, place.y));
     return true;
   }
 
@@ -821,7 +847,8 @@
     const i = S.folk.indexOf(v);
     if (i >= 0) S.folk.splice(i, 1);
     if (v.place) { const b = S.builds.get(v.place); if (b) b.staff = b.staff.filter(id => id !== v.id); }
-    if (S.sel && S.sel.kind === 'folk' && S.sel.ref === v) S.sel = null;
+    if (S.sel && S.sel.kind === 'folk' && S.sel.ref === v) { S.sel = null; showInspect(null); }
+    if (S.sendMode === v) S.sendMode = null;
     S.cheer -= 6;
     toast(v.name + ' was killed');
     assignHomes();
@@ -851,8 +878,11 @@
       b.timer += step;
       const m = b.def.makes;
       if (b.timer < m.rate) continue;
+      /* The cycle only resets once it actually runs: a workshop that is a plank
+         short this second should produce the moment the plank lands, not stand
+         idle for another full rate. */
+      if (!RES.every(r => (S.res[r] || 0) >= (m.from[r] || 0))) { b.timer = m.rate; continue; }
       b.timer = 0;
-      if (!RES.every(r => (S.res[r] || 0) >= (m.from[r] || 0))) continue;
       for (const r of RES) if (m.from[r]) S.res[r] -= m.from[r];
       for (const r of RES) if (m.to[r]) { gain(r, m.to[r]); popup(b.x + 1, b.y, '+' + m.to[r], RES_COLOUR[r]); }
     }
@@ -1146,10 +1176,14 @@
 
   const keys = {};
   addEventListener('keydown', e => {
+    /* The arrows pan the map, so they must not also scroll the page, and space
+       must not re-fire whichever HUD button was clicked last. */
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
     keys[(e.key || '').toLowerCase()] = true;
     const k = (e.key || '').toLowerCase();
     if (k === 'escape') { S.tool = null; S.sel = null; S.sendMode = null; refreshPalette(); showCard(null); showInspect(null); }
     if (k === 'p') togglePause();
+    if (k === 'm') toggleMute();
     if (k === '1') setSpeed(1);
     if (k === '2') setSpeed(2);
     if (k === '3') setSpeed(3);
@@ -1182,6 +1216,7 @@
     }
   });
   cv.addEventListener('mousedown', ev => {
+    SFX.on();                                    // browsers only allow audio from a gesture
     if (!S.running) return;
     const t = screenToTile(ev);
     if (S.sendMode) {
@@ -1206,6 +1241,7 @@
   });
   // touch: one finger pans, and a tap acts as a click
   cv.addEventListener('touchstart', ev => {
+    SFX.on();
     const t0 = ev.touches[0]; if (!t0) return;
     ev.preventDefault();
     const t = screenToTile(t0);
@@ -1261,11 +1297,15 @@
     S.cam.y = my <= 0 ? my / 2 : clamp(S.cam.y, 0, my);
   }
 
+  let sized = false;
   function resize() {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     cv.width = Math.max(320, Math.floor(innerWidth * dpr));
     cv.height = Math.max(240, Math.floor(innerHeight * dpr));
-    S.zoom = clamp(Math.round(Math.min(cv.width, cv.height) / 260), 2, 5);
+    /* The zoom is only chosen once. Mobile browsers fire resize every time the
+       URL bar slides away, and recomputing it here threw away whatever the
+       player had just set with the wheel. */
+    if (!sized) { sized = true; S.zoom = clamp(Math.round(Math.min(cv.width, cv.height) / 260), 2, 5); }
     ctx.imageSmoothingEnabled = false;
     clampCam();
   }
@@ -1279,6 +1319,12 @@
     for (const k in spdBtns) spdBtns[k].classList.toggle('on', Number(k) === n);
     el.pause.textContent = n === 0 ? 'RESUME' : 'PAUSE';
   }
+  function toggleMute() {
+    const m = SFX.toggle();
+    el.mute.classList.toggle('off', m);
+    el.mute.textContent = m ? 'MUTED' : 'SOUND';
+  }
+
   const togglePause = () => setSpeed(S.speed === 0 ? (S.lastSpeed || 1) : (S.lastSpeed = S.speed, 0));
 
   function wireChrome() {
@@ -1289,11 +1335,8 @@
       b.addEventListener('click', () => { if (n) S.lastSpeed = n; setSpeed(n); SFX.pick(); });
     }
     el.pause.addEventListener('click', togglePause);
-    el.mute.addEventListener('click', () => {
-      const m = SFX.toggle();
-      el.mute.classList.toggle('off', m);
-      el.mute.textContent = m ? 'MUTED' : 'SOUND';
-    });
+    el.mute.title = 'Sound (M)';
+    el.mute.addEventListener('click', toggleMute);
     el.again.addEventListener('click', () => { el.over.classList.add('hidden'); startRun(S.diff); });
   }
 
@@ -1324,6 +1367,7 @@
     S.score = 0; S.kills = 0; S.raised = 0; S.lost = 0; S.wave = 0; S.waveNight = 0;
     S.tool = null; S.sel = null; S.sendMode = null; S.over = false; S.won = false;
     S.cat = 'home'; nameSeq = 0;
+    S.prodT = 0; S.growT = 0; S.growC = 0; S.starving = false; S.lastSpeed = 1;
 
     // the hall, pre-raised at the centre of the cleared plaza
     const hx = (MW >> 1) - 1, hy = (MH >> 1) - 1;

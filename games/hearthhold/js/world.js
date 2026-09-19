@@ -199,6 +199,17 @@ window.HHWorld = (() => {
       return top;
     };
 
+    /* The building being left and the building being entered are both walkable
+       for the length of this one query. A hut wedged between two neighbours has
+       its door square ringed by occupied ones, so pricing only the goal tile
+       left the whole building unreachable — and then unleavable once somebody
+       was inside it. Either way the worker assigned to it spent the rest of the
+       run wandering in the grass instead of clocking on. */
+    const goalOcc = w.occ[goal], startOcc = w.occ[start];
+    const inside = i => (goalOcc !== 0 && w.occ[i] === goalOcc) ||
+      (startOcc !== 0 && w.occ[i] === startOcc);
+    const enter = i => i === goal || inside(i);
+
     const cost = i => {
       if (isWater(w, i)) return o.swim ? 26 : -1;
       const wl = w.wall[i];
@@ -227,7 +238,7 @@ window.HHWorld = (() => {
         const ny = cy + (d === 1 ? 1 : d === 3 ? -1 : 0);
         if (!inb(nx, ny)) continue;
         const ni = idx(nx, ny);
-        const c = ni === goal ? 4 : cost(ni);
+        const c = enter(ni) ? 4 : cost(ni);
         if (c < 0) continue;
         const ng = cg + c;
         if (seen[ni] === gen && g[ni] <= ng) continue;
