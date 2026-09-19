@@ -81,6 +81,25 @@
         </div>
       </div>
       <div class="cat-row" id="tplCats" role="tablist" aria-label="Template categories"></div>
+
+      <!-- THE FORGE — the library below this is finite; this is not. -->
+      <div class="section-title"><div><h2>The Forge</h2><p>Roll a character that has never existed. Seed in, six animated states out.</p></div><span class="badge ok" id="forgeCount">0 combinations</span></div>
+      <section class="card pad" id="forgePanel" aria-label="Character forge">
+        <div class="forge-controls">
+          <label class="fld"><span>Role</span>
+            <select id="forgeRole" data-agent-id="forge-role" aria-label="Forge role"><option value="">Any</option></select></label>
+          <label class="fld"><span>Headgear</span>
+            <select id="forgeGear" data-agent-id="forge-gear" aria-label="Forge headgear"><option value="">Any</option></select></label>
+          <label class="fld"><span>Weapon</span>
+            <select id="forgeHeld" data-agent-id="forge-held" aria-label="Forge weapon"><option value="">Any</option></select></label>
+          <label class="fld"><span>Seed</span>
+            <input class="search" id="forgeSeed" data-agent-id="forge-seed" aria-label="Forge seed" spellcheck="false" placeholder="anything at all"></label>
+          <button class="btn tonal" id="forgeRoll" data-agent-id="forge-roll"><span class="ms ms--sm">casino</span>Roll twelve</button>
+        </div>
+        <div class="forge-grid" id="forgeGrid"></div>
+        <p class="muted-sm" id="forgeNote">Every roll is deterministic: the same seed always forges the same character, so a seed is a shareable asset.</p>
+      </section>
+
       <div class="section-title"><div><h2>Featured suites</h2><p>Named states, directions and frame timing included.</p></div><span class="badge ok" id="templateCount">0 kits</span></div>
       <div class="template-grid" id="templateGrid"></div>
     </section>
@@ -285,6 +304,8 @@ PixelForge.clickUI('frame-add')</pre>
   <script src="../js/library/modern.js"></script>
   <script src="../js/library/farm.js"></script>
   <script src="../js/library/iso.js"></script>
+  <script src="../js/library/topdown.js"></script>
+  <script src="../js/library/forge.js"></script>
   <script src="../js/library/index.js"></script>
 <script src="../js/agent/tools.js"></script>
 <script src="../js/agent/studio-tools.js"></script>

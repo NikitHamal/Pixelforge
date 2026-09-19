@@ -36,6 +36,17 @@ PF.Rig = (() => {
   const still = painter => [Fr(200, draw(painter))];
   const TAU = Math.PI * 2;
 
+  /* Palettes carry a base and a shade per part. A limb needs a fourth tone —
+     the lit cuff that stops a boot merging into a trouser leg — so derive it
+     rather than making every pack in the library declare one. */
+  const mix = (hex, to, t) => {
+    const [r, g, b] = PF.Color.rgba(PF.Color.hexToU32(hex));
+    const q = v => Math.max(0, Math.min(255, Math.round(v)));
+    return PF.Color.u32ToHex(PF.Color.fromRGBA(q(r + (to - r) * t), q(g + (to - g) * t), q(b + (to - b) * t), 255));
+  };
+  const lit = h => mix(h, 255, 0.28);
+  const dim = h => mix(h, 20, 0.34);
+
   function speck(a, x0, y0, x1, y1, seed, colors, density) {
     const d = density === undefined ? 0.2 : density;
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++)
@@ -62,23 +73,48 @@ PF.Rig = (() => {
   function personRig(a, pal, o) {
     const hip = o.hip === undefined ? 20 : o.hip;
     const lift = o.lift || 0, hunch = o.hunch || 0, sw = o.swing || 0;
-    const legY = hip + 5, up = Math.round(sw), dn = -up;
+    /* legY is normally derived from the hip, but a walk drops the hip on the
+       weight beat and the feet must not go with it — so a caller that animates
+       a stride pins legY and lets the torso sink into the legs instead. */
+    const legY = o.legY === undefined ? hip + 5 : o.legY;
+    const up = Math.round(sw), dn = -up;
     const sh = hip - 11 + lift + hunch;          // shoulder line
     const hy = hip - 13 + lift + hunch * 2;      // head centre
 
     /* Far limbs are drawn first and two tones darker than the near ones. Two
        tones is the minimum separation at 32px: at one tone the far leg merges
        with the torso and the walk cycle stops reading entirely. */
-    const leg = (x, phase, main, dark, shoe, shoeDark) => {
-      a.rect(x, hip - 1, x + 2, legY + phase, dark);
-      a.rect(x, hip - 1, x, legY + phase, main);
-      a.rect(x - 1, legY + phase, x + 2, legY + 2 + phase, shoe);
-      a.rect(x - 1, legY + 2 + phase, x + 2, legY + 2 + phase, shoeDark);
+    /* Two segments, not one bar. The old leg was a straight 3px column slid
+       sideways under the hip, which is a shuffle: the knee has to LEAD the
+       foot on the reach and TRAIL it on the push, and that break in the line
+       is the whole reason a stride reads at 32px. The hip socket and the
+       foot stay exactly where the caller put them, so ground contact and the
+       tool-holding states are untouched. */
+    const leg = (x0, dx, phase, main, dark, shoe, shoeDark) => {
+      const b = legY + phase, fx = x0 + dx;
+      const ky = Math.round((hip - 1 + b) / 2) + 1;               // knee height
+      // The knee breaks FORWARD on the leg that is off the ground: that
+       // kink is what separates a stride from a leg sliding under the hip.
+       const kx = x0 + Math.round(dx * 0.35) + (phase < 0 ? 1 : 0);
+      a.line(x0 + 1, hip - 1, kx + 1, ky, dark, 3);               // thigh
+      a.line(x0, hip - 1, kx, ky, main, 1);
+      a.line(kx + 1, ky, fx + 1, b, dark, 3);                     // shin
+      a.line(kx, ky, fx, b, main, 1);
+      a.px(kx + 1, ky, dark);                                     // knee crease
+      a.rect(fx - 1, b, fx + 2, b + 2, shoe);
+      a.rect(fx - 1, b, fx + 2, b, lit(shoe));                    // cuff catches the light
+      a.rect(fx - 1, b + 2, fx + 2, b + 2, shoeDark);
     };
-    leg(13, up, pal.legSh, pal.legSh, pal.shoeSh, pal.shoeSh);
-    // far arm, counter-swinging against the far leg
-    a.rect(10, sh + 2, 12, hip - 2 - up, pal.shirtSh);
-    a.rect(10, hip - 2 - up, 12, hip - up, pal.skinSh);
+    const st = o.stride || [0, up, 0, dn];                        // [farDx, farDy, nearDx, nearDy]
+    leg(13, st[0], st[1], pal.legSh, pal.legSh, pal.shoeSh, pal.shoeSh);
+    /* Far arm, counter-swinging against the far leg. The swing travels in x
+       as well as y: pumping straight up and down on the spot, the hands went
+       nowhere and the whole cycle read as a figure sliding along the ground. */
+    const fa = hip - 3 - up;
+    const fax = 10 + Math.max(-2, Math.min(2, Math.round(up * 0.9)));
+    a.rect(fax, sh + 2, fax + 2, fa, pal.shirtSh);
+    a.rect(fax, fa, fax + 2, fa, dim(pal.shirtSh));               // cuff
+    a.rect(fax, fa + 1, fax + 2, hip - up, pal.skinSh);
 
     // torso
     a.ellipse(11, sh, 21, hip - 2, pal.shirt, true);
@@ -91,9 +127,32 @@ PF.Rig = (() => {
       a.rect(13, sh + 2, 19, hip - 3, pal.vest);
       a.rect(13, sh + 2, 19, sh + 2, pal.vestHi);
       a.rect(13, hip - 3, 19, hip - 3, pal.vestSh);
+      /* A cuirass is CURVED. Flat between its two edge rows it is a bib
+         pinned to the shirt, whatever colour it is painted. One lit column
+         down the near side, one shaded column down the far, and a pair of
+         lames across it, and the same slab reads as plate. */
+      a.rect(13, sh + 2, 13, hip - 3, pal.vestHi);
+      a.rect(19, sh + 2, 19, hip - 3, pal.vestSh);
+      a.rect(18, sh + 3, 18, hip - 3, pal.vestSh);
+      for (const ly of [sh + 5, sh + 8]) {
+        a.rect(14, ly, 18, ly, pal.vestSh);                     // a lame,
+        a.rect(14, ly + 1, 18, ly + 1, pal.vestHi);             // and the light on the one under it
+      }
       a.rect(14, sh, 15, sh + 2, pal.vestSh);
       a.rect(17, sh, 18, sh + 2, pal.vestSh);
+      a.px(14, sh + 3, pal.vestHi); a.px(17, sh + 3, pal.vestHi);   // strap rivets
       a.rect(18, sh + 4, 19, sh + 6, pal.vestSh);   // pouch
+    } else {
+      /* Cloth with nothing over it needs folds, or the torso is one flat
+         panel of colour with a rounded top -- a signboard. A lit column
+         down the near side, a shaded one down the far, and two short
+         creases where the fabric gathers at the belt. */
+      a.rect(12, sh + 2, 12, hip - 4, pal.shirtHi);
+      a.rect(20, sh + 2, 20, hip - 4, pal.shirtSh);
+      a.rect(19, sh + 4, 19, hip - 4, pal.shirtSh);
+      a.rect(15, sh + 6, 15, hip - 4, pal.shirtSh);
+      a.rect(16, sh + 6, 16, hip - 4, pal.shirtHi);
+      a.px(13, sh + 3, pal.shirtHi);
     }
     /* Shield, not three loose pixels: an L of yellow on a navy chest reads as
        a lanyard hanging off the shoulder. */
@@ -127,8 +186,12 @@ PF.Rig = (() => {
     a.rect(14, hy + 4, 18, hy + 4, pal.skinSh);
     a.px(20, hy + 1, pal.skinSh); a.px(12, hy + 1, pal.skinSh);   // ears
     a.rect(13, hy - 1, 19, hy - 1, pal.brow);                 // brow shadow
-    a.px(14, hy, pal.eye); a.px(18, hy, pal.eye);
-    if (pal.eyeHi) { a.px(15, hy, pal.eyeHi); a.px(19, hy, pal.eyeHi); }
+    /* Two pixels of eye, not one. A single dark speck under a brow row is
+       the same mark as a nostril or a smudge of dirt, and under anything
+       with a hard rim -- a helm, a hood -- it is simply lost in the shadow
+       above it. The outer pixel carries the glint when the kin has one. */
+    a.rect(13, hy, 14, hy, pal.eye); a.rect(18, hy, 19, hy, pal.eye);
+    if (pal.eyeHi) { a.px(13, hy, pal.eyeHi); a.px(18, hy, pal.eyeHi); }
     a.rect(15, hy + 2, 16, hy + 2, pal.mouth);
     if (pal.gear) pal.gear(a, hy, o);
     else {
@@ -143,13 +206,19 @@ PF.Rig = (() => {
     }
 
     // ---- near limbs, drawn over everything ----
-    leg(17, dn, pal.leg, pal.legSh, pal.shoe, pal.shoeSh);
+    leg(17, st[2], st[3], pal.leg, pal.legSh, pal.shoe, pal.shoeSh);
     if (o.arm) o.arm(a, sh, hip, up);
     else {
-      a.rect(20, sh + 2, 22, hip - 2 + up, pal.shirt);
-      a.rect(20, sh + 2, 20, hip - 2 + up, pal.shirtHi);
-      a.rect(20, hip - 2 + up, 22, hip + up, pal.skin);
-      if (o.hand) o.hand(a, 22, hip + up);
+      /* Cuff then fist: without the cuff row the sleeve and the hand are one
+         unbroken column and the arm reads as a stick. */
+      const na = hip - 3 + up;
+      const ax = 20 - Math.max(-2, Math.min(2, Math.round(up * 0.9)));
+      a.rect(ax, sh + 2, ax + 2, na, pal.shirt);
+      a.rect(ax, sh + 2, ax, na, pal.shirtHi);
+      a.rect(ax, na, ax + 2, na, pal.shirtSh);
+      a.rect(ax, na + 1, ax + 2, hip + up, pal.skin);
+      a.px(ax + 2, hip + up, pal.skinSh);
+      if (o.hand) o.hand(a, ax + 2, hip + up);
     }
   }
   /* Going down is drawn, not rigged. A 3/4 rig tipped on its side reads as a
@@ -240,18 +309,37 @@ PF.Rig = (() => {
     }
     prone(a, pal, 0);
   }));
+  /* A breath, not a hop: the shoulders and head settle and rise while the feet
+     stay welded down. `lift` only moves the shoulder line and the head, which
+     is exactly what breathing does. The old sine sampled four frames and put
+     frames 0 and 2 at the same phase, so the idle was two poses flickering. */
   const idleState = (pal, hand, fps) => D('idle', fps || 5, true, cyc(4, fps || 5, (a, i) =>
-    personRig(a, pal, { lift: Math.round(Math.sin((i / 4) * TAU)), hand })));
+    personRig(a, pal, { lift: [0, 1, 1, 0][i], hunch: [0, 0, 1, 1][i], hand })));
+  /* The eight classic walk beats: contact, down, pass, up, then the same four
+     with the legs swapped. Columns are [hip drop, far dx, far dy, near dx,
+     near dy]; dy is the foot's own lift so the planted foot never leaves the
+     floor while the hips drop on the weight beat. The previous form swung both
+     legs vertically off one sine, which stretched them instead of stepping and
+     read as a figure sliding along the ground. */
+  const WALK8 = [[0, -3, 0,  3, 0], [1, -2, 0,  2, 0], [0, -1, -2, 1, 0], [0,  1, -1, 0, 0],
+                 [0,  3, 0, -3, 0], [1,  2, 0, -2, 0], [0,  1, 0, -1, -2], [0,  0, 0, 1, -1]];
   /* Stride amplitude is a separate argument, NOT part of `extra`: passed
-     inside the override object it replaces the per-frame sine outright and the
-     run ends up with six frames of identical leg phase. */
+     inside the override object it replaces the per-frame pose outright and the
+     run ends up with every frame at identical leg phase. */
   const walkState = (pal, hand, name, fps, amp, extra) => D(name || 'walk', fps || 10, true,
-    cyc(6, fps || 10, (a, i) => personRig(a, pal, Object.assign({
-      hip: 20 - (i % 2), swing: Math.sin((i / 6) * TAU) * (amp || 2), hand }, extra || {}))));
+    cyc(8, fps || 10, (a, i) => {
+      const k = WALK8[i], g = (amp || 2) / 2, r = v => Math.round(v * g);
+      return personRig(a, pal, Object.assign({
+        // Arm swing is deliberately shallower than the stride. Matched to it,
+        // a two-handed weapon rode from knee height to chest height inside one
+        // cycle and the walk read as someone shouldering and unshouldering.
+        hip: 20 + k[0], legY: 25, swing: k[3] * 0.7 * g,
+        stride: [r(k[1]), r(k[2]), r(k[3]), r(k[4])], hand }, extra || {}));
+    }));
 
   return {
     P, D, Fr, ms, OUT, OUT32, finish, draw, seq, cyc, still, TAU,
-    speck, disc, person: personRig, prone,
+    mix, lit, dim, speck, disc, person: personRig, prone,
     idleState, walkState, hurtState, downState
   };
 })();

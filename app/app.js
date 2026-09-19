@@ -225,8 +225,88 @@ PF.UI = (() => {
     catch (err) { PF.UI.toast(err.message); }
     e.target.value = '';
   });
+  /* ================= THE FORGE =================
+     The grid below this one is a catalogue: 190 kits, each one a file someone
+     wrote. This is the other kind of asset source — a seed goes in and a whole
+     six-state character comes out, and the set it draws from is closed under
+     nothing. The panel exists so that capability is something a user can hold,
+     not a function only an agent can call. */
+  let forgeSetup = false, forgeRaf = false;
+  const forgeAnims = new Map();
+  function forgeInit() {
+    if (forgeSetup || !window.PF || !PF.Forge) return;
+    forgeSetup = true;
+    const fill = (sel, keys, label) => {
+      const el = $(sel); if (!el) return;
+      keys.forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = label(k); el.appendChild(o); });
+    };
+    const cap = k => k.charAt(0).toUpperCase() + k.slice(1);
+    fill('#forgeRole', PF.Forge.roleKeys(), cap);
+    fill('#forgeGear', PF.Forge.gearKeys(), k => cap((PF.Forge.GEAR.find(g => g.key === k) || {}).name || k));
+    fill('#forgeHeld', PF.Forge.heldKeys(), k => cap((PF.Forge.HELD.find(h => h.key === k) || {}).name || k));
+    /* Reported, never asserted: the kit count is computed from the generator's
+       own tables, so it cannot drift away from what the code can actually make. */
+    const count = $('#forgeCount');
+    if (count) count.textContent = PF.Forge.space().toLocaleString() + ' kits × palette';
+    ['#forgeRole', '#forgeGear', '#forgeHeld'].forEach(id => $(id) && $(id).addEventListener('change', () => rollForge()));
+    $('#forgeSeed') && $('#forgeSeed').addEventListener('keydown', e => { if (e.key === 'Enter') rollForge($('#forgeSeed').value); });
+    $('#forgeRoll') && $('#forgeRoll').addEventListener('click', () => rollForge());
+  }
+  let forgeTick = 0;
+  function rollForge(seed) {
+    forgeInit();
+    const grid = $('#forgeGrid'); if (!grid || !PF.Forge) return;
+    const opts = {};
+    const role = $('#forgeRole')?.value, gear = $('#forgeGear')?.value, held = $('#forgeHeld')?.value;
+    if (role) opts.role = role; if (gear) opts.gear = gear; if (held) opts.held = held;
+    /* A typed seed must reproduce exactly; an untyped one must never repeat. */
+    const base = (seed !== undefined && seed !== null && String(seed).length)
+      ? String(seed) : 'roll-' + Date.now().toString(36) + '-' + (forgeTick++);
+    grid.innerHTML = ''; forgeAnims.clear();
+    let made = 0;
+    PF.Forge.roster(base, 12, opts).forEach(d => {
+      let doc; try { doc = PF.Forge.suite(d); } catch { return; }
+      made++;
+      const card = document.createElement('article');
+      card.className = 'forge-card';
+      card.innerHTML = '<canvas width="72" height="72"></canvas><b></b><small></small>';
+      card.querySelector('b').textContent = d.name;
+      card.querySelector('small').textContent = d.role + ' · ' + d.kin + ' · ' + d.held;
+      card.title = 'Open ' + d.name + ' in the studio — seed ' + d.seed;
+      const cv = card.querySelector('canvas');
+      paintDocFrame(doc, 0, 0, cv);
+      forgeAnims.set(d.seed, { doc, i: 0, el: cv });
+      card.addEventListener('click', () => {
+        const pid = PF.Projects.instantiateDocData(doc, d.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+        PF.Projects.setOpenId(pid);
+        openInStudio(pid);
+      });
+      grid.appendChild(card);
+    });
+    const note = $('#forgeNote');
+    if (note) note.textContent = made + ' forged from seed "' + base + '". The same seed always forges the same ' +
+      'characters, so a seed is a shareable asset. Click one to open its six states in the studio.';
+    if (!forgeRaf) { forgeRaf = true; requestAnimationFrame(forgeLoop); }
+  }
+  let forgeLast = 0;
+  function forgeLoop(t) {
+    if (currentView !== 'templates') { forgeRaf = false; forgeAnims.clear(); return; }
+    if (t - forgeLast > 160) {
+      forgeLast = t;
+      forgeAnims.forEach(a => {
+        const r = a.el.getBoundingClientRect();
+        if (r.bottom > 0 && r.top < innerHeight) {
+          a.i++; paintDocFrame(a.doc, 0, a.i % a.doc.states[0].frames.length, a.el);
+        }
+      });
+    }
+    requestAnimationFrame(forgeLoop);
+  }
+
   function renderTemplates() {
     const grid = $('#templateGrid'); if (!grid) return;
+    if (!forgeSetup) rollForge('pixelforge');   // a fixed opening hand, so the panel is never empty
+    else if (!forgeRaf) { forgeRaf = true; requestAnimationFrame(forgeLoop); }
     const cat = $('#tplCats .chip.is-on')?.textContent || 'All';
     const term = ($('#templateSearch').value || '').toLowerCase();
     grid.innerHTML = ''; tplAnims.clear();

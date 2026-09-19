@@ -21,11 +21,11 @@ PF.RPG.tiny = (() => {
     shirt: '#124e89', shirtSh: '#1c2a44', shirtHi: '#4a7fb5', pants: '#262b44', pantsSh: '#181425',
     boots: '#262b44', belt: '#262b44', buckle: '#feae34', outline: '#181425', lip: '#a26a5a' };
   const BOW = { skin: '#e8b796', skinSh: '#c28569', hair: '#733e39', hairSh: '#3e2731', hairHi: '#b86f50',
-    shirt: '#b86f50', shirtSh: '#733e39', shirtHi: '#e4a672', pants: '#3e4a2a', pantsSh: '#2a3320',
+    shirt: '#4a7a3f', shirtSh: '#2e4f2a', shirtHi: '#78ab5c', pants: '#6b5334', pantsSh: '#453220',
     boots: '#3e2731', belt: '#3e2731', buckle: '#c0cbdc', outline: '#181425', lip: '#a26a5a' };
   const FRIAR = { skin: '#f2c094', skinSh: '#c28569', hair: '#8a6a4a', hairSh: '#5a3a2a', hairHi: '#c8b28a',
-    shirt: '#ead4aa', shirtSh: '#c8b28a', shirtHi: '#fff6c9', pants: '#8a6a4a', pantsSh: '#5a3a2a',
-    boots: '#5a3a2a', belt: '#b86f50', buckle: '#8a6a4a', outline: '#181425', lip: '#a26a5a' };
+    shirt: '#7a6a52', shirtSh: '#514536', shirtHi: '#a3906f', pants: '#5a4a36', pantsSh: '#3a2f22',
+    boots: '#3e2731', belt: '#ead4aa', buckle: '#c8b28a', outline: '#181425', lip: '#a26a5a' };
   const DRUDGE = { skin: '#d99a78', skinSh: '#a26a5a', hair: '#4a3a2a', hairSh: '#2a2018', hairHi: '#8a6a4a',
     shirt: '#5a6988', shirtSh: '#3a4466', shirtHi: '#8b9bb4', pants: '#4a3a2a', pantsSh: '#2a2018',
     boots: '#262b44', belt: '#3e2731', buckle: '#8b9bb4', outline: '#181425', lip: '#a26a5a' };
@@ -115,7 +115,7 @@ PF.RPG.tiny = (() => {
          runs in either order gets the same read with no layer machinery. */
       if (o.behind) { squatTool(api, pal, gear, view, o); squatBody(api, pal, gear, view, o); }
       else { squatBody(api, pal, gear, view, o); squatTool(api, pal, gear, view, o); }
-      if (o.dust) P().dustPuff(api, 16 + (o.kb || 0), 27, o.dustSeed || 0, o.dust);
+      if (o.dust) P().dustPuff(api, 16 + (o.kb || 0), 27, o.dustSeed || 0, o.dust, '#8a7a63', 5);
       if (o.castGlow) P().particles(api, o.castGlow[0], o.castGlow[1], 7, o.castGlow[2], gear.cast);
       if (mir) PF.Raster.mirrorInto(src, buf, W, H);
       if (o.flash) P().flashWhite(api, W, H, buf);
@@ -169,11 +169,18 @@ PF.RPG.tiny = (() => {
     // arms: stub sleeves + skin fists
     const aY = d => BY(16 + d + ad);
     if (side) {
-      api.rect(X(11), aY(0), X(13), aY(3), pal.shirt); api.rect(X(11), aY(4), X(13), aY(6), pal.skin);
-      api.rect(X(18), aY(-1), X(20), aY(2), pal.shirt); api.rect(X(18), aY(3), X(20), aY(5), pal.skin);
+      api.rect(X(11), aY(0), X(13), aY(3), pal.shirt); api.rect(X(11), aY(3), X(13), aY(3), pal.shirtSh);
+      api.rect(X(11), aY(4), X(13), aY(6), pal.skin); api.rect(X(11), aY(6), X(13), aY(6), pal.skinSh);
+      api.rect(X(18), aY(-1), X(20), aY(2), pal.shirt); api.rect(X(18), aY(2), X(20), aY(2), pal.shirtSh);
+      api.rect(X(18), aY(3), X(20), aY(5), pal.skin); api.rect(X(18), aY(5), X(20), aY(5), pal.skinSh);
     } else {
-      api.rect(X(8), aY(0), X(10), aY(3), pal.shirt); api.rect(X(8), aY(4), X(10), aY(6), pal.skin);
-      api.rect(X(21), aY(0), X(23), aY(3), pal.shirt); api.rect(X(21), aY(4), X(23), aY(6), pal.skin);
+      /* A cuff row between sleeve and fist. Without it the hands are the same
+         flat peach as the face, and the figure reads as three horizontal
+         stripes: skin, tunic, skin. */
+      api.rect(X(8), aY(0), X(10), aY(3), pal.shirt); api.rect(X(8), aY(3), X(10), aY(3), pal.shirtSh);
+      api.rect(X(8), aY(4), X(10), aY(6), pal.skin); api.rect(X(8), aY(6), X(10), aY(6), pal.skinSh);
+      api.rect(X(21), aY(0), X(23), aY(3), pal.shirt); api.rect(X(21), aY(3), X(23), aY(3), pal.shirtSh);
+      api.rect(X(21), aY(4), X(23), aY(6), pal.skin); api.rect(X(21), aY(6), X(23), aY(6), pal.skinSh);
     }
     squatHead(api, pal, gear, facing, o, X, HY);
   }
@@ -195,18 +202,21 @@ PF.RPG.tiny = (() => {
           api.px(X(hc + s), HY(14), pal.skinSh);
           api.px(X(hc), HY(15), pal.lip); api.px(X(hc + s), HY(15), pal.lip);
         }
-        tblob(api, X(hc), HY(8), 6, 3, h.c, h.hi, h.sh);
+        tblob(api, X(hc), HY(8), 5, 3, h.c, h.hi, h.sh);
         if (gear.ridge) api.line(X(hc), HY(5), X(hc), HY(10), h.hi, 1);
-        api.rect(X(hc - 7), HY(10), X(hc + 7), HY(11), h.sh);
-        api.rect(X(hc - 7), HY(10), X(hc + 7), HY(10), RIM);
+        api.rect(X(hc - 6), HY(10), X(hc + 6), HY(11), h.sh);        // see the straight-on brim
+        api.rect(X(hc - 6), HY(10), X(hc + 6), HY(10), RIM);
+        api.px(X(hc - 7), HY(11), h.sh); api.px(X(hc + 7), HY(11), h.sh);
       } else if (h.type === 'hood') {
-        if (bk) { tblob(api, X(hc), HY(10), 6, 5, h.c, null, h.sh); tblob(api, X(hc), HY(12), 4, 3, h.sh, null, null); }
+        if (bk) { tblob(api, X(hc), HY(11), 5, 4, h.c, null, h.sh); tblob(api, X(hc), HY(12), 4, 3, h.sh, null, null); }
         else {
-          tblob(api, X(hc), HY(10), 6, 5, h.c, null, h.sh);
-          tblob(api, X(hc), HY(13), 4, 2, pal.skin, null, pal.skinSh);
-          eyeAt(api, X(hc - 2 * s), HY(13), o.eye); eyeAt(api, X(hc + 2 * s), HY(13), o.eye);
+          tblob(api, X(hc), HY(11), 5, 4, h.c, null, h.sh);
+          api.rect(X(hc - 5 * s), HY(11), X(hc - 4 * s), HY(13), h.sh);   // cowl trailing the turn
+          tblob(api, X(hc), HY(13), 4, 2, h.sh, null, h.sh);
+          tblob(api, X(hc + s), HY(13), 3, 1, pal.skin, null, pal.skinSh);
+          eyeAt(api, X(hc - s), HY(13), o.eye); eyeAt(api, X(hc + 2 * s), HY(13), o.eye);
         }
-        api.px(X(hc - 2 * s), HY(5), h.c); api.px(X(hc + s), HY(5), h.c);
+        api.px(X(hc - s), HY(8), h.sh); api.px(X(hc + 2 * s), HY(8), h.sh);
       } else {
         if (bk) api.rect(X(hc - 5), HY(11), X(hc + 5), HY(14), pal.hair);
         else {
@@ -225,53 +235,98 @@ PF.RPG.tiny = (() => {
     if (h.type === 'helm') {
       if (back) tblob(api, X(16), HY(13), 5, 3, pal.hair, pal.hairHi, pal.hairSh);
       else if (side) {
-        tblob(api, X(15), HY(13), 5, 3, pal.skin, null, pal.skinSh);
-        api.px(X(20), HY(13), pal.skinSh); api.px(X(21), HY(14), pal.skinSh);
+        /* Profile wants a brow, a nose and a lip. Eleven pixels of flat skin
+           with a single eye on them read as a thumb wearing a helmet. */
+        tblob(api, X(15), HY(13), 4, 3, pal.skin, null, pal.skinSh);
+        api.rect(X(11), HY(12), X(19), HY(12), pal.skinSh);     // brim shadow across the brow
+        api.px(X(20), HY(13), pal.skin);                        // nose, one px proud
+        api.px(X(20), HY(14), pal.skinSh);
+        api.px(X(19), HY(15), pal.lip);
         eyeAt(api, X(17), HY(13), o.eye);
       } else {
-        tblob(api, X(16), HY(13), 5, 3, pal.skin, null, pal.skinSh);
-        api.rect(X(10), HY(13), X(10), HY(14), pal.skin); api.rect(X(21), HY(13), X(21), HY(14), pal.skin);
+        /* A head is not a flesh tile. rx5 left eleven flat pixels between the
+           brim and the collar carrying nothing but two eyes; rx4 plus the
+           brim's shadow across the brow gives the face a top, a middle and a
+           bottom, and the ears drop to the shadow tone so they stop reading as
+           two more cheeks. */
+        tblob(api, X(16), HY(13), 4, 3, pal.skin, null, pal.skinSh);
+        api.rect(X(12), HY(12), X(20), HY(12), pal.skinSh);
+        api.px(X(11), HY(13), pal.skinSh); api.px(X(21), HY(13), pal.skinSh);
         eyeAt(api, X(13), HY(13), o.eye); eyeAt(api, X(18), HY(13), o.eye);
         api.px(X(15), HY(14), pal.skinSh); api.px(X(16), HY(14), pal.skinSh);
         api.px(X(15), HY(15), pal.lip); api.px(X(16), HY(15), pal.lip);
       }
       const cx = side ? 15 : 16; // dome top y5 -> outline y4, always inside
-      tblob(api, X(cx), HY(8), 6, 3, h.c, h.hi, h.sh);
-      if (gear.ridge) api.line(X(cx), HY(5), X(cx), HY(10), h.hi, 1); // morion ridge
-      const bx0 = side ? 7 : 7, bx1 = side ? 23 : 24;
-      api.rect(X(bx0), HY(10), X(bx1), HY(11), h.sh); api.rect(X(bx0), HY(10), X(bx1), HY(10), RIM);
+      tblob(api, X(cx), HY(8), 5, 3, h.c, h.hi, h.sh);
+      if (gear.ridge) { api.line(X(cx), HY(5), X(cx), HY(10), h.hi, 1); api.line(X(cx + 1), HY(6), X(cx + 1), HY(10), h.sh, 1); }
+      /* The brim used to run x7..x24 — eighteen pixels, wider than the figure's
+         own shoulders — which is why a kettle helm read as a white sunhat. A
+         brim is a LIP on a helmet: one pixel proud of the dome, tapering to a
+         single row at each tip. The dome came down with it (rx 6 -> 5), because
+         a skull cap wider than the skull underneath is the other half of the
+         same mistake. */
+      api.rect(X(cx - 6), HY(10), X(cx + 6), HY(11), h.sh);
+      api.rect(X(cx - 6), HY(10), X(cx + 6), HY(10), RIM);
+      api.px(X(cx - 7), HY(11), h.sh); api.px(X(cx + 7), HY(11), h.sh);
     } else if (h.type === 'hood') {
-      // rounded cowl, no brim: face sits inset y12..15
-      if (back) { tblob(api, X(16), HY(10), 7, 5, h.c, null, h.sh); tblob(api, X(16), HY(12), 4, 3, h.sh, null, null); }
+      /* The cowl was a 15x11 dome sitting on an 11px torso — a mushroom with a
+         sliver of face under it. It is now barely wider than the skull, and
+         the face is ringed by cowl shadow so the head reads as a hood with
+         somebody inside rather than a hat brim. */
+      if (back) { tblob(api, X(16), HY(11), 6, 4, h.c, null, h.sh); tblob(api, X(16), HY(12), 4, 3, h.sh, null, null); }
       else if (side) {
-        tblob(api, X(15), HY(10), 7, 5, h.c, null, h.sh);
-        tblob(api, X(16), HY(13), 4, 2, pal.skin, null, pal.skinSh);
-        eyeAt(api, X(17), HY(13), o.eye);
+        tblob(api, X(15), HY(11), 6, 4, h.c, null, h.sh);
+        api.rect(X(9), HY(10), X(11), HY(13), h.sh);              // cowl folds back off the nape
+        api.px(X(8), HY(12), h.sh);
+        /* In profile you see a cheek and one eye, not the whole face. Kept at
+           front-view width it read as a muzzle poking out of the cowl. */
+        tblob(api, X(17), HY(13), 3, 2, h.sh, null, h.sh);        // opening, in shadow
+        tblob(api, X(18), HY(13), 2, 1, pal.skin, null, pal.skinSh);
+        eyeAt(api, X(18), HY(13), o.eye);
       } else {
-        tblob(api, X(16), HY(10), 7, 5, h.c, null, h.sh);
-        tblob(api, X(16), HY(13), 4, 2, pal.skin, null, pal.skinSh);
+        tblob(api, X(16), HY(11), 6, 4, h.c, null, h.sh);
+        tblob(api, X(16), HY(13), 5, 2, h.sh, null, h.sh);        // opening, in shadow
+        tblob(api, X(16), HY(13), 4, 1, pal.skin, null, pal.skinSh);
         eyeAt(api, X(13), HY(13), o.eye); eyeAt(api, X(17), HY(13), o.eye);
         api.px(X(15), HY(14), pal.skinSh); api.px(X(16), HY(14), pal.skinSh);
       }
-      api.px(X(14), HY(5), h.c); api.px(X(17), HY(5), h.c); // cowl peak texture
-    } else { // hat: flat work cap + band, hair fringe below
-      if (back) { api.rect(X(10), HY(11), X(21), HY(14), pal.hair); }
+      api.px(X(13), HY(8), h.sh); api.px(X(18), HY(8), h.sh);     // fold creases at the crown
+    } else { // hat: straw work hat — domed crown, band, tapering brim
+      /* The old fringe was drawn at rows 11-12 and then painted over by the
+         brim on the very next line, so this rig has never shown a hair pixel.
+         It now sits at the temples, where a hat leaves hair visible. */
+      if (back) { api.rect(X(10), HY(12), X(21), HY(15), pal.hair); api.rect(X(10), HY(14), X(21), HY(15), pal.hairSh); }
       else if (side) {
-        tblob(api, X(15), HY(13), 5, 3, pal.skin, null, pal.skinSh);
-        api.rect(X(10), HY(11), X(20), HY(12), pal.hair); eyeAt(api, X(17), HY(13), o.eye);
+        tblob(api, X(15), HY(13), 4, 3, pal.skin, null, pal.skinSh);
+        api.rect(X(11), HY(12), X(19), HY(12), pal.skinSh);
+        api.px(X(20), HY(13), pal.skin); api.px(X(20), HY(14), pal.skinSh);
+        api.px(X(19), HY(15), pal.lip);
+        api.px(X(11), HY(13), pal.hair); api.px(X(11), HY(14), pal.hairSh);
+        eyeAt(api, X(17), HY(13), o.eye);
       } else {
-        tblob(api, X(16), HY(13), 5, 3, pal.skin, null, pal.skinSh);
-        api.rect(X(11), HY(11), X(20), HY(12), pal.hair);
+        tblob(api, X(16), HY(13), 4, 3, pal.skin, null, pal.skinSh);
+        api.rect(X(12), HY(12), X(20), HY(12), pal.skinSh);
+        api.px(X(11), HY(13), pal.hair); api.px(X(21), HY(13), pal.hair);
+        api.px(X(11), HY(14), pal.hairSh); api.px(X(21), HY(14), pal.hairSh);
         eyeAt(api, X(13), HY(13), o.eye); eyeAt(api, X(18), HY(13), o.eye);
         api.px(X(15), HY(14), pal.skinSh); api.px(X(16), HY(14), pal.skinSh);
+        api.px(X(15), HY(15), pal.lip); api.px(X(16), HY(15), pal.lip);
       }
       const cx = side ? 15 : 16;
-      api.rect(X(cx - 6), HY(8), X(cx + 6), HY(10), h.c); // crown
-      api.rect(X(cx - 6), HY(10), X(cx + 6), HY(11), h.band || h.sh); // band
-      api.rect(X(cx - 8), HY(11), X(cx + 8), HY(12), h.c); // wide brim
-      api.rect(X(cx - 8), HY(12), X(cx + 8), HY(12), h.sh);
+      /* Seventeen pixels of brim on a twelve-pixel torso is a saucer, not a
+         hat. Two px proud of the crown, tapering to a single row at each tip,
+         and the crown is domed instead of a box. */
+      tblob(api, X(cx), HY(9), 5, 2, h.c, h.hi || null, null);
+      api.rect(X(cx - 5), HY(9), X(cx + 5), HY(10), h.c);
+      api.rect(X(cx - 5), HY(10), X(cx + 5), HY(11), h.band || h.sh);
+      api.rect(X(cx - 7), HY(11), X(cx + 7), HY(12), h.c);
+      api.rect(X(cx - 7), HY(12), X(cx + 7), HY(12), h.sh);
+      api.px(X(cx - 8), HY(12), h.sh); api.px(X(cx + 8), HY(12), h.sh);
     }
   }
+  /* A staff reaches further than the blade these angles were authored for, so
+     the wind-up frames parked its glowing head on top of the friar's own. */
+  const staffAngle = a => Math.max(-1.25, Math.min(1.0, a));
   function squatTool(api, pal, gear, facing, o) {
     const bob = o.bob || 0, kb = o.kb || 0, ad = o.armDy || 0, dg = DG(facing);
     const X = x => x + kb, Y = y => y + bob;
@@ -291,10 +346,14 @@ PF.RPG.tiny = (() => {
         if (o.impact) P().impactStar(api, X(5), Y(19), o.impact[2], ['#ffffff', '#c0cbdc']);
         return;
       }
-      if (w === 'spear') tspear(api, hx, hy, o.angle !== undefined ? o.angle : 0.3);
-      else if (w === 'bow') P().bow(api, hx + 4, hy - 2, o.pull || 0, BOW_PAL, o.arrow ? 1 : 0);
-      else if (w === 'staff') { const a = o.angle !== undefined ? o.angle : 0.5, tx = hx + Math.cos(a) * 12, ty = hy + Math.sin(a) * 12; api.line(hx - Math.cos(a) * 3, hy - Math.sin(a) * 3, tx, ty, '#b86f50', 2); api.rect(tx - 1, ty - 2, tx + 1, ty, '#2ce8f5'); api.px(tx, ty - 1, '#ffffff'); }
+      /* ONE chain. This was two, and the second one ended in an unguarded
+         `else P().sword(...)` — so the archer, the pikeman and the friar all
+         had a phantom steel blade painted over the hip in every single side
+         frame, which is the grey wedge that made the bow states unreadable. */
       if (o.staffUp) { api.line(hx, hy + 4, hx, hy - 10, '#b86f50', 2); api.rect(hx - 1, hy - 12, hx + 1, hy - 10, '#2ce8f5'); api.px(hx, hy - 11, '#ffffff'); }
+      else if (w === 'spear') tspear(api, hx, hy, o.angle !== undefined ? o.angle : 0.3);
+      else if (w === 'bow') P().bow(api, hx + 4, hy - 2, o.pull || 0, BOW_PAL, o.arrow ? 1 : 0);
+      else if (w === 'staff') { const a = staffAngle(o.angle !== undefined ? o.angle : 0.5), tx = hx + Math.cos(a) * 12, ty = hy + Math.sin(a) * 12; api.line(hx - Math.cos(a) * 3, hy - Math.sin(a) * 3, tx, ty, '#b86f50', 2); api.rect(tx - 1, ty - 2, tx + 1, ty, '#2ce8f5'); api.px(tx, ty - 1, '#ffffff'); }
       else if (w === 'axe') taxe(api, hx, hy, o.angle !== undefined ? o.angle : 0.5);
       else P().sword(api, hx, hy, o.angle !== undefined ? o.angle : 0.5, SWORD_PAL);
       if (o.slash) P().slash(api, hx + 2, hy - 4, 9, o.slash[0], o.slash[1], '#ffffff', 2);
@@ -309,10 +368,10 @@ PF.RPG.tiny = (() => {
         if (o.impact) P().impactStar(api, X(4 + dg), Y(19), o.impact[2], ['#ffffff', '#c0cbdc']);
         return;
       }
-      if (w === 'spear') tspear(api, hx, hy, o.angle !== undefined ? o.angle : 0.3);
-      else if (w === 'bow') P().bowFront(api, lx - 3, ly - 1, o.pull || 0, dir, BOW_PAL, o.arrow ? 1 : 0);
-      else if (w === 'staff') { const a = o.angle !== undefined ? o.angle : 0.3, tx = hx + Math.cos(a) * 11, ty = hy + Math.sin(a) * 11; api.line(hx - Math.cos(a) * 3, hy - Math.sin(a) * 3, tx, ty, '#b86f50', 2); api.rect(tx - 1, ty - 2, tx + 1, ty, '#b55088'); }
       if (o.staffUp) { api.line(lx, ly + 4, lx, ly - 10, '#b86f50', 2); api.rect(lx - 1, ly - 12, lx + 1, ly - 10, '#b55088'); api.px(lx, ly - 11, '#ffffff'); }
+      else if (w === 'spear') tspear(api, hx, hy, o.angle !== undefined ? o.angle : 0.3);
+      else if (w === 'bow') P().bowFront(api, lx - 3, ly - 1, o.pull || 0, dir, BOW_PAL, o.arrow ? 1 : 0);
+      else if (w === 'staff') { const a = staffAngle(o.angle !== undefined ? o.angle : 0.3), tx = hx + Math.cos(a) * 11, ty = hy + Math.sin(a) * 11; api.line(hx - Math.cos(a) * 3, hy - Math.sin(a) * 3, tx, ty, '#b86f50', 2); api.rect(tx - 1, ty - 2, tx + 1, ty, '#b55088'); }
       else if (w === 'axe') taxe(api, hx, hy, o.angle !== undefined ? o.angle : 0.3);
       else P().sword(api, hx, hy, o.angle !== undefined ? o.angle : 0.3, SWORD_PAL);
       // tucked front arc: bottom lands y27, outline y28 — never shadow row 29
@@ -422,8 +481,13 @@ PF.RPG.tiny = (() => {
       const step = [0, 1, 2, 2, 1, 0];
       // Profile can lay the blade back over the shoulder; square-on views
       // cannot, because the tip then lands on the face instead of above it.
-      const PROF = [-2.45, -2.85, -0.35, 0.6, 0.62, 0.3];
-      const FRONT = [-1.75, -2.05, -0.15, 0.6, 0.62, 0.35];
+      /* The old windup laid the blade back at -2.45rad from a hand at the hip:
+         with a 10px blade that puts the tip at roughly (14,11), which is the
+         middle of the sprite's own face. A raised guard reads as a wind-up and
+         keeps the steel off the head — vertical beside the helm on the hold,
+         tipped back behind it on the coil. */
+      const PROF = [-1.55, -1.95, -0.35, 0.6, 0.62, 0.3];
+      const FRONT = [-1.5, -1.9, -0.15, 0.6, 0.62, 0.35];
       for (const [sname, facing] of named('attack_')) {
         const prof = facing === 'side', ang = prof ? PROF : FRONT, r = prof ? 10 : 9, fr = [];
         for (let i = 0; i < 6; i++) {
@@ -433,7 +497,7 @@ PF.RPG.tiny = (() => {
             // 1.15rad tail keeps the band off the head it just passed.
             arc: i === 2 || i === 3 ? [ang[i] - 1.15, ang[i], r] : (i === 4 ? [ang[i] - 0.7, ang[i], r - 1] : null),
             impact: i === 3 ? [3, 2, 0.2] : null,
-            behind: i >= 4, eye: 'open'
+            behind: i >= 4 || i === 1, eye: 'open'
           })));
         }
         states.push(D(sname, 10, true, fr));
@@ -517,15 +581,26 @@ PF.RPG.tiny = (() => {
   }
 
   /* ================= unit gears (all original) ================= */
-  const bladeGear = { head: { type: 'helm', c: '#8b9bb4', hi: '#e6ebf7', sh: '#5a6988' }, weapon: 'sword', shield: true,
+  // Steel, not snow: #8b9bb4 over an #e6ebf7 highlight put the brightest value
+  // on the sprite up on the helmet, which is how a kettle helm ended up reading
+  // as a white sunhat sitting on a small man.
+  const bladeGear = { head: { type: 'helm', c: '#7e8a9e', hi: '#c0cbdc', sh: '#4d5668' }, weapon: 'sword', shield: true,
     trim: (api, X, BY) => { api.line(X(11), BY(16), X(20), BY(21), '#3e2731', 1); api.rect(X(15), BY(18), X(16), BY(19), '#fee761'); api.px(X(15), BY(18), '#ffffff'); } };
-  const pikeGear = { head: { type: 'helm', c: '#c0cbdc', hi: '#ffffff', sh: '#5a6988' }, weapon: 'spear', shield: true, ridge: true,
+  /* A near-white dome leaves nowhere for the highlight to go, so the morion
+     read as a flat paper bucket. Mid steel, bright comb, deep shadow. */
+  const pikeGear = { head: { type: 'helm', c: '#8b9bb4', hi: '#e8ecf5', sh: '#4d5668' }, weapon: 'spear', shield: true, ridge: true,
     trim: (api, X, BY) => { api.px(X(15), BY(15), '#fee761'); api.px(X(16), BY(15), '#fee761'); api.px(X(15), BY(17), '#fee761'); api.px(X(16), BY(17), '#fee761'); api.rect(X(12), BY(19), X(19), BY(19), '#feae34'); } };
-  const bowGear = { head: { type: 'hood', c: '#733e39', sh: '#3e2731' }, weapon: 'bow',
+  const bowGear = { head: { type: 'hood', c: '#2e4f2a', sh: '#1c3319' }, weapon: 'bow',
     trim: (api, X, BY) => { api.line(X(12), BY(14), X(19), BY(20), '#3e2731', 1); api.px(X(13), BY(13), '#e43b44'); api.px(X(18), BY(13), '#e43b44'); } };
-  const friarGear = { head: { type: 'hood', c: '#b86f50', sh: '#733e39' }, weapon: 'staff', cast: ['#63c74d', '#fee761', '#ffffff'],
-    trim: (api, X, BY) => { api.rect(X(12), BY(19), X(19), BY(20), '#b86f50'); api.px(X(14), BY(19), '#733e39'); api.px(X(17), BY(19), '#733e39'); } };
-  const drudgeGear = { head: { type: 'hat', c: '#733e39', sh: '#3e2731', band: '#3e2731' }, weapon: 'axe',
+  const friarGear = { head: { type: 'hood', c: '#443a2b', sh: '#2a2318' }, weapon: 'staff', cast: ['#63c74d', '#fee761', '#ffffff'],
+    /* A scapular, not a cream slab: the old trim was an 8x2 block in the same
+       cream as the rope cincture two rows under it, so the friar's waist was
+       one four-row band of the lightest value on the sprite. */
+    trim: (api, X, BY) => { api.rect(X(14), BY(14), X(17), BY(20), '#514536'); api.px(X(14), BY(14), '#7a6a52');
+      api.rect(X(15), BY(16), X(16), BY(18), '#c8b28a'); api.rect(X(14), BY(17), X(17), BY(17), '#c8b28a'); } };
+  /* Straw, not oxblood leather: a labourer in a dark brown hat over dark brown
+     hair had no value break anywhere above the collar. */
+  const drudgeGear = { head: { type: 'hat', c: '#b08040', hi: '#d9b070', sh: '#6b4a24', band: '#3e2731' }, weapon: 'axe',
     trim: (api, X, BY) => { api.rect(X(11), BY(17), X(13), BY(19), '#3e2731'); api.px(X(12), BY(18), '#5a6988'); } };
 
   function bladeSuite() { return squatSuite(BLADE, bladeGear, 'tiny-blade'); }

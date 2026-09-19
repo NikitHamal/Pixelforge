@@ -133,10 +133,13 @@ PF.Space = (() => {
     const wing = hit ? '#ff9a9a' : '#3f7fd4', wingD = hit ? '#a34848' : '#1f4f94', glass = '#2ce8f5';
     const b = bank;
     // wings: the leading wing stays full, the trailing one is foreshortened
+    const nearSide = s => s === Math.sign(b || 1);
+    const spanOf = s => (b === 0 ? 10 : (nearSide(s) ? 11 : 7));
+    const topOf = (s, d) => 14 + Math.round(d * 0.55) - (nearSide(s) ? Math.abs(b) : 0);
     for (const s of [-1, 1]) {
-      const near = s === Math.sign(b || 1), span = b === 0 ? 10 : (near ? 11 : 7);
+      const span = spanOf(s);
       for (let d = 2; d <= span; d++) {
-        const top = 14 + Math.round(d * 0.55) - (near ? Math.abs(b) : 0);
+        const top = topOf(s, d);
         a.line(16 + s * d, top, 16 + s * d, 22 - Math.round(d * 0.25), s > 0 ? wing : wingD);
         if (d > span - 2) a.px(16 + s * d, top, hullD);
       }
@@ -155,7 +158,17 @@ PF.Space = (() => {
     // nose cannon + wing tips
     a.rect(15 + b, 2, 17 + b, 5, hullD);
     a.rect(16 + b, 1, 16 + b, 4, '#f6a03a');
-    for (const s of [-1, 1]) a.rect(16 + s * 9, 13, 16 + s * 9, 16, '#f6a03a');
+    /* Cannon pods ride ON the leading edge of the wing, and follow it when the
+       ship banks and the far wing foreshortens. Pinned to a fixed x three rows
+       clear of the wing they were 1x4 islands, and the outline pass boxed each
+       one: the interceptor flew with two orange markers hanging beside it. */
+    for (const s of [-1, 1]) {
+      const d = spanOf(s) - 2, px0 = 16 + s * d, top = topOf(s, d);
+      a.rect(px0, top - 3, px0, top + 2, '#f6a03a');
+      a.px(px0, top - 3, '#ffd24a');
+      a.px(px0, top + 2, '#c3562a');
+      a.px(px0 - s, top - 1, '#c3562a');                    // the pylon's shadow
+    }
     // engines
     a.rect(13 + b, 24, 14 + b, 27, hullD); a.rect(18 + b, 24, 19 + b, 27, hullD);
     if (thrust) { flame(a, 13 + b, 27, thrust, false); flame(a, 19 + b, 27, thrust, false); }
@@ -188,17 +201,32 @@ PF.Space = (() => {
     const hull = '#b45ad4', hullL = '#e9a8f6', hullD = '#6a2a86', eye = '#ffd24a';
     const at = (a, roll, thrust, hit) => {
       const H = hit ? '#ffd0d0' : hull, HD = hit ? '#b06060' : hullD;
+      const HL = hit ? '#ffffff' : hullL;
+      /* Swept delta, nose DOWN. Each half-wing is raised column by column: the
+         leading (lower) edge rakes hard back from just behind the nose out to
+         the tip, the trailing edge stays high and near flat, so the root is
+         ten rows deep and the tip two. The old wing was a shallow stub eight
+         columns long hung off a vertical bar, which reads as a moth rather
+         than a dart, and its cannon pods dangled below the trailing edge like
+         a pair of yellow boots. */
       for (const s of [-1, 1]) {
-        for (let d = 2; d <= 10; d++) {
-          const bot = 18 - Math.round(d * 0.6) + (s === roll ? 1 : 0);
-          a.line(16 + s * d, 9 + Math.round(d * 0.3), 16 + s * d, bot, s > 0 ? H : HD);
+        const lift = s === roll ? 1 : 0;
+        for (let d = 2; d <= 11; d++) {
+          const lead = 25 - Math.round(d * 1.15) + lift;
+          const trail = 13 - Math.round(d * 0.18) + lift;
+          a.line(16 + s * d, trail, 16 + s * d, lead, s > 0 ? H : HD);
+          a.px(16 + s * d, lead, HD);                        // shaded leading edge
+          // Only the lit wing gets the bright trailing strip; carried across
+          // both it ruled one straight white pipe over the whole span.
+          if (d < 8) a.px(16 + s * d, trail, s > 0 ? HL : H);
         }
-        /* Cannon pods sit ON the wing, not beside it. The wing sweeps back, so
-           at d=10 it is a single pixel tall — a five-row pod hung out there
-           floats free of the hull and reads as a tally mark. */
-        a.rect(16 + s * 9, 13, 16 + s * 10, 16, eye);
-        a.px(16 + s * 9, 13, '#ffe9a0');
-        a.px(16 + s * 10, 17, '#b06a12');
+        // Cannon barrel standing ON the wing and pointing the way it flies.
+        // Short muzzle protruding past the leading edge. Two columns running
+        // seven rows down the wing's middle read as a pair of yellow boots.
+        const pd = 8, plead = 25 - Math.round(pd * 1.15) + lift;
+        a.rect(16 + s * pd, plead - 1, 16 + s * pd, plead + 2, eye);
+        a.px(16 + s * pd, plead - 1, '#ffe9a0');
+        a.px(16 + s * pd, plead + 2, '#b06a12');
       }
       a.ellipse(13, 4, 19, 26, H, true);
       a.ellipse(14, 5, 16, 24, hullL, true);
@@ -230,21 +258,56 @@ PF.Space = (() => {
   }
 
   function bomberSuite() {
-    const hull = '#7a8a5c', hullL = '#b6c78d', hullD = '#3e4a2c', trim = '#e0603a';
+    const hull = '#8e9e6a', hullL = '#c3d49a', hullD = '#3e4a2c', trim = '#e0603a';
     const at = (a, y, thrust, hit, hatch) => {
       const H = hit ? '#ffd0d0' : hull, HD = hit ? '#b06060' : hullD;
-      a.rect(3, y + 8, 28, y + 14, H);                          // full-span wing
-      a.rect(3, y + 8, 28, y + 8, hullL);
-      a.rect(3, y + 14, 28, y + 14, HD);
-      a.rect(3, y + 10, 8, y + 12, HD); a.rect(23, y + 10, 28, y + 12, HD);
-      a.rect(4, y + 9, 7, y + 9, trim); a.rect(24, y + 9, 27, y + 9, trim);
+      const HL = hit ? '#ffffff' : hullL;
+      /* The wing is a tapered plank, not a ruled one. A 26x7 rectangle with a
+         darker rectangle inset at each end read as a cross of two boards with
+         a suitcase strapped to either tip. Chord now runs deep at the root
+         and shallow at the tip, the leading edge (the lower one — this thing
+         flies nose-down) rakes back, and the far half sits a tone down. */
+      /* Wings carry their own, darker ramp. Painted in the fuselage tones they
+         had nothing to separate them from it and the bomber read as one green
+         blob with stubs. */
+      const WN = hit ? '#d09090' : '#69784c', WF = hit ? '#a06868' : '#4d5a38';
+      const WL = hit ? '#ffd0d0' : '#8e9e6a', WD = hit ? '#803030' : '#2a331c';
+      const leOf = t => y + 17 - Math.round(t * t * 4);
+      for (let x = 2; x <= 29; x++) {
+        const t = Math.min(1, Math.abs(x - 15.5) / 13.5);
+        const top = y + 7 + Math.round(t * 3), bot = leOf(t);
+        a.rect(x, top, x, bot, x < 16 ? WN : WF);
+        a.px(x, top, x < 16 ? WL : WN);                         // lit trailing edge
+        a.px(x, bot, WD);                                       // shaded leading edge
+      }
+      /* Engine pods slung under the wings. They give the span something to be
+         built around and put the warm trim where an intake would actually be. */
+      /* Engine pods cross the wing rather than hang off its underside: they
+         poke above the trailing edge and past the leading edge, so they read
+         as cylinders bolted through the span instead of lumps in its outline. */
+      for (const nx of [5, 24]) {
+        const nb = leOf(Math.min(1, Math.abs(nx + 1 - 15.5) / 13.5)) + 3;
+        a.rect(nx, y + 4, nx + 2, nb, H);
+        a.rect(nx, y + 4, nx, nb, HL);                       // lit flank
+        a.rect(nx + 2, y + 4, nx + 2, nb, WD);                  // shaded flank
+        a.rect(nx, y + 4, nx + 2, y + 5, '#1c2418');            // exhaust cup
+        a.px(nx + 1, y + 5, '#6b3524');
+        a.rect(nx, nb - 1, nx + 2, nb, trim);                   // intake glow
+        a.rect(nx, nb, nx + 2, nb, '#ffb488');
+      }
       a.ellipse(10, y + 2, 21, y + 20, H, true);                // fat fuselage
-      a.ellipse(11, y + 3, 15, y + 18, hullL, true);
+      a.ellipse(11, y + 3, 15, y + 18, HL, true);
       a.ellipse(19, y + 4, 21, y + 18, HD, true);
-      a.ellipse(12, y + 6, 19, y + 12, '#1c2418', true);        // cockpit band
-      a.rect(13, y + 8, 18, y + 9, '#ff4d4d');
-      a.px(13, y + 8, '#ffb0b0');
-      a.rect(13, y + 17, 18, y + 21, HD);                       // bomb bay
+      /* Canopy runs fore-and-aft with the sensor eye down at the nose end. As
+         a 8x7 oval with a wide red bar ruled across its middle it read as a
+         mouth, and the bomber looked like it was grinning. */
+      a.ellipse(13, y + 6, 18, y + 13, '#232b1a', true);        // canopy frame
+      a.ellipse(14, y + 7, 17, y + 11, '#3d4a5c', true);        // cold glass against
+      a.rect(14, y + 7, 16, y + 8, '#6d7d92');                  // the warm hull
+      a.px(14, y + 7, '#c3d4e8');                               // sky glint
+      a.rect(15, y + 12, 16, y + 13, '#ff4d4d');                // sensor lamp
+      a.px(15, y + 12, '#ffb0b0');
+      a.rect(14, y + 17, 17, y + 21, HD);                       // bomb bay
       if (hatch) {
         /* Ordnance is a capsule, not a disc. A 4x4 filled ellipse rasterises
            to a plus sign at this size and reads as a flower falling out of
@@ -286,6 +349,11 @@ PF.Space = (() => {
           const top = y + 10 + Math.round((d - 6) * 0.35), bot = y + 34 - Math.round((d - 6) * 0.7);
           if (bot <= top) continue;
           a.line(32 + s * d, top, 32 + s * d, bot, s > 0 ? hull : hullD);
+          /* Edges. Without them each wing is one flat diagonal slab and the
+             dreadnought reads as a paper dart: the swept leading edge needs to
+             be a hard dark rule and the trailing edge needs to catch light. */
+          a.px(32 + s * d, top, s > 0 ? hullL : hull);
+          a.rect(32 + s * d, bot - 1, 32 + s * d, bot, dark);
         }
         /* Wingtip rail. The swept wing runs out at d=28, so a nine-row
            highlight parked at d=30 floats clear of the hull as a tick mark:
@@ -300,7 +368,10 @@ PF.Space = (() => {
           a.ellipse(bx - 4, y + 16, bx + 4, y + 24, dark, true);
           a.ellipse(bx - 3, y + 17, bx + 3, y + 23, hull, true);
           a.ellipse(bx - 2, y + 18, bx + 1, y + 20, hullL, true);
-          a.rect(bx - 1, y + 23, bx + 1, y + 27 + (turret ? 2 : 0), dark);
+          const bl = y + 27 + (turret ? 2 : 0);
+          a.rect(bx - 1, y + 23, bx + 1, bl, dark);
+          a.rect(bx - 1, y + 23, bx - 1, bl, hullD);            // lit flank
+          a.rect(bx - 1, bl, bx + 1, bl, hullD);                // muzzle ring
           a.px(bx, y + 23, hullD);
           if (turret) muzzle(a, bx, y + 29, 3, 1, '#ffffff', '#ffd24a');
         }
@@ -311,8 +382,15 @@ PF.Space = (() => {
       a.ellipse(36, y + 6, 39, y + 42, hullD, true);
       a.rect(22, y + 20, 41, y + 23, hullD);
       a.rect(22, y + 30, 41, y + 32, hullD);
-      a.ellipse(26, y + 8, 37, y + 18, dark, true);              // bridge
-      for (let r = 0; r < 3; r++) a.rect(28, y + 10 + r * 2, 35, y + 10 + r * 2, r === 1 ? '#2ce8f5' : '#1d6a9a');
+      /* Bridge. Three evenly-spaced cyan rules across a dark oval read as a
+         barcode; a glass dome with one bright scan band and a corner glint
+         reads as something a crew looks out of. */
+      a.ellipse(26, y + 8, 37, y + 18, dark, true);
+      a.ellipse(27, y + 9, 36, y + 17, '#153a5a', true);
+      a.ellipse(28, y + 10, 35, y + 16, '#1d6a9a', true);
+      a.ellipse(29, y + 10, 34, y + 13, '#2ce8f5', true);       // lit upper curve
+      a.rect(30, y + 11, 33, y + 11, '#8ff4ff');
+      a.px(29, y + 11, '#d8fbff');
       // reactor core
       /* A 3x3 filled ellipse rasterises to a plus sign, and a white cross on a
          red disc reads as a first-aid kit rather than a weak point. Concentric
@@ -323,8 +401,14 @@ PF.Space = (() => {
       a.ellipse(32 - cr + 2, cy0 - cr + 2, 32 + cr - 2, cy0 + cr - 2, glow > 1 ? '#ffffff' : coreHot, true);
       a.rect(32 - cr + 2, cy0 - cr + 2, 32 - cr + 3, cy0 - cr + 3, '#ffffff');
       // prow guns
-      a.rect(28, y + 44, 30, y + 50, hullD); a.rect(34, y + 44, 36, y + 50, hullD);
+      for (const gx of [28, 34]) {
+        a.rect(gx, y + 44, gx + 2, y + 50, hullD);
+        a.rect(gx, y + 44, gx, y + 50, hull);                   // lit flank
+        a.rect(gx, y + 50, gx + 2, y + 50, dark);               // muzzle
+      }
       a.rect(31, y + 46, 33, y + 52, dark);
+      a.rect(31, y + 46, 31, y + 51, hullD);
+      a.px(32, y + 52, '#6d7d92');
       if (dmg) for (let k = 0; k < dmg * 4; k++) {
         const x = 18 + Math.floor(a.hash(k, 3, 7) * 28), yy = y + 6 + Math.floor(a.hash(k, 5, 7) * 38);
         a.px(x, yy, k % 3 ? '#ff8d3a' : '#252d3a');
@@ -426,7 +510,11 @@ PF.Space = (() => {
         D('ore', 6, true, cyc(4, 6, (a, i) => { rock(a, 16, 16, 11, 61 + i);
           /* Gems, not sparkles. A 3x3 filled ellipse rasterises to a plus sign,
              and five of those read as clip-art snowflakes glued on the rock. */
-          for (let k = 0; k < 5; k++) { const ang = (k / 5) * TAU + i * 0.4, d = 5;
+          /* Scattered through the rock, not ringed around its centre: five
+             gems at a fixed radius describe a circle, and a circle of gems on
+             a lumpy rock reads as a decal. */
+          for (let k = 0; k < 5; k++) { const ang = (k / 5) * TAU + i * 0.4 + a.hash(k, 3, 9) * 0.7;
+            const d = 3 + a.hash(k, 7, 9) * 4.5;
             const x = Math.round(16 + Math.cos(ang) * d), y = Math.round(16 + Math.sin(ang) * d);
             a.rect(x - 1, y - 1, x + 1, y + 1, '#0d4a60');
             a.rect(x - 1, y - 1, x, y, '#2ce8f5');
@@ -472,12 +560,16 @@ PF.Space = (() => {
        across the pickup rather than as an icon inside it. */
     const G = {
       gun: (a, x, y) => { a.rect(x - 4, y - 1, x + 2, y + 1, '#8b9bb4'); a.rect(x - 4, y - 1, x + 2, y - 1, '#e4eaf2');
-        a.rect(x + 2, y - 1, x + 4, y, '#f6a03a'); a.px(x + 4, y, '#ffd24a');
+        a.rect(x + 2, y - 1, x + 4, y, '#fff6c9'); a.px(x + 4, y, '#ffffff');
         a.rect(x - 3, y + 2, x - 1, y + 4, '#5c6a86'); a.px(x - 3, y + 2, '#a3b0c4'); },
-      shield: (a, x, y) => { a.rect(x - 4, y - 4, x + 4, y - 1, '#1d8fa8');
-        for (let d = 0; d <= 4; d++) a.rect(x - 4 + d, y + d, x + 4 - d, y + d, '#1d8fa8');
-        a.rect(x - 3, y - 3, x + 1, y - 2, '#2ce8f5'); a.px(x - 3, y - 3, '#bdf6fb');
-        a.rect(x - 1, y, x + 1, y + 2, '#2ce8f5'); },
+      /* Steel, not cyan. A cyan crest inside a cyan bezel is the same hue at
+         nearly the same value, so the glyph vanishes into the ring and the
+         pickup reads as an empty blue button. */
+      shield: (a, x, y) => { a.rect(x - 4, y - 4, x + 4, y - 1, '#4a5568');
+        for (let d = 0; d <= 4; d++) a.rect(x - 4 + d, y + d, x + 4 - d, y + d, '#4a5568');
+        a.rect(x - 3, y - 3, x + 3, y - 2, '#c0cbdc'); a.px(x - 3, y - 3, '#ffffff');
+        a.rect(x - 2, y - 1, x + 2, y, '#8b9bb4');
+        a.rect(x - 1, y + 1, x + 1, y + 2, '#e4eaf2'); },
       /* One double chevron, not three small ones: three stacked three-pixel
          chevrons sit close enough to merge into a squiggle. */
       /* Solid triangles, not outlined chevrons. Hollow arms leave a gap at the
@@ -495,9 +587,15 @@ PF.Space = (() => {
       heal: (a, x, y) => { a.rect(x - 1, y - 4, x + 1, y + 4, '#2a8f4a'); a.rect(x - 4, y - 1, x + 4, y + 1, '#2a8f4a');
         a.rect(x - 1, y - 4, x, y + 4, '#3fc46a'); a.rect(x - 4, y - 1, x + 4, y, '#3fc46a');
         a.rect(x - 1, y - 4, x, y - 3, '#a4f2b8'); a.rect(x - 4, y - 1, x - 3, y, '#a4f2b8'); },
-      laser: (a, x, y) => { a.rect(x - 1, y - 4, x + 1, y + 4, '#c22a2a');
-        a.rect(x - 1, y - 4, x, y + 4, '#ff4d4d'); a.px(x - 1, y - 4, '#ffb0b0');
-        a.ellipse(x - 3, y - 1, x + 3, y + 1, '#ff8d3a', true); a.rect(x - 1, y, x + 1, y, '#fff6c9'); },
+      /* A red beam inside a red bezel is invisible; the beam runs white-hot
+         with a dark emitter block so the icon has its own value range. */
+      laser: (a, x, y) => { a.rect(x - 3, y + 2, x + 3, y + 4, '#252d3a');   // emitter
+        a.rect(x - 3, y + 2, x + 3, y + 2, '#8b9bb4'); a.px(x - 3, y + 2, '#c0cbdc');
+        a.rect(x - 2, y - 4, x + 2, y + 1, '#1d6a9a');        // beam halo
+        a.rect(x - 1, y - 4, x + 1, y + 1, '#8ff4ff');
+        a.rect(x, y - 4, x, y + 1, '#ffffff');                // core
+        a.rect(x - 3, y - 4, x + 3, y - 4, '#bdf6fb');        // muzzle flare
+        a.px(x - 3, y - 3, '#2ce8f5'); a.px(x + 3, y - 3, '#2ce8f5'); },
       coin: (a, x, y) => { a.ellipse(x - 4, y - 4, x + 4, y + 4, '#a8600f', true);
         a.ellipse(x - 3, y - 3, x + 3, y + 3, '#ffd24a', true);
         a.ellipse(x - 2, y - 3, x, y - 1, '#fff6c9', true);
@@ -563,13 +661,30 @@ PF.Space = (() => {
           for (let k = 0; k < 8; k++) { const ang = (k / 8) * TAU + i * 0.5;
             a.px(16 + Math.cos(ang) * (r + 2), 16 + Math.sin(ang) * (r + 2), '#9ff2fb'); }
         })),
+        /* A shield takes a hit somewhere, not everywhere. Dropping every third
+           sample of a 48-step circle leaves a ring of evenly spaced beads --
+           a necklace, not a force field -- and sampling by angle at that step
+           count skips rows besides. The bubble is now continuous, brightest at
+           the point of impact and falling away around the curve, with facet
+           lines running back into the hull from the strike. */
         D('shield_hit', 14, false, seq(4, 14, (a, i) => {
-          const r = 13 - i;
-          for (let k = 0; k < 48; k++) { const ang = (k / 48) * TAU;
-            if ((k + i) % 3 === 0) continue;
-            a.px(16 + Math.cos(ang) * r, 16 + Math.sin(ang) * r, i < 2 ? '#bdf6fb' : '#2aa6c8');
-            a.px(16 + Math.cos(ang) * (r - 1), 16 + Math.sin(ang) * (r - 1), '#2ce8f5'); }
-          for (let k = 0; k < 6 - i; k++) a.px(16 + Math.cos(k) * (r + 2), 16 + Math.sin(k) * (r + 2), '#ffffff');
+          const r = 12 + i * 0.8, n = Math.round(r * 12), HIT = Math.PI * 1.5;
+          for (let k = 0; k < n; k++) {
+            const ang = (k / n) * TAU;
+            let da = Math.abs(ang - HIT); if (da > Math.PI) da = TAU - da;
+            const t = Math.max(0, 1 - da / 1.7) * (1 - i * 0.2);
+            if (t <= 0.05) continue;
+            a.px(16 + Math.cos(ang) * r, 16 + Math.sin(ang) * r,
+              t > 0.66 ? '#ffffff' : t > 0.38 ? '#bdf6fb' : t > 0.16 ? '#2ce8f5' : '#1d6a9a');
+            if (t > 0.45) a.px(16 + Math.cos(ang) * (r - 1), 16 + Math.sin(ang) * (r - 1),
+              t > 0.72 ? '#bdf6fb' : '#2ce8f5');
+          }
+          const rr = r - 2 - i;
+          for (let k = 0; k < 5; k++) {
+            const ang = HIT + (k - 2) * 0.36;
+            a.line(16 + Math.cos(ang) * rr * 0.4, 16 + Math.sin(ang) * rr * 0.4,
+              16 + Math.cos(ang) * rr, 16 + Math.sin(ang) * rr, k === 2 ? '#bdf6fb' : '#1d6a9a', 1);
+          }
         })),
         D('impact', 16, false, seq(4, 16, (a, i) => {
           const r = 3 + i * 3;
@@ -673,23 +788,43 @@ PF.Space = (() => {
       }
 
       const cliff = cell(a, 3, 1);
-      /* Horizontal strata with vertical fractures. Vertical bands on their own
-         read as timber planking, whatever the hue. */
-      for (let y = 0; y < 16; y++) {
-        const band = Math.floor(y / 3);
-        cliff.rect(0, y, 15, y, [R.base, R.dark, R.base, R.deep, R.dark, R.base][band % 6]);
-        if (y % 3 === 0) cliff.rect(0, y, 15, y, R.lit);
+      /* Beds of unequal depth. Bands ruled every three rows, each capped with a
+         bright line and crossed by dead-straight full-height fractures, read as
+         planed timber whatever the hue -- real rock beds vary in thickness and
+         a fracture steps sideways as it falls. */
+      const BEDS = [[0, 2, R.dark], [3, 5, R.base], [6, 6, R.deep], [7, 10, R.base], [11, 12, R.dark], [13, 15, R.deep]];
+      for (const [y0, y1, c] of BEDS) {
+        cliff.rect(0, y0, 15, y1, c);
+        cliff.rect(0, y0, 15, y0, R.lit);                    // bedding plane in light
       }
-      for (let x = 0; x < 16; x++) if (cliff.hash(x, 59, 5) > 0.72) cliff.rect(x, 0, x, 15, R.deep);
-      speck(cliff, 0, 1, 15, 15, 61, [R.dark, R.deep], 0.24);
+      for (const [y0] of BEDS) for (let x = 0; x < 16; x++)  // grit caught on the ledge
+        if (cliff.hash(x, y0, 5) > 0.62) cliff.px(x, y0 + 1, R.crest);
+      for (const fx of [3, 11]) {
+        let x = fx;
+        for (let y = 0; y < 16; y++) {
+          cliff.rect(x, y, x + 1, y, R.deep);
+          if (cliff.hash(x, y, 23) > 0.68) x = (x + 1) % 15;
+        }
+      }
       cliff.rect(0, 0, 15, 0, R.crest);
 
       // --- station exterior: plating, solar wing, antenna, dome
+      /* Four bevelled panels with a seam cross and riveted corners. A flat
+         fill speckled with two noise tones is television static, which is the
+         one thing a machined hull must not look like. */
       const plate = cell(a, 0, 2);
-      plate.rect(0, 0, 15, 15, '#46516a');
-      plate.rectO(0, 0, 15, 15, '#2c3446'); plate.rect(0, 0, 15, 0, '#66748f');
-      speck(plate, 1, 1, 14, 14, 41, ['#3a445c', '#5b6785'], 0.28);
-      for (const [x, y] of [[3, 3], [12, 3], [3, 12], [12, 12]]) plate.px(x, y, '#9aa5bd');
+      plate.rect(0, 0, 15, 15, '#2c3446');
+      for (const [ox, oy] of [[0, 0], [8, 0], [0, 8], [8, 8]]) {
+        plate.rect(ox, oy, ox + 7, oy + 7, '#4d5972');
+        plate.rect(ox, oy, ox + 7, oy, '#6a7894');           // lit top bevel
+        plate.rect(ox, oy, ox, oy + 7, '#5c6a86');
+        plate.rect(ox, oy + 7, ox + 7, oy + 7, '#2c3446');   // shadowed underside
+        plate.rect(ox + 7, oy, ox + 7, oy + 7, '#38415a');
+        for (const [rx, ry] of [[2, 2], [5, 5]]) {
+          plate.px(ox + rx, oy + ry, '#9aa5bd');
+          plate.px(ox + rx, oy + ry + 1, '#2c3446');         // the rivet's shadow
+        }
+      }
 
       const solar = cell(a, 1, 2);
       solar.rect(0, 0, 15, 15, '#16243a');
@@ -734,14 +869,29 @@ PF.Space = (() => {
       gate.rect(0, 0, 15, 15, '#0a0e1c');
       gate.rect(0, 0, 2, 15, '#46516a'); gate.rect(13, 0, 15, 15, '#46516a');
       gate.rect(0, 0, 0, 15, '#8b9bb4'); gate.rect(15, 0, 15, 15, '#2c3446');
-      for (let y = 0; y < 16; y++) { const w = 3 + (y % 3); gate.rect(8 - w, y, 7 + w, y, y % 2 ? '#2aa6c8' : '#9ff2fb'); }
+      /* A turbulent column, not a ladder. Width stepping on y % 3 with the tone
+         flipping on y % 2 draws evenly spaced rungs between the two posts. */
+      for (let y = 0; y < 16; y++) {
+        const w = 3 + Math.round(gate.hash(0, y, 19) * 2);
+        gate.rect(7 - w, y, 8 + w, y, '#15507a');
+        gate.rect(8 - w, y, 7 + w, y, '#2aa6c8');
+        const cw = Math.round(gate.hash(1, y, 29));
+        gate.rect(7 - cw, y, 8 + cw, y, '#9ff2fb');
+        if (gate.hash(2, y, 37) > 0.68) gate.rect(7, y, 8, y, '#ffffff');
+      }
 
       const lane = cell(a, 3, 3);
       lane.rect(0, 0, 15, 15, '#0a0e1c');
-      for (let k = 0; k < 10; k++) {
-        const x = Math.floor(lane.hash(k, 8, 13) * 16);
-        const len = 4 + Math.floor(lane.hash(k, 9, 13) * 9), y0 = Math.floor(lane.hash(k, 10, 13) * 16);
-        for (let d = 0; d < len; d++) lane.px(x, (y0 + d) % 16, d < 2 ? '#ffffff' : d < 5 ? '#9ad8ff' : '#3f7fd4');
+      /* Streaks with a head and a tail. Ten bars of even brightness dropped at
+         random x read as confetti; a warp lane is a few long trails fading out
+         behind one hot leading pixel. */
+      for (const x of [1, 4, 7, 10, 13]) {
+        const y0 = Math.floor(lane.hash(x, 10, 13) * 16), len = 9 + Math.floor(lane.hash(x, 9, 13) * 6);
+        for (let d = 0; d < len; d++) {
+          const t = d / len;
+          lane.px(x, (y0 + d) % 16,
+            t < 0.12 ? '#ffffff' : t < 0.35 ? '#9ad8ff' : t < 0.65 ? '#3f7fd4' : '#1d3a72');
+        }
       }
     };
     return {

@@ -100,14 +100,14 @@ PF.Library = (() => {
     add('rpg_cultist', 'Cultist', 'Enemies', 'Crimson-robed zealot with a blood-red cast aura — 25 states / 117 frames: locomotion x3, four-directional strikes, cast front and side.', ['enemy', 'magic', 'rpg'], () => RC().cultistSuite(), { w: 32, h: 32 });
     add('rpg_minotaur', 'Minotaur', 'Enemies', 'Horned bull brute with scrap pauldrons — 23 states / 109 frames: locomotion x3, four-directional axe arcs, hurt, death.', ['enemy', 'boss', 'brute', 'rpg'], () => RC().minotaurSuite(), { w: 32, h: 32, featured: true });
     add('rpg_warlord', 'Warlord', 'Enemies', 'Blackened plate, horned helm and a crimson cape — 24 states / 113 frames: locomotion x3, four-directional axe arcs, shield block, hurt, death.', ['enemy', 'boss', 'rpg'], () => RC().warlordSuite(), { w: 32, h: 32 });
-    add('rpg_animals', 'Farm & Forest Animals', 'Animals', 'Cow, sheep, pig, horse, rabbit and deer on a shared quadruped rig — 18 states / 72 frames: each gets a breathing idle, a four-beat walk and a head-down graze.', ['animal', 'farm', 'forest', 'survival'], () => RB().animalsSuite(), { w: 32, h: 32, featured: true });
+    add('rpg_animals', 'Farm & Forest Animals', 'Animals', 'Cow, sheep, pig, horse, rabbit and deer on a shared quadruped rig — 18 states / 84 frames: each gets a breathing idle, a six-frame four-beat walk and a head-down graze.', ['animal', 'farm', 'forest', 'survival'], () => RB().animalsSuite(), { w: 32, h: 32, featured: true });
     add('rpg_frog', 'Pond Frog', 'Animals', 'Squat green hopper — 5 states / 17 frames: resting idle, four-frame hop, throat-puffing croak, hurt and squash death.', ['animal', 'pond', 'nature'], () => RB().frogSuite(), { w: 32, h: 32 });
     add('rpg_duck', 'Duck', 'Animals', 'Waterfowl with a boat-shaped hull — 5 states / 17 frames: idle, waddling walk, glide, hurt and comical death.', ['animal', 'pond', 'farm'], () => RB().duckSuite(), { w: 32, h: 32 });
     add('rpg_wraith', 'Wraith', 'Enemies', 'Hooded spectre with a tattered hem and cold blue eyes — 6 states / 21 frames: floating idle, soul-drain cast, lunge, hurt, dither vanish.', ['enemy', 'undead', 'spirit', 'flying'], () => RB().wraithSuite(), { w: 32, h: 32 });
     add('rpg_gargoyle', 'Gargoyle', 'Enemies', 'Mossy stone sentinel — 5 states / 18 frames: crouched perch, wing-spread swoop, ground slam, hurt and a crumbling two-stage death.', ['enemy', 'dungeon', 'flying'], () => RB().gargoyleSuite(), { w: 32, h: 32 });
     add('rpg_imp', 'Imp', 'Enemies', 'Small winged nuisance with a barbed tail — 5 states / 18 frames: flapping idle, dart, hex spark, hurt and fade death.', ['enemy', 'fire', 'flying'], () => RB().impSuite(), { w: 32, h: 32 });
-    add('rpg_traps', 'Dungeon Traps', 'World', 'Eight animated hazards on one sheet — 8 states / 26 frames: floor spikes, wall darts, pendulum blade, pressure plate, flame jet, bear trap, spike pit and swinging chain ball.', ['dungeon', 'trap', 'hazard'], () => RP().trapsSuite(), { w: 32, h: 32, featured: true });
-    add('rpg_furniture', 'Interior Furniture', 'World', 'Ten pieces for houses, inns and keeps — 10 states / 10 frames: table, chair, bed, bookshelf, barrel, crate stack, clay pot, rug, candelabra and stool.', ['interior', 'decoration', 'props', 'town'], () => RP().furnitureSuite(), { w: 32, h: 32 });
+    add('rpg_traps', 'Dungeon Traps', 'World', 'Eight animated hazards on one sheet — 8 states / 26 frames: floor spikes, wall darts, swinging saw, pressure plate, flame jet, bear trap, spike pit and spiked chain ball.', ['dungeon', 'trap', 'hazard'], () => RP().trapsSuite(), { w: 32, h: 32, featured: true });
+    add('rpg_furniture', 'Interior Furniture', 'World', 'Ten pieces for houses, inns and keeps — 10 states / 13 frames: table, chair, bed, bookshelf, barrel, crate stack, clay pot, rug, candelabra and stool.', ['interior', 'decoration', 'props', 'town'], () => RP().furnitureSuite(), { w: 32, h: 32 });
     add('rpg_weather', 'Weather Overlays', 'FX', 'Eight full-tile ambient overlays — 8 states / 32 frames: rain, snow, lightning storm, stippled fog banks, falling leaves, drifting ash, fireflies and sandstorm.', ['weather', 'effects', 'ambient'], () => RP().weatherSuite(), { w: 32, h: 32, featured: true });
     // ---- Medieval RPG expansion pack ----
     const RM = () => R().medieval;
@@ -217,6 +217,64 @@ PF.Library = (() => {
     add('iso_walls', 'Iso Walls', 'World', 'Eight wall pieces that share one grid cell with a floor tile: both back edges, a corner, a doorway with a reveal, a lit window, a pillar and two half-height brick runs.', ['isometric', 'wall', 'building', 'dungeon', 'interior'], () => IS().wallsSuite(), { w: 32, h: 32 });
     add('iso_stairs', 'Iso Stairs & Ramps', 'World', 'Five level-connectors built on the same footprint: four-tread stairs on each axis, a timber flight, a seven-slice dirt ramp and a low platform.', ['isometric', 'stairs', 'ramp', 'level', 'terrain'], () => IS().stairsSuite(), { w: 32, h: 32 });
     add('iso_props', 'Iso Props', 'World', 'Ten isometric set pieces as transparent overlays — no baked ground, so each drops onto any tile in the kit: broadleaf tree, snowy pine, boulder, barrel, chest, flickering lantern, berry bush, pulsing crystal, a fence run and a signpost.', ['isometric', 'props', 'scenery', 'decoration', 'world'], () => IS().propsSuite(), { w: 32, h: 32, featured: true });
+    add('iso_hero', 'Iso Hero', 'Heroes', 'Isometric swordsman built from the same lit boxes as the kit\u2019s blocks, so the figure obeys the tile lighting exactly: four facings of idle, walk and attack, plus hurt and a collapse. 22 states.', ['isometric', 'hero', 'player', 'knight', 'four-way'], () => IS().charSuite(IS().ISO_HERO, 'Iso Hero'), { w: 32, h: 32, featured: true });
+    add('iso_orc', 'Iso Orc', 'Enemies', 'Isometric club-swinging brute on the shared box rig \u2014 green skin, hide tunic, four facings of idle, walk and a heavy overhead swing.', ['isometric', 'orc', 'enemy', 'monster', 'four-way'], () => IS().charSuite(IS().ISO_ORC, 'Iso Orc'), { w: 32, h: 32 });
+    add('iso_mage', 'Iso Mage', 'NPCs', 'Isometric staff-caster with a glowing focus stone: four facings of idle, walk and a cast, on the same lit-box rig as the hero.', ['isometric', 'mage', 'wizard', 'npc', 'four-way'], () => IS().charSuite(IS().ISO_MAGE, 'Iso Mage'), { w: 32, h: 32 });
+    add('iso_buildings', 'Iso Buildings', 'World', 'Seven 32x48 isometric structures on the kit footprint so they drop straight onto any ground tile: cottage, thatched hut, banner-topped watchtower, market stall, well, splashing fountain and a turning windmill.', ['isometric', 'building', 'house', 'town', 'structure'], () => IS().buildingSuite(), { w: 32, h: 48, featured: true });
+    add('iso_nature', 'Iso Terrain Features', 'World', 'Eight isometric landscape pieces: grass-capped cliff and corner, a falling waterfall with plunge foam, a surf shoreline, a swaying pine, a pulsing crystal spire, a creeping lava flow and a log bridge.', ['isometric', 'terrain', 'cliff', 'water', 'nature'], () => IS().natureSuite(), { w: 32, h: 32, featured: true });
+    // ---- Top-down kit: eight-direction characters, terrain, props, vehicles ----
+    const TD = () => PF.TopDown;
+    add('td_survivor', 'Top-Down Survivor', 'Heroes', 'True overhead survivor with a drawn pistol, rendered from body-space geometry: eight-direction idle and walk, four-direction melee, hurt, a sprawling death and a separate blood pool. One painter, 29 states.', ['top-down', 'overhead', 'player', 'survival', 'shooter', 'eight-way'], () => TD().personSuite(TD().SURVIVOR, 'Top-Down Survivor', { held: TD().gun('pistol') }), { w: 32, h: 32, featured: true });
+    add('td_soldier', 'Top-Down Soldier', 'Heroes', 'Helmeted overhead soldier carrying a rifle across the chest through every frame: eight-direction idle and walk, four-direction strike, hurt, death and pool.', ['top-down', 'overhead', 'soldier', 'military', 'shooter', 'eight-way'], () => TD().personSuite(TD().SOLDIER, 'Top-Down Soldier', { held: TD().rifle }), { w: 32, h: 32, featured: true });
+    add('td_agent', 'Top-Down Agent', 'NPCs', 'Suited overhead agent for stealth and crime games — dark jacket, red tie and a drawn machine pistol, full eight-direction locomotion set.', ['top-down', 'overhead', 'agent', 'stealth', 'npc', 'eight-way'], () => TD().personSuite(TD().AGENT, 'Top-Down Agent', { held: TD().gun('smg') }), { w: 32, h: 32 });
+    add('td_zombie', 'Top-Down Zombie', 'Enemies', 'Overhead shambler: the walk is the shared eight-beat cycle driven at half speed with a heavier lurch, plus a lunging four-direction attack and a sprawl.', ['top-down', 'overhead', 'zombie', 'enemy', 'horde', 'eight-way'], () => TD().personSuite(TD().ZOMBIE, 'Top-Down Zombie', { pace: 5, lurch: 1.45 }), { w: 32, h: 32, featured: true });
+    add('td_tiles', 'Top-Down Tileset', 'World', '16-tile 64x64 overhead sheet: grass, tall grass, dirt, gravel, asphalt, road line, sand, deep and shallow water, concrete, floor tile, planks, carpet, grate, snow and rubble.', ['top-down', 'overhead', 'tileset', 'terrain', 'sheet'], () => TD().tileSuite(), { w: 64, h: 64, featured: true });
+    add('td_props', 'Top-Down Props', 'World', 'Thirteen overhead set pieces, each with a translucent cast shadow so it sits on the floor rather than on top of it: planked crate, rusted drum, table, bed, rug, swaying bush, a tree whose canopy opens on its own trunk, faceted rock, a campfire with a real tapering flame, door, sandbag wall, dumpster and street lamp.', ['top-down', 'overhead', 'props', 'scenery', 'decoration', 'cover'], () => TD().propSuite(), { w: 32, h: 32 });
+    add('td_vehicles', 'Top-Down Vehicles', 'World', 'Five overhead vehicles built from per-row hull profiles rather than boxes: a saloon car, a box truck, a tank whose turret traverses independently of its hull, a helicopter with a blurred main and tail rotor, and a rowboat with a hollow interior and shipped oars.', ['top-down', 'overhead', 'vehicle', 'car', 'tank', 'helicopter'], () => TD().vehicleSuite(), { w: 32, h: 32, featured: true });
+    add('td_pickups', 'Top-Down Pickups', 'Items', 'Six overhead pickups with a travelling specular highlight and a ground shadow that tightens as the item rises, so they hover instead of twitching: medkit, ammo box, key, spinning coin, fuel can and chest.', ['top-down', 'overhead', 'pickup', 'item', 'loot'], () => TD().pickupSuite(), { w: 32, h: 32 });
+    /* ---- The Forge: eight showcase rolls out of the parametric generator ----
+       These are not hand-drawn templates. Each one is PF.Forge.suite(seed)
+       resolving a seed into a kin, a role, headgear, a weapon and a whole
+       palette, then dressing the shared rig with it. They are pinned here with
+       explicit seeds so the sprite-hash baseline has something stable to hold,
+       and so the generator itself runs through every gate the hand-drawn
+       library does. The studio's Forge panel rolls the other ~2.6 million. */
+    const FG = () => PF.Forge;
+    const forged = (id, seed, o, name, cat, desc, tags, featured) =>
+      add(id, name, cat, desc, ['forge', 'generated', 'seeded'].concat(tags),
+        () => FG().suite(seed, o), { w: 32, h: 32, featured: !!featured });
+    forged('forge_knight', '9', { role: 'fighter', gear: 'helm', held: 'sword' },
+      'Forged — Sworn Knight', 'Heroes',
+      'Generator roll: closed helm, plate over a surcoat and a longsword. Six states — idle, walk, run, a three-beat swing with anticipation and a real slash arc, hurt and death.',
+      ['knight', 'fighter', 'rpg', 'sword'], true);
+    forged('forge_warden', '31', { role: 'ranger', gear: 'hood', held: 'bow' },
+      'Forged — Hooded Warden', 'Heroes',
+      'Hooded archer with a cheek-panelled cowl. The shoot cycle draws, holds, looses and lets the stave recoil; the arrow leaves the frame on the release beat.',
+      ['ranger', 'archer', 'bow', 'hood']);
+    forged('forge_magus', '104', { role: 'caster', gear: 'wizhat', held: 'staff', cloak: true },
+      'Forged — Cloaked Magus', 'Heroes',
+      'Pointed hat, tapered mantle and a focus staff. The cast raises the staff and grows a ring of sparks out of the head over five frames.',
+      ['mage', 'wizard', 'staff', 'magic'], true);
+    forged('forge_marauder', '55', { role: 'brute', gear: 'horned', held: 'axe' },
+      'Forged — Horned Marauder', 'Enemies',
+      'Horned helm and a bearded axe whose head is filled in the haft\u2019s own frame, so it stays welded to the shaft through the whole swing arc.',
+      ['orc', 'brute', 'axe', 'enemy'], true);
+    forged('forge_reaper', '101', { role: 'undead', gear: 'skull', held: 'scythe' },
+      'Forged — Bone Reaper', 'Enemies',
+      'Skull-faced undead with a swept scythe that clears the torso on every beat. Cyan pinpoint eyes, grave-grey bone, full six-state combat suite.',
+      ['undead', 'skeleton', 'scythe', 'enemy'], true);
+    forged('forge_pikeman', '2', { role: 'fighter', gear: 'band', held: 'spear', cloak: true },
+      'Forged — Cloaked Pikeman', 'Enemies',
+      'Goblin spearman in a tapered cloak. The thrust drives the leaf head four pixels past the guard and snaps back \u2014 a lunge, not a wiggle.',
+      ['goblin', 'spear', 'pike', 'enemy']);
+    forged('forge_lampkeep', '44', { role: 'folk', gear: 'long', held: 'lantern' },
+      'Forged — Lamplighter', 'NPCs',
+      'Townsfolk roll: long hair, a pewter brooch and a lantern that hangs plumb from the fist instead of swinging out like a mace.',
+      ['npc', 'town', 'lantern', 'villager']);
+    forged('forge_scribe', '77', { role: 'folk', gear: 'cap', held: 'tome' },
+      'Forged — Village Scribe', 'NPCs',
+      'Soft cap, working clothes and a grimoire held open at the hip. The mildest roll the generator makes, and the one that proves it can do ordinary people.',
+      ['npc', 'town', 'book', 'villager']);
     extraPacks.forEach(fn => { try { fn(add); } catch (e) { console.warn('pack failed', e); } });
 
     return T;

@@ -123,6 +123,22 @@
 .template-preview { min-height: 140px; background: var(--surface-container); display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px; }
 .template-preview canvas { width: 84px; height: 84px; image-rendering: pixelated; }
 .template-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+
+/* ---------- The Forge ---------- */
+.forge-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+.forge-controls .fld { display: grid; gap: 4px; min-width: 0; flex: 1 1 130px; }
+.forge-controls .fld > span { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--on-surface-variant); }
+.forge-controls select, .forge-controls input { width: 100%; }
+.forge-controls select { background: var(--surface-container-high); color: var(--on-surface); border: 1px solid var(--outline-variant); border-radius: 12px; padding: 9px 10px; font: inherit; font-size: .85rem; }
+/* auto-fill, not auto-fit: a short roll should keep card-sized cells rather
+   than stretching four sprites across the whole width. */
+.forge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
+.forge-card { background: var(--surface-container); border: 1px solid var(--outline-variant); border-radius: 14px; padding: 10px 8px; display: grid; justify-items: center; gap: 4px; cursor: pointer; transition: transform var(--dur-short) var(--ease-spring), box-shadow var(--dur-short); }
+.forge-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.forge-card canvas { width: 72px; height: 72px; image-rendering: pixelated; }
+.forge-card b { font-size: .8rem; font-weight: 800; }
+.forge-card small { font-size: 10px; color: var(--on-surface-variant); text-align: center; }
+#forgeNote { margin-top: 12px; }
 .tag { padding: 4px 8px; border-radius: 8px; background: var(--surface-container); color: var(--on-surface-variant); font-size: 10px; font-weight: 700; }
 .section-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 12px; }
 .section-title p { font-size: .8rem; color: var(--on-surface-variant); }

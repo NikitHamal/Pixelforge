@@ -37,6 +37,18 @@ PF.Platformer = (() => {
     if (hi) a.ellipse(cx - rx + 1, cy - ry, cx + rx - 1, cy - ry + hb, hi, true);
     if (sh) a.ellipse(cx - rx + 1, cy + ry - hb, cx + rx - 1, cy + ry, sh, true);
   }
+  /* A rim light is an ARC, not a ring. PF.Pixel's ellipse() only draws the
+     whole outline, and the left and right sides of that outline are vertical
+     runs of the brightest colour in the palette -- on a 14px-wide body they
+     read as two light bars painted down the face. Sample the boundary
+     directly and keep only the arc the key light actually reaches. */
+  function rimArc(a, cx, cy, rx, ry, a0, a1, col) {
+    const n = Math.max(6, Math.ceil(Math.abs(a1 - a0) * Math.max(rx, ry) * 2));
+    for (let k = 0; k <= n; k++) {
+      const ang = a0 + (a1 - a0) * (k / n);
+      a.px(cx + Math.cos(ang) * rx, cy + Math.sin(ang) * ry, col);
+    }
+  }
   function speck(a, x0, y0, x1, y1, seed, colors, density = 0.1) {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++)
       if (a.hash(x, y, seed) < density) a.px(x, y, colors[Math.floor(a.hash(x, y, seed + 71) * colors.length) % colors.length]);
@@ -46,206 +58,495 @@ PF.Platformer = (() => {
      One rig, six states. Everything is driven by (hipY, lean, armA, legA) so a
      new state is a pose description, not another 40 lines of rectangles. */
   const HERO = {
-    skin: '#f2c094', skinSh: '#c28569', hair: '#c04a2a', hairHi: '#e8734a',
+    /* The old palette put the far leg (#252540) and the shirt's shadow side
+       (#17456d) two luma apart, so the back arm dissolved into the hip and
+       the hero read as a bottle. Every neighbouring pair is separated by
+       value AND hue now, and the belt gives the torso a hard waistline. */
+    skin: '#f2c094', skinHi: '#ffe0bc', skinSh: '#a9674f', lip: '#8c4a3c',
+    hair: '#a83a1e', hairHi: '#e0663a', hairSh: '#6d2210',
     shirt: '#2a6fa8', shirtSh: '#17456d', shirtHi: '#4e9ed6',
-    pants: '#3a3a5c', pantsSh: '#252540', boot: '#6b3f2a', bootSh: '#432618',
-    scarf: '#e8c547', scarfSh: '#b08d1e', glove: '#c9563a'
+    belt: '#7a4a22', beltHi: '#a9702e', buckle: '#e8c547',
+    pants: '#4e4a66', pantsSh: '#2d2b40', pantsDk: '#1b1a29',
+    boot: '#6b3f2a', bootSh: '#432618', bootHi: '#9a6440', soleDk: '#2a1610',
+    scarf: '#e8c547', scarfSh: '#b08d1e', glove: '#c9563a', gloveSh: '#8d3c28'
   };
 
-  /* legs(a, hipX, hipY, phase, pal, far) — one leg from a phase angle.
-     The knee is placed on the arc rather than interpolated, which is what
-     keeps a 4-frame run from looking like scissors. */
-  function leg(a, hx, hy, ang, pal, far) {
-    const c = far ? pal.pantsSh : pal.pants, bc = far ? pal.bootSh : pal.boot;
-    const kx = hx + Math.cos(ang) * 3, ky = hy + 3 + Math.abs(Math.sin(ang)) * 0.6;
-    const fx = kx + Math.cos(ang * 0.55 + 1.35) * 3, fy = Math.min(26, ky + 3.2);
-    a.line(hx, hy, kx, ky, c, 3);
+  /* leg(a, hipX, hipY, ang, pal, far)
+     `ang` is the THIGH's direction and the shin counter-rotates off the knee,
+     because that is what a knee does. The old rig placed the foot with an
+     unrelated cosine of the same angle, so the two legs of the idle pose
+     landed on the same pixel column and the hero stood on one stump. */
+  function leg(a, hx, hy, ang, pal, far, tuck) {
+    const c = far ? pal.pantsSh : pal.pants;
+    const cd = far ? pal.pantsDk : pal.pantsSh;
+    const bc = far ? pal.bootSh : pal.boot;
+    const bh = far ? pal.boot : pal.bootHi;
+    const bd = far ? pal.soleDk : pal.bootSh;
+    const kx = hx + Math.cos(ang) * 2.9, ky = hy + Math.sin(ang) * 2.9;
+    /* The shin follows the thigh instead of counter-rotating against it: the
+       old rule pulled both feet back under the hips, so a run with a 5px
+       thigh swing landed its boots two pixels apart and read as a shuffle.
+       `tuck` is heel-lift — at 1 the trailing leg folds up behind the hero
+       the way a sprinter's does, at 0 the foot stays planted for a stance. */
+    const sa = 1.5708 + (ang - 1.5708) * (ang < 1.5708 ? 0.55 : 0.55 + (tuck || 0) * 0.85);
+    const fx = Math.round(kx + Math.cos(sa) * 3.4);
+    const fy = Math.min(26, Math.round(ky + Math.sin(sa) * 3.4));
+    a.line(hx - 1, hy, kx - 1, ky, cd, 3);             // the leg's own dark back edge,
+    a.line(hx, hy, kx, ky, c, 3);                      //   so two legs never merge
+    a.line(kx - 1, ky, fx - 1, fy, cd, 2);             // shin
     a.line(kx, ky, fx, fy, c, 2);
-    a.rect(fx - 1, fy, fx + 2, fy + 1, bc);          // boot
-    a.px(fx + 2, fy + 1, far ? pal.bootSh : pal.bootSh);
+    a.px(kx - 1, ky, cd);                              // knee crease
+    a.rect(fx - 1, fy - 1, fx + 1, fy + 1, bc);        // boot
+    a.rect(fx - 1, fy - 1, fx, fy - 1, bh);            // instep catches the light
+    a.px(fx + 2, fy + 1, bc);                          // toe
+    a.rect(fx - 1, fy + 1, fx + 1, fy + 1, bd);        // sole
   }
-  /* Arms hang from the shoulder *point*, not the torso centre. With a 7px
-     torso the shoulder sits at cx±4, which is the only way a 2px limb stays
-     outside the body silhouette instead of vanishing into it. */
+
+  /* Arms hang from the shoulder *point*, not the torso centre, and they bend:
+     a 3px sleeve, a bare forearm and a glove, so the limb has a joint at any
+     pose instead of being one stick with a brick on the end. */
   function arm(a, sx, sy, ang, pal, far, hand) {
-    const c = far ? pal.shirtSh : pal.shirt, g = far ? '#8d3c28' : pal.glove;
-    const ex = sx + Math.cos(ang) * 3.2, ey = sy + Math.sin(ang) * 3.2;
-    const hx = ex + Math.cos(ang + 0.45) * 3, hy = ey + Math.sin(ang + 0.45) * 3;
-    a.line(sx, sy, ex, ey, c, 3);
-    a.line(ex, ey, hx, hy, far ? pal.skinSh : pal.skin, 2);
-    a.rect(hx - 1, hy - 1, hx + 1, hy + 1, g);
+    const c = far ? pal.shirtSh : pal.shirt, hi = far ? pal.shirt : pal.shirtHi;
+    const sk = far ? pal.skinSh : pal.skin, skh = far ? pal.skinSh : pal.skinHi;
+    const g = far ? '#9c4a34' : pal.glove;
+    const ex = sx + Math.cos(ang) * 3.4, ey = sy + Math.sin(ang) * 3.4;
+    const ha = ang + 0.45;
+    const hx = Math.round(ex + Math.cos(ha) * 3.2), hy = Math.round(ey + Math.sin(ha) * 3.2);
+    /* The near arm passes IN FRONT of a chest painted in its own sleeve
+       colour, so without a dark keyline around the limb the whole arm
+       dissolved into the torso and left a glove floating at the hip. */
+    const key = far ? '#0f2c48' : pal.shirtSh;
+    a.line(sx, sy, ex, ey, key, 4);
+    a.line(sx, sy, ex, ey, c, 3);                      // sleeve
+    a.line(sx, sy, ex, ey, hi, 1);                     // lit core down the middle of it
+    a.line(ex, ey, hx, hy, far ? '#7a4632' : pal.skinSh, 3);
+    a.line(ex, ey, hx, hy, sk, 2);                     // bare forearm
+    a.line(ex, ey, hx, hy, skh, 1);
+    /* The fist hangs at belt height and the belt is brown leather, so the
+       far glove used to be the same value as the strap behind it and read as
+       a satchel slung at the hip. A lighter leather plus a hard cuff line
+       above the knuckles is enough; a full keyline ring just made the hand a
+       five-pixel brick. */
+    /* A fist is knuckles over a tapered heel, not a 3x3 square, and the cuff
+       is a short band ACROSS the wrist. A full-width dark bar under a full
+       square simply stacked two bricks on the end of the arm. */
+    const cw = Math.round(hx - Math.cos(ha) * 1.7), cv = Math.round(hy - Math.sin(ha) * 1.7);
+    const nx = Math.round(-Math.sin(ha)), ny = Math.round(Math.cos(ha));
+    a.px(cw, cv, '#2a140e');
+    a.px(cw + nx, cv + ny, '#2a140e');
+    a.rect(hx - 1, hy - 1, hx + 1, hy, g);             // knuckles
+    a.rect(hx - 1, hy + 1, hx, hy + 1, pal.gloveSh);   // heel of the hand
+    a.px(hx - 1, hy - 1, far ? '#c06848' : '#e07a5a'); // lit knuckle
     if (hand) hand(a, hx, hy);
   }
-  /* Profile head. faceX = +1 looks right. Kept at y>=4 so the outline pass
-     always has a row above it — a head touching row 0 reads as decapitated. */
+
+  /* Profile head, built row by row — a profile is not an ellipse. The brow
+     stands proud of the socket, the nose breaks the front edge and the jaw
+     tucks back under it. The old head was a flat peach square under a flat
+     orange square with one big eye floating between them.
+     Occupies cy-5..cy+3, so cy must stay >= 6 for the outline to close. */
   function head(a, cx, cy, pal, faceX, eye) {
-    blob(a, cx, cy, 4, 4, pal.skin, null, pal.skinSh);
-    a.rect(cx - 4, cy - 5, cx + 4, cy - 2, pal.hair);        // hair cap
-    a.rect(cx - 4, cy - 5, cx + 1, cy - 4, pal.hairHi);
-    a.px(cx - 4 * faceX, cy - 1, pal.hair); a.px(cx - 4 * faceX, cy, pal.hair);   // back of head
-    a.rect(cx + 1 * faceX, cy + 2, cx + 3 * faceX, cy + 3, pal.skinSh);           // jaw shade
-    const ex = cx + 2 * faceX;
-    if (eye === 'shut') a.line(ex - 1, cy, ex, cy, OUT, 1);
-    else if (eye === 'hurt') { a.px(ex - 1, cy - 1, OUT); a.px(ex, cy, OUT); a.px(ex, cy - 1, OUT); a.px(ex - 1, cy, OUT); }
-    else { a.rect(ex - 1, cy - 1, ex, cy, OUT); a.px(ex - 1, cy - 1, '#ffffff'); }
-    a.px(cx + 4 * faceX, cy + 1, pal.skinSh);                                     // nose notch
-  }
-  function torso(a, cx, y0, pal, lean) {
-    const s = Math.round(lean);
-    blob(a, cx + s, y0 + 4, 3, 5, pal.shirt, pal.shirtHi, pal.shirtSh);
-    a.rect(cx - 3 + s, y0 + 7, cx + 3 + s, y0 + 8, pal.shirtSh);      // belt shadow
-    a.rect(cx - 3 + s, y0, cx + 3 + s, y0 + 1, pal.scarf);            // scarf collar
-    a.rect(cx - 3 + s, y0 + 1, cx + s, y0 + 1, pal.scarfSh);
-  }
-  /* The trailing scarf: the hero's whole read at 32px. It leaves the BACK of
-     the collar (never across the jaw) and tapers from 2px to 1px, so it reads
-     as cloth rather than a stick. Amplitude scales with speed — idle barely
-     drifts, a fall whips. */
-  function scarf(a, x, y, t, amp, pal, len = 6) {
-    for (let i = 0; i < len; i++) {
-      const k = i / len;
-      const sy = y + Math.sin(t * TAU + k * 3.6) * (0.6 + amp * k) + k * 1.2;
-      a.px(x - i, sy, k > 0.55 ? pal.scarfSh : pal.scarf);
-      if (k < 0.62) a.px(x - i, sy + 1, pal.scarfSh);
+    const f = faceX, L = x => cx + x * f;
+    a.rect(L(-3), cy - 2, L(4), cy - 2, pal.skin);                 // forehead
+    a.rect(L(-4), cy - 1, L(4), cy + 1, pal.skin);                 // brow to nose
+    a.rect(L(-3), cy + 2, L(3), cy + 2, pal.skin);                 // upper lip
+    a.rect(L(-2), cy + 3, L(3), cy + 3, pal.skin);                 // jaw
+    a.px(L(5), cy, pal.skin);                                      // bridge of the nose
+    a.px(L(5), cy + 1, pal.skin);                                  // tip
+    a.rect(L(-4), cy - 1, L(-3), cy + 1, pal.skinSh);              // back of the skull
+    a.rect(L(-2), cy + 2, L(0), cy + 3, pal.skinSh);               // shadowed side of the jaw
+    a.px(L(4), cy + 2, pal.skinSh);                                // under the nose
+    a.rect(L(1), cy - 2, L(4), cy - 2, pal.skinHi);                // forehead catches the light
+    a.rect(L(1), cy + 2, L(2), cy + 2, pal.lip);                   // mouth
+    a.px(L(-1), cy, pal.skinSh);                                   // ear
+    a.px(L(-1), cy + 1, pal.skinSh);
+    /* Hair: a cap that sweeps back to a point, with a fringe over the brow.
+       A squared-off block across the forehead is the single most reliable way
+       to make a pixel head look like a Lego brick. */
+    a.rect(L(-3), cy - 5, L(2), cy - 5, pal.hair);
+    a.rect(L(-4), cy - 4, L(4), cy - 3, pal.hair);
+    a.rect(L(-4), cy - 2, L(-2), cy + 1, pal.hair);                // it falls over the ear
+    a.px(L(4), cy - 2, pal.hair);                                  // fringe point on the brow
+    a.rect(L(-3), cy - 5, L(0), cy - 5, pal.hairHi);
+    a.rect(L(-4), cy - 4, L(1), cy - 4, pal.hairHi);
+    a.rect(L(-4), cy - 1, L(-3), cy + 1, pal.hairSh);              // nape in shadow
+    a.px(L(3), cy - 3, pal.hairSh);
+    const ex = L(2);
+    if (eye === 'shut') { a.rect(ex - 1, cy, ex + 1, cy, OUT); a.px(ex - 1, cy - 1, pal.skinSh); }
+    else if (eye === 'hurt') { a.px(ex - 1, cy - 1, OUT); a.px(ex + 1, cy - 1, OUT); a.px(ex, cy, OUT); a.px(ex - 1, cy + 1, OUT); a.px(ex + 1, cy + 1, OUT); }
+    else {
+      a.rect(ex, cy - 1, ex + 1, cy, OUT);                         // socket
+      a.px(ex + 1, cy - 1, '#ffffff');
+      a.rect(ex - 1, cy - 2, ex + 1, cy - 2, pal.skinSh);          // brow ridge over it
     }
+  }
+
+  /* Shoulders wide, waist narrow, a hard leather belt between shirt and
+     trousers. The torso used to be one flat capsule whose highlight and
+     shadow were both buried inside the silhouette. Spans hip-11..hip-1. */
+  function torso(a, cx, hip, pal, lean) {
+    const s = Math.round(lean), x = cx + s, t = hip - 11;
+    a.rect(x - 1, t, x + 2, t + 1, pal.skinSh);                    // neck
+    a.rect(x - 4, t + 2, x + 4, t + 6, pal.shirt);                 // shoulders and chest
+    a.rect(x - 3, t + 7, x + 3, t + 8, pal.shirt);                 // waist
+    a.rect(x - 4, t + 2, x - 3, t + 8, pal.shirtSh);               // back in shadow
+    a.rect(x + 3, t + 3, x + 4, t + 6, pal.shirtHi);               // chest edge catches the light
+    a.rect(x - 1, t + 2, x + 2, t + 2, pal.shirtHi);               // top of the shoulder
+    a.rect(x - 3, t + 2, x + 3, t + 2, pal.scarf);                 // the scarf wraps the collar
+    a.rect(x - 3, t + 3, x + 1, t + 3, pal.scarfSh);
+    a.rect(x - 3, t + 9, x + 3, t + 9, pal.belt);
+    a.rect(x - 3, t + 9, x - 1, t + 9, pal.beltHi);
+    a.rect(x + 1, t + 9, x + 2, t + 9, pal.buckle);
+    a.rect(x - 3, t + 10, x + 3, t + 10, pal.pants);               // hips
+    a.rect(x - 3, t + 10, x - 2, t + 10, pal.pantsSh);
+  }
+
+  /* The trailing scarf: the hero's whole read at 32px. Drawn as a CHAIN of
+     line segments — the old version stepped one pixel left per sample and let
+     the sine jump two rows between them, so the tail came out as a dotted
+     curve full of holes that the outline pass then rimmed one speck at a
+     time. It also drifted a row lower every step, which is how a scarf ends
+     up hanging at hip height looking like a banana. It streams BACKWARD. */
+  function scarf(a, x, y, t, amp, pal, len = 8) {
+    /* Standing still it DRAPES; running it streams. The old one always shot
+       straight out to the left whatever the hero was doing, which is why the
+       idle pose had a yellow wing bolted to its shoulder. */
+    const dx = Math.min(1, 0.22 + amp * 0.32), dy = 1 - dx * 0.86;
+    let px = x, py = y;
+    for (let i = 1; i <= len; i++) {
+      const k = i / len;
+      const nx = Math.round(x - i * dx);
+      const ny = Math.round(y + i * dy + Math.sin(t * TAU + k * 3.6) * (0.5 + amp * k * 0.8));
+      /* Taper in three steps. A cloth that is two pixels wide for half its
+         length and then stops square reads as a sock nailed to the collar. */
+      /* The 3px root only when the cloth DRAPES. Streaming flat at collar
+         height it merged with the collar wrap and gave the hero a yellow
+         yoke across both shoulders. */
+      const w = k < 0.3 ? (dy > 0.45 ? 3 : 2) : k < 0.62 ? 2 : 1;
+      a.line(px, py, nx, ny, k > 0.55 ? pal.scarfSh : pal.scarf, w);
+      if (w === 3) a.line(px, py - 1, nx, ny - 1, pal.scarf, 1);   // lit top fold
+      if (k > 0.62) a.px(nx, ny + 1, pal.scarfSh);                 // the underside in shadow
+      px = nx; py = ny;
+    }
+    a.px(px - 1, py, pal.scarfSh);                                 // frayed tip
+  }
+
+  /* A sword is a taper, a guard ACROSS the blade and a pommel behind the
+     fist. The old one was a 2px grey line with an axis-aligned 5x3 brick
+     stuck on the hand, which read as a spanner whatever the arm was doing. */
+  function sword(a, hx, hy, ang, len) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    const tx = hx + c * len, ty = hy + s * len;
+    const mx = hx + c * len * 0.55, my = hy + s * len * 0.55;
+    const gx = hx + c * 2, gy = hy + s * 2;
+    a.line(hx, hy, tx, ty, '#8b9bb4', 2);                          // blade
+    a.line(hx, hy, mx, my, '#8b9bb4', 3);                          // forte, thicker
+    a.line(hx, hy, tx, ty, '#c0cbdc', 1);                          // lit edge
+    a.line(gx + s * 2, gy - c * 2, gx - s * 2, gy + c * 2, '#b08d1e', 2);  // crossguard
+    a.line(gx + s * 2, gy - c * 2, gx - s * 2, gy + c * 2, '#e8c547', 1);
+    a.rect(hx - c * 2 - 1, hy - s * 2 - 1, hx - c * 2, hy - s * 2, '#b08d1e');  // pommel
+    a.px(tx, ty, '#ffffff');                                       // point
+  }
+  /* The slash used to plant its point through the floor and off the canvas on
+     the follow-through, because the blade length was a constant while the
+     fist travelled. Shorten the blade until the tip is inside the frame. */
+  function swordFit(a, hx, hy, ang, len) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    let L = len;
+    while (L > 5 && (hx + c * L < 2 || hx + c * L > 29 || hy + s * L < 2 || hy + s * L > 28)) L -= 1;
+    sword(a, hx, hy, ang, L);
+  }
+
+  /* Frames 1 and 2 of a slash do not show a sword. At fourteen frames a
+     second the blade is a blur, and a 5px stub (which is all that fits once
+     the fist has travelled to x26) reads as the hero waving a butter knife.
+     A crescent swept about the SHOULDER is what sells the speed — and it is
+     centred on the pivot, so the fist always lands inside it and the arc is
+     never a detached island for the outline pass to rim. */
+  function slashArc(a, cx, cy, a1, a2, r1, core, edge) {
+    const n = 24;
+    for (let k = 0; k <= n; k++) {
+      const u = k / n, ang = a1 + (a2 - a1) * u;
+      const c = Math.cos(ang), s = Math.sin(ang);
+      const th = 1 + 2.2 * Math.sin(u * Math.PI);                  // thickest mid-sweep
+      a.line(cx + c * (r1 - th), cy + s * (r1 - th), cx + c * r1, cy + s * r1, edge, 1);
+      a.px(cx + c * r1, cy + s * r1, core);                        // bright leading edge
+      if (u > 0.6) a.px(cx + c * (r1 - 1), cy + s * (r1 - 1), core);
+    }
+  }
+  /* Just the furniture: guard, grip and pommel, with the blade lost in the
+     blur. Keeps the hand from being a bare glove mid-swing. */
+  function hilt(a, hx, hy, ang) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    const gx = hx + c * 2, gy = hy + s * 2;
+    a.line(hx, hy, hx + c * 4, hy + s * 4, '#c0cbdc', 2);
+    a.line(gx + s * 2, gy - c * 2, gx - s * 2, gy + c * 2, '#b08d1e', 2);
+    a.line(gx + s * 2, gy - c * 2, gx - s * 2, gy + c * 2, '#e8c547', 1);
+    a.rect(hx - c * 2 - 1, hy - s * 2 - 1, hx - c * 2, hy - s * 2, '#b08d1e');
   }
 
   function heroSuite() {
     const p = HERO;
     const body = (a, t, opts) => {
       const o = opts || {};
-      // The rig spans hip-20 (hair cap) to hip+7 (boot sole, clamped at y27),
-      // so hip must stay >= 21 or the head clips the top of the frame.
-      const hip = o.hip === undefined ? 21 : o.hip;
+      /* The rig spans hip-16 (hair) to hip+7 (sole), so hip must stay >= 17
+         or the head clips the top of the frame and the outline cannot close. */
+      const hip = o.hip === undefined ? 20 : o.hip;
       const lean = o.lean || 0;
       const s = Math.round(lean);
-      leg(a, 16 + lean, hip, o.legB, p, true);
-      arm(a, 16 + s - 4, hip - 10, o.armB, p, true, o.handB);
-      // The scarf leaves the back of the shoulder, not the jaw: two rows above
-      // and it crosses the face on every frame with any lean.
-      scarf(a, 12 + s, hip - 9, t, o.wind === undefined ? 0.6 : o.wind, p, o.scarfLen);
-      torso(a, 16, hip - 12, p, lean);
-      head(a, 16 + s + 1, hip - 15, p, 1, o.eye);
-      leg(a, 16 + lean, hip, o.legA, p, false);
-      arm(a, 16 + s + 4, hip - 10, o.armA, p, false, o.handA);
+      leg(a, 16 + s - 1, hip, o.legB, p, true, o.tuck);
+      arm(a, 16 + s - 3, hip - 8, o.armB, p, true, o.handB);
+      // The scarf leaves the BACK of the collar, never the jaw: two rows up
+      // and it crosses the face on every frame that has any lean at all.
+      scarf(a, 13 + s, hip - 8, t, o.wind === undefined ? 0.6 : o.wind, p, o.scarfLen);
+      torso(a, 16, hip, p, lean);
+      head(a, 16 + s + 1, hip - 14, p, 1, o.eye);
+      leg(a, 16 + s + 1, hip, o.legA, p, false, o.tuck);
+      arm(a, 16 + s + 4, hip - 8, o.armA, p, false, o.handA);
     };
     return {
       width: 32, height: 32, name: 'Platform Hero',
       layers: [{ name: 'hero' }],
       states: [
-        // idle: a 2px breath on the torso, scarf drifting — never frozen
+        // idle: a 1px breath on the torso, scarf drifting — never frozen.
+        // The stance is contrapposto: the two legs must not share a column.
         D('idle', 6, true, cyc(4, 6, (a, i, t) => {
-          const b = Math.round(Math.sin(t * TAU) * 0.9);
-          body(a, t, { hip: 22 - b, legA: 1.62 + b * 0.05, legB: 1.52, armA: 1.45 + b * 0.12, armB: 1.6, wind: 0.8 });
+          const b = [0, 1, 1, 0][i];                 // a breath, and hip stays >= 20
+          body(a, t, { hip: 20 + b, legA: 1.40 + b * 0.05, legB: 1.80, armA: 1.22 + b * 0.12, armB: 1.8, wind: 0.7 });
         })),
         D('run', 12, true, cyc(8, 12, (a, i) => {
           const ph = (i / 8) * TAU;
           body(a, i / 8, {
-            hip: 21 + (i % 2 === 0 ? 1 : 0), lean: 1.4,
-            legA: 1.57 + Math.sin(ph) * 0.95, legB: 1.57 + Math.sin(ph + Math.PI) * 0.95,
-            armA: 1.5 - Math.sin(ph) * 0.9, armB: 1.5 - Math.sin(ph + Math.PI) * 0.9, wind: 2.1
+            // Lowest as the body passes over a planted foot, highest at the
+            // two heel strikes — the half-period the old (i % 2) bob missed.
+            hip: 20 + Math.round(Math.abs(Math.sin(ph))), lean: 2.2, tuck: 1,
+            legA: 1.57 + Math.sin(ph) * 1.25, legB: 1.57 + Math.sin(ph + Math.PI) * 1.25,
+            armA: 1.5 - Math.sin(ph) * 0.95, armB: 1.5 - Math.sin(ph + Math.PI) * 0.95, wind: 2.1
           });
         })),
         // jump: one rise + apex, no ground contact expected (AIRBORNE state)
         D('jump', 10, false, seq(4, 10, (a, i, t) => {
           // The engine translates a jumping sprite; the frame itself only
           // tucks the legs and throws the arms up, so nothing leaves the canvas.
-          body(a, t, { hip: 22 - i * 0.3, lean: 0.6, legA: 2.6 - t * 1.1, legB: 1.05 + t * 0.55,
-            armA: 4.2 + t * 0.5, armB: 3.9 - t * 0.4, wind: 2.6, scarfLen: 8 });
+          /* Arms thrown UP used to be armA ~ -2 rad, which sweeps the fist
+             straight across a head whose centre is three pixels behind the
+             shoulder: every airborne frame had a skin-coloured mitten parked
+             on the hero's face. One arm reaches forward, the other trails. */
+          body(a, t, { hip: 21 - i * 0.3, lean: 0.6, tuck: 1, legA: 2.5 - t * 1.0, legB: 1.15 + t * 0.5,
+            armA: -0.6 + t * 0.3, armB: 2.6 - t * 0.35, wind: 2.6, scarfLen: 9 });
         })),
         D('fall', 8, true, cyc(3, 8, (a, i, t) => {
-          body(a, t, { hip: 21 + i * 0.4, lean: -0.6, legA: 1.2 + i * 0.25, legB: 2.3 - i * 0.2,
-            armA: 4.6, armB: 4.4 - i * 0.2, wind: 3.0, scarfLen: 9 });
+          body(a, t, { hip: 20 + i * 0.4, lean: -0.6, tuck: 1, legA: 1.2 + i * 0.25, legB: 2.3 - i * 0.2,
+            // The far arm stays BELOW the streaming scarf: raised up-and-back
+            // it sat in the cloth's lane, the scarf painted over the sleeve and
+            // left the glove hanging in space.
+            armA: -1.0 + i * 0.12, armB: 2.5 + i * 0.18, wind: 3.0, scarfLen: 10 });
         })),
-        // land: a hard squash that recovers — the frame that sells weight
+        // land: a hard squash that recovers — the frame that sells weight.
+        // The dust is drawn as WEDGES: loose single pixels get rimmed into
+        // little bordered bricks by the outline pass and read as gravel.
         D('land', 14, false, seq(3, 14, (a, i, t) => {
           const sq = [3, 1, 0][i];
-          body(a, t, { hip: 21 + sq * 0.4, legA: 2.3 - t, legB: 0.9 + t, armA: 3.6 - t, armB: 3.4 - t, wind: 1.4 });
-          for (let k = 0; k < 4 - i; k++) { const dx = 5 + k * 2; a.px(16 - dx, 26 - k, '#c8c3bc'); a.px(16 + dx, 26 - k, '#c8c3bc'); }
+          body(a, t, { hip: 20 + sq * 0.5, legA: 2.2 - t * 0.9, legB: 0.95 + t * 0.9,
+            armA: 1.0 - t * 0.25, armB: 2.25 + t * 0.2, wind: 1.4 });
+          /* Dust as a plume that HUGS the ground and starts at the boot, not
+             a scatter of loose specks. Anything detached gets its own 1px
+             border from the outline pass, so the first two attempts read as
+             gravel and then as grey teeth. One connected arc per side, two
+             pixels thick, fading as it settles. */
+          const reach = [9, 6, 4][i];
+          for (const sg of [-1, 1]) {
+            for (let k = 2; k <= reach; k++) {
+              const X = 16 + sg * k;
+              const top = 27 - Math.round(Math.sin((k - 1) / reach * Math.PI) * 2.8);
+              a.rect(X, top, X, Math.min(27, top + 1), k > reach - 2 ? '#6d635c' : (k < 4 ? '#8a8078' : '#c8c3bc'));
+            }
+          }
         })),
         // attack: wind-up, slash arc, recover
         D('attack', 14, false, seq(4, 14, (a, i, t) => {
           // Wind-up stops at -0.8rad with a shortened blade: a full overhead
           // raise puts the sword tip on row 0, where the outline cannot close.
-          const sw = [-0.8, -0.2, 0.9, 1.5][i], L = i === 0 ? 8 : 10;
-          body(a, t, { hip: 21, lean: i === 1 ? 1.6 : 0.4, legA: 2.1, legB: 1.1, armB: 2.0, wind: 1.8,
+          // The recovery stops at 1.1rad for the same reason at the bottom —
+          // the old 1.5 drove the point through the floor and off the canvas.
+          const sw = [0.45, -0.3, 0.55, 1.05][i];
+          body(a, t, { hip: 20, lean: 0.4, legA: 2.25, legB: 0.95, armB: 2.0, wind: 1.8,
             armA: sw, handA: (ap, hx, hy) => {
-              const ang = sw - 0.2;
-              ap.line(hx, hy, hx + Math.cos(ang) * L, hy + Math.sin(ang) * L, '#c0cbdc', 2);
-              ap.line(hx + 2, hy, hx + Math.cos(ang) * (L - 1), hy + Math.sin(ang) * (L - 1), '#ffffff', 1);
-              ap.rect(hx - 2, hy - 1, hx + 2, hy + 1, '#8b9bb4');
+              if (i === 0) swordFit(ap, hx, hy, -1.45, 10);       // raised, before the swing
+              else if (i === 3) swordFit(ap, hx, hy, 1.45, 9);    // planted low, after it
+              else hilt(ap, hx, hy, i === 1 ? -0.9 : 0.8);
             } });
-          if (i >= 1 && i <= 2) for (let k = 0; k < 9; k++) {
-            const ar = sw - 0.9 + (k / 9) * 1.9;
-            a.px(16 + Math.cos(ar) * 13, 11 + Math.sin(ar) * 13, i === 1 ? '#8b9bb4' : '#ffffff');
-          }
+          // Pivoted on the shoulder, starting past the nose: swept from the
+          // torso centre the crescent laid a white wedge across the hero's face.
+          if (i === 1) slashArc(a, 20, 12, -0.95, 0.35, 11, '#ffffff', '#c0cbdc');
+          if (i === 2) slashArc(a, 20, 12, 0.2, 1.45, 11, '#dfe6f2', '#8b9bb4');
         })),
         D('hurt', 10, false, seq(3, 10, (a, i, t) => {
-          body(a, t, { hip: 21 + i * 0.6, lean: -1.6, legA: 2.4 - i * 0.2, legB: 1.0 + i * 0.2, armA: 4.4, armB: 4.6, eye: 'hurt', wind: 2.4 });
-          for (let k = 0; k < 5 - i; k++) a.px(22 + k, 8 + k * 2 - i, '#e43b44');
+          body(a, t, { hip: 20 + i * 0.6, lean: -1.6, legA: 2.4 - i * 0.2, legB: 1.0 + i * 0.2,
+            armA: -0.35 - i * 0.12, armB: 2.55 + i * 0.14, eye: 'hurt', wind: 2.4 });
+          // Impact chevrons stacking away from the blow, kept inside the frame
+          // so the outline pass can close around the outermost one.
+          for (let k = 0; k < 3 - i; k++) {
+            const d = 2 + k * 3;
+            a.line(19 + d, 10 - d, 21 + d, 12 - d, '#e43b44', 1);
+            a.line(21 + d, 12 - d, 19 + d, 14 - d, '#e43b44', 1);
+          }
         }))
       ]
     };
   }
 
   /* ============================================================== SLIME ===
-     A hopper reads from squash alone, so the whole animation is one radius
-     pair. Highlight sits high-left; the nucleus lags behind the body, which is
-     what makes a coloured ellipse feel like liquid. */
-  function slimeBody(a, cx, cy, rx, ry, base, hi, sh, nuc) {
-    a.ellipse(cx - rx, cy - ry, cx + rx, cy + ry, base, true);
-    a.ellipse(cx - rx + 1, cy + ry - Math.max(1, ry >> 1), cx + rx - 1, cy + ry, sh, true);
-    a.ellipse(cx - rx + 2, cy - ry + 1, cx - 1, cy - ry + Math.max(2, ry >> 1), hi, true);
-    a.px(cx - rx + 2, cy - ry + 1, '#ffffff');
-    // The core sits LOW in the body. Level with the eyes it reads as a beak,
-    // which is how a slime turns into a duck.
-    if (nuc) { a.ellipse(nuc[0] - 2, nuc[1] - 1, nuc[0] + 2, nuc[1] + 1, nuc[2], true);
-      a.ellipse(nuc[0] - 1, nuc[1] - 1, nuc[0], nuc[1] - 1, '#ffffff', true); }
+     A slime is a lens of translucent gel, not a green ball with a face. Four
+     things make it read as jelly instead of a painted rock, and the old
+     three-ellipse version had none of them: light WRAPS the top edge, it
+     passes THROUGH the body and pools as a bright caustic just above the
+     floor, the mass settles darkest where it is heaviest, and the nucleus
+     floats low and soft-edged so the surface reads as something you can see
+     into. The rest is squash: every silhouette in the pack is one (rx, ry). */
+  const SLIME = {
+    base: '#3fbf52', mid: '#6fe07d', hi: '#9dff8f', rim: '#d8ffc0',
+    sh: '#1f6b34', pool: '#15492a', glow: '#7ae86a',
+    nuc: '#e8ff5a', nucSh: '#9ac41e'
+  };
+
+  /* Bands are stacked bottom-up and each one is full-width where it needs to
+     overwrite the band below -- there is no erase primitive, so the order IS
+     the shading. `lean` slides the sheen so a wobble is visible even when the
+     silhouette barely changes between two frames. */
+  function slimeBody(a, cx, cy, rx, ry, p, nuc, lean) {
+    const R = Math.max(1, Math.round(rx)), Y = Math.max(1, Math.round(ry));
+    const ln = lean || 0;
+    a.ellipse(cx - R, cy - Y, cx + R, cy + Y, p.base, true);
+    rimArc(a, cx, cy, R, Y, -2.95, -0.95, p.rim);                   // light over the top edge
+    const pool = Math.max(1, Math.round(Y * 1.15));
+    a.ellipse(cx - R, cy + Y - pool, cx + R, cy + Y, p.sh, true);   // the mass settles and darkens
+    if (Y >= 3) {
+      a.ellipse(cx - R + 2, cy + Y - 2, cx + R - 2, cy + Y - 1, p.glow, true);  // light coming through it
+      a.ellipse(cx - R + 1, cy + Y, cx + R - 1, cy + Y, p.pool, true);          // contact shadow
+    }
+    // Sheen: a soft mid ring with a hard bright core inside it, up and left.
+    const hx = cx - Math.round(R * 0.45) + ln, hy = cy - Math.round(Y * 0.45);
+    a.ellipse(hx - R * 0.5, hy - Y * 0.45, hx + R * 0.34, hy + Y * 0.3, p.mid, true);
+    a.ellipse(hx - R * 0.34, hy - Y * 0.32, hx + R * 0.16, hy + Y * 0.12, p.hi, true);
+    a.px(hx - Math.round(R * 0.2), hy - Math.round(Y * 0.22), '#ffffff');
+    a.px(hx - Math.round(R * 0.2) + 1, hy - Math.round(Y * 0.22), '#ffffff');
+    /* The core sits LOW in the body. Level with the eyes it reads as a beak,
+       which is how a slime turns into a duck. Soft-edged, so it looks
+       suspended in the gel rather than painted on the front of it. */
+    if (nuc) {
+      a.ellipse(nuc[0] - 2, nuc[1] - 1, nuc[0] + 2, nuc[1] + 1, p.nucSh, true);
+      a.ellipse(nuc[0] - 1, nuc[1] - 1, nuc[0] + 1, nuc[1], p.nuc, true);
+      a.px(nuc[0] - 1, nuc[1] - 1, '#ffffff');
+    }
   }
-  function slimeFace(a, cx, cy, mood) {
-    if (mood === 'hurt') { a.px(cx - 3, cy - 1, OUT); a.px(cx - 2, cy, OUT); a.px(cx + 2, cy - 1, OUT); a.px(cx + 3, cy, OUT); }
-    else { a.rect(cx - 4, cy - 1, cx - 3, cy, OUT); a.rect(cx + 3, cy - 1, cx + 4, cy, OUT);
-      a.px(cx - 4, cy - 1, '#ffffff'); a.px(cx + 3, cy - 1, '#ffffff'); }
-    // Mouth in the outline colour: a dark-green mouth on a green body is
-    // invisible at 1x, which is the size this sprite will actually be seen at.
-    if (mood === 'hurt') { a.line(cx - 2, cy + 4, cx + 2, cy + 4, OUT, 1); a.px(cx, cy + 3, OUT); }
-    else { a.line(cx - 2, cy + 3, cx + 2, cy + 3, OUT, 1); a.px(cx - 2, cy + 2, OUT); a.px(cx + 2, cy + 2, OUT); }
+
+  /* Eyes are a white sclera with a PUPIL that tracks the hop, not two dark
+     slabs with a white corner. `look` slides the pupil; that alone is the
+     difference between a creature and a beanbag. */
+  function slimeFace(a, cx, cy, mood, look) {
+    const lx = Math.round(look || 0);
+    if (mood === 'hurt') {
+      for (const sg of [-1, 1]) {
+        const ex = cx + sg * 3;
+        a.line(ex - 1, cy - 1, ex + 1, cy + 1, OUT, 1);
+        a.line(ex + 1, cy - 1, ex - 1, cy + 1, OUT, 1);
+      }
+      a.ellipse(cx - 2, cy + 3, cx + 2, cy + 5, OUT, true);          // an open wail
+      a.rect(cx - 1, cy + 4, cx + 1, cy + 5, '#7a2038');
+      return;
+    }
+    for (const sg of [-1, 1]) {
+      const ex = cx + sg * 3;
+      a.rect(ex - 1, cy - 1, ex + 1, cy, '#ffffff');
+      a.rect(ex - 1, cy - 2, ex + 1, cy - 2, OUT);                   // brow ridge
+      a.rect(ex + lx, cy - 1, ex + lx, cy, OUT);                     // pupil
+      a.px(ex - 1, cy - 1, '#dff5ff');
+    }
+    /* Mouth in the outline colour: a dark-green mouth on a green body is
+       invisible at 1x, which is the size this sprite will actually be seen
+       at. The corners hook up so it is a grin and not a slot. */
+    if (mood === 'open') {
+      a.ellipse(cx - 3, cy + 2, cx + 3, cy + 5, OUT, true);
+      a.rect(cx - 2, cy + 4, cx + 2, cy + 5, '#2f8f46');
+      a.rect(cx - 1, cy + 3, cx + 1, cy + 3, '#ffffff');             // teeth
+    } else {
+      a.line(cx - 2, cy + 3, cx + 2, cy + 3, OUT, 1);
+      a.line(cx - 2, cy + 4, cx + 2, cy + 4, '#2f8f46', 1);          // a lower lip catches light
+      a.px(cx - 3, cy + 2, OUT); a.px(cx + 3, cy + 2, OUT);
+    }
   }
+
+  /* A spat glob: a rimmed bead with a tail, so it reads as travelling even in
+     a still frame. Detached from the body on purpose -- it is a projectile. */
+  function slimeGlob(a, x, y, r, p, dx, dy) {
+    a.ellipse(x - r, y - r, x + r, y + r, p.base, true);
+    a.ellipse(x - r, y - r, x + r, y + r, p.rim, false);
+    a.px(x - r + 1, y - r + 1, '#ffffff');
+    a.line(x - dx, y - dy, x - dx * 2.2, y - dy * 2.2, p.sh, 1);     // the tail it left
+  }
+
   function slimeSuite() {
-    const base = '#4ac94a', hi = '#9dff8f', sh = '#2a7a34', nuc = '#c8f24a';
-    const at = (a, cx, cy, rx, ry, mood) => {
-      slimeBody(a, cx, cy, rx, ry, base, hi, sh, [cx - 1, cy + Math.max(2, ry - 2), nuc]);
-      slimeFace(a, cx, cy - 2, mood);
+    const p = SLIME;
+    const at = (a, cx, cy, rx, ry, mood, look, lean) => {
+      /* Off to one side, not centred under the mouth. A big symmetrical
+         yellow lens sitting on the chin reads as a bib, which is what the
+         old one did on every idle frame. */
+      slimeBody(a, cx, cy, rx, ry, p, [cx + 3, cy + Math.max(2, Math.round(ry) - 2)], lean);
+      slimeFace(a, cx, cy - 2, mood, look);
     };
     return {
       width: 32, height: 32, name: 'Slime Hopper', layers: [{ name: 'slime' }],
       states: [
+        // idle: the gel breathes and the sheen slides across it; the pupils
+        // drift. A slime that holds a single silhouette is a rock.
         D('idle', 6, true, cyc(4, 6, (a, i, t) => {
           const w = Math.sin(t * TAU) * 1.3;
-          at(a, 16, 21 - w * 0.5, 8 + w, 6 - w);
-          a.line(16 - 8 - w, 27, 16 + 8 + w, 27, sh, 1);
+          at(a, 16, 21 - w * 0.5, 8 + w, 6 - w, i === 2 ? 'open' : null, [-1, 0, 1, 0][i], [0, 1, 1, 0][i]);
         })),
         // hop: compress, launch, apex, land — AIRBORNE, so the gate exempts it
         D('hop', 10, true, cyc(6, 10, (a, i) => {
-          const pose = [[9, 4, 25], [8, 6, 22], [6, 8, 16], [7, 7, 13], [8, 6, 17], [9.5, 4, 25]][i];
-          at(a, 16, pose[2] - pose[1] + 6, pose[0], pose[1]);
-          if (i === 1 || i === 5) for (let k = -2; k <= 2; k++) a.px(16 + k * 3, 27, '#9dff8f');
+          //     rx    ry   bottom  look
+          // Apex heights are capped so the stretched silhouette still leaves
+          // row 0 clear -- the outline pass needs a row above the sprite.
+          const pose = [[9.5, 4, 27, 0], [7, 7, 26, -1], [5.5, 9, 21, -1], [6.5, 7.5, 17, 0], [7.5, 6.5, 20, 1], [10, 4, 27, 1]][i];
+          at(a, 16, pose[2] - pose[1], pose[0], pose[1], i === 2 || i === 3 ? 'open' : null, pose[3], i < 3 ? -1 : 1);
+          // Launch and landing both throw gel sideways along the floor.
+          if (i === 1 || i === 5) for (const sg of [-1, 1])
+            for (let k = 0; k < 3; k++) a.px(16 + sg * (pose[0] + 1 + k), 27 - (k === 1 ? 1 : 0), k > 1 ? p.sh : p.glow);
         })),
+        // attack: coil, rear back, spit, recoil.
         D('attack', 12, false, seq(4, 12, (a, i, t) => {
-          const st = [[7, 7], [10, 4], [6, 9], [8, 6]][i];
-          at(a, 16 + (i === 1 ? 2 : 0), 21, st[0], st[1]);
-          if (i === 2) for (let k = 0; k < 6; k++) { const ang = -0.4 - k * 0.22; a.px(16 + Math.cos(ang) * (10 + k), 18 + Math.sin(ang) * (10 + k), nuc); }
+          const st = [[9, 5], [7, 8], [10.5, 4.5], [8.5, 5.5]][i];
+          at(a, 16 + (i === 1 ? -1 : i === 2 ? 2 : 0), 27 - st[1], st[0], st[1],
+            i >= 1 ? 'open' : null, i === 1 ? -1 : 1, i === 1 ? -1 : 1);
+          if (i === 2) slimeGlob(a, 27, 14, 2, p, 2, 2);
+          if (i === 3) slimeGlob(a, 27, 9, 2, p, 2, 2);
         })),
         D('hurt', 12, false, seq(3, 12, (a, i, t) => {
-          at(a, 16 + (i === 1 ? -2 : 1), 21, 9 - i * 0.6, 5 + i * 0.4, 'hurt');
-          for (let k = 0; k < 4; k++) a.px(16 + Math.cos(k * 1.6) * (9 + i * 2), 20 + Math.sin(k * 1.6) * (7 + i), sh);
+          at(a, 16 + (i === 1 ? -2 : 1), 27 - (5 + i * 0.4), 9 - i * 0.6, 5 + i * 0.4, 'hurt');
+          // Torn-off gel: short teardrops flying outward, not loose dots. A
+          // single pixel gets its own 1px border and reads as grit.
+          for (let k = 0; k < 4; k++) {
+            const ang = 3.9 + k * 0.72, d = 9 + i * 2;
+            const X = 16 + Math.cos(ang) * d, Y = 20 + Math.sin(ang) * d;
+            a.line(X, Y, X - Math.cos(ang) * 2, Y - Math.sin(ang) * 2, p.sh, 1);
+            a.px(X, Y, p.glow);
+          }
         })),
-        // death: melt to a puddle. Single-direction, loop:false, no closure check
+        // death: the surface tension gives out and it melts to a puddle that
+        // keeps spreading after the nucleus has already gone dull.
         D('die', 9, false, seq(5, 9, (a, i, t) => {
-          const ry = 6 - t * 4.6, rx = 8 + t * 3;
-          slimeBody(a, 16, 26 - ry, rx, Math.max(1, ry), base, hi, sh, t < 0.5 ? [15, 25, nuc] : null);
-          if (t < 0.55) slimeFace(a, 16, 23 - ry * 0.4, 'hurt');
-          speck(a, 16 - rx, 25, 16 + rx, 27, 4, [sh, hi], 0.18 + t * 0.2);
+          const ry = 6 - t * 4.6, rx = 8 + t * 3.4;
+          slimeBody(a, 16, 27 - Math.max(1, ry), rx, Math.max(1, ry), p,
+            t < 0.5 ? [15, 25, p.nuc] : null, 0);
+          if (t < 0.55) slimeFace(a, 16, 25 - ry * 0.7, 'hurt');
+          // Gel running off the edges of the puddle.
+          for (let k = -1; k <= 1; k += 2) for (let j = 0; j < 2; j++) {
+            const X = Math.round(16 + k * (rx - 1 - j * 3));
+            if (a.hash(X, j, 4) < 0.55 + t * 0.3) a.px(X, 27, p.pool);
+          }
+          speck(a, 16 - rx, 25, 16 + rx, 27, 4, [p.sh, p.glow], 0.14 + t * 0.18);
         }))
       ]
     };
@@ -258,41 +559,111 @@ PF.Platformer = (() => {
      The quills are deliberately NOT black. At #2a1440 they sat one step off
      the #181425 outline, so on any dark background the quills, their outline
      and the backdrop merged and the sprite lost its whole silhouette. */
+  const SPIKY = {
+    body: '#8a4fd6', mid: '#a76ce8', hi: '#c89ef4', rim: '#e6d0ff',
+    sh: '#5a2e96', dk: '#3a1c66', belly: '#7a45c2',
+    quill: '#3b1f5c', quillHi: '#8a63c0', quillTip: '#d8c4f0',
+    foot: '#f6a03a', footHi: '#ffc76b', footSh: '#a85c14', claw: '#3a1c66'
+  };
+
+  /* A quill is a TAPER with a lit spine: three strokes of falling width, a
+     highlight down the thick half and a bright tip. Nine lines of constant
+     2px width read as whiskers, which is what the old crawler had -- a purple
+     ball wearing a wig. */
+  function quill(a, cx, cy, ang, r0, r1, p, flare) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    const X = d => cx + c * d, Y = d => cy + s * d;
+    const R1 = r1 + (flare || 0), L = R1 - r0;
+    const seg = (d0, d1, w, col) => a.line(X(d0), Y(d0), X(d1), Y(d1), col, w);
+    seg(r0, r0 + L * 0.35, 4, p.quill);
+    seg(r0 + L * 0.35, r0 + L * 0.7, 3, p.quill);
+    seg(r0 + L * 0.7, R1 - 1, 2, p.quill);
+    seg(R1 - 1, R1, 1, p.quill);
+    /* Lit spine on the THICK half only. Run it to the tip and the quill goes
+       hollow; put a bright pixel on the point and eleven of them become a
+       ring of confetti round the sprite, which is exactly what the first
+       version looked like. */
+    seg(r0 + L * 0.2, r0 + L * 0.6, 1, p.quillHi);
+  }
+
+  /* Two toes and a claw, not an orange brick. The foot is the only warm mass
+     on the sprite, so its shape is doing real work in the silhouette. */
+  function spikyFoot(a, x, y, p, lift) {
+    const Y = y - (lift ? 1 : 0);
+    a.rect(x, Y, x + 3, Y + 1, p.foot);
+    a.rect(x, Y, x + 3, Y, p.footHi);                              // instep
+    a.rect(x, Y + 1, x + 3, Y + 1, p.footSh);
+    a.px(x, Y + 2, p.footSh); a.px(x + 2, Y + 2, p.footSh);        // toes
+    a.px(x + 3, Y + 1, p.claw);                                    // claw
+  }
+
   function spikySuite() {
-    const body = '#8a4fd6', bodySh = '#5a2e96', bodyHi = '#c08ef0', quill = '#3b1f5c', foot = '#f6a03a';
-    const at = (a, cx, cy, step, mood) => {
-      // quills first so the body overlaps their roots
-      for (let k = 0; k < 9; k++) {
-        const ang = Math.PI + (k / 8) * Math.PI;
-        const qx = cx + Math.cos(ang) * 7, qy = cy + Math.sin(ang) * 6;
-        a.line(qx, qy, cx + Math.cos(ang) * 11, cy + Math.sin(ang) * 10, quill, 2);
-        a.px(cx + Math.cos(ang) * 11, cy + Math.sin(ang) * 10, '#7a47c0');
+    const p = SPIKY;
+    const at = (a, cx, cy, step, mood, flare) => {
+      // Quills first so the body overlaps their roots and they read as
+      // growing OUT of it rather than being stapled on.
+      // Seven long quills over the back and two short ones at the flanks.
+      // Eleven of them at 4px of reach just made a fuzzy halo: a quill has to
+      // be longer than the body is deep or it is fur.
+      for (let k = 0; k < 7; k++) {
+        const ang = Math.PI + (k / 6) * Math.PI;
+        // The CENTRE quill is the short one. Longest in the middle and it
+        // grows straight out of the forehead, lining up with the eyes.
+        quill(a, cx, cy, ang, 4, 10 + Math.abs(k - 3) * 0.7, p, flare);
       }
-      blob(a, cx, cy, 7, 6, body, bodyHi, bodySh);
-      if (mood === 'hurt') { a.px(cx - 4, cy - 2, OUT); a.px(cx - 3, cy - 1, OUT); a.px(cx + 3, cy - 2, OUT); a.px(cx + 4, cy - 1, OUT); }
-      else { a.rect(cx - 4, cy - 2, cx - 3, cy - 1, OUT); a.rect(cx + 3, cy - 2, cx + 4, cy - 1, OUT);
-        a.px(cx - 4, cy - 2, '#ffffff'); a.px(cx + 3, cy - 2, '#ffffff'); }
-      a.line(cx - 2, cy + 2, cx + 2, cy + 2, bodySh, 1);
-      // two stub feet in counter-phase: the only thing that says "walking"
-      a.rect(cx - 5, cy + 5 + (step ? 0 : 1), cx - 2, cy + 6 + (step ? 0 : 1), foot);
-      a.rect(cx + 2, cy + 5 + (step ? 1 : 0), cx + 5, cy + 6 + (step ? 1 : 0), foot);
+      for (const sg of [-1, 1]) quill(a, cx, cy, sg > 0 ? 0.42 : Math.PI - 0.42, 4, 9.5, p, (flare || 0) * 0.5);
+      a.ellipse(cx - 7, cy - 6, cx + 7, cy + 6, p.body, true);
+      rimArc(a, cx, cy, 7, 6, -3.0, -1.1, p.rim);                  // light over the shell
+      a.ellipse(cx - 7, cy, cx + 7, cy + 6, p.sh, true);           // the mass below the equator
+      a.ellipse(cx - 6, cy + 3, cx + 6, cy + 6, p.dk, true);
+      a.ellipse(cx - 4, cy + 2, cx + 4, cy + 5, p.belly, true);    // pale underbelly
+      // The lit cap stops ABOVE the eye line. Run it between the eyes and it
+      // is brighter than the sclera, so the face reads as three white patches.
+      a.ellipse(cx - 6, cy - 6, cx + 2, cy - 2, p.mid, true);      // lit cap
+      a.ellipse(cx - 5, cy - 6, cx, cy - 4, p.hi, true);
+      a.rect(cx - 4, cy - 5, cx - 3, cy - 5, '#ffffff');           // specular
+      if (mood === 'hurt') {
+        for (const sg of [-1, 1]) {
+          const ex = cx + sg * 4;
+          a.line(ex - 1, cy - 3, ex + 1, cy - 1, OUT, 1);
+          a.line(ex + 1, cy - 3, ex - 1, cy - 1, OUT, 1);
+        }
+        a.ellipse(cx - 2, cy + 1, cx + 2, cy + 3, OUT, true);
+        a.rect(cx - 1, cy + 2, cx + 1, cy + 3, '#7a2038');
+      } else {
+        for (const sg of [-1, 1]) {
+          const ex = cx + sg * 4;
+          a.rect(ex - 1, cy - 3, ex + 1, cy - 2, '#ffffff');
+          a.rect(ex + sg, cy - 3, ex + sg, cy - 2, OUT);           // pupil, looking ahead
+          // A brow slanting IN toward the nose is the whole expression.
+          a.line(ex - sg * 2, cy - 5, ex + sg * 2, cy - 4, OUT, 1);
+        }
+        a.line(cx - 2, cy, cx + 2, cy, OUT, 1);                    // set jaw
+        a.px(cx - 1, cy + 1, '#ffffff'); a.px(cx + 1, cy + 1, '#ffffff');   // fangs
+      }
+      spikyFoot(a, cx - 6, cy + 5, p, step);
+      spikyFoot(a, cx + 3, cy + 5, p, !step);
     };
     return {
       width: 32, height: 32, name: 'Spiky Crawler', layers: [{ name: 'spiky' }],
       states: [
-        D('walk', 8, true, cyc(4, 8, (a, i) => at(a, 16, 20 - (i % 2), i % 2 === 0))),
+        D('walk', 8, true, cyc(4, 8, (a, i) => at(a, 16, 19 - (i % 2), i % 2 === 0))),
         // idle breathes a full 2px: a 1px bob on a 14px-wide body fell under
         // the gate's 8-pixel minimum delta and read as a frozen sprite.
-        D('idle', 5, true, cyc(3, 5, (a, i) => { at(a, 16, [20, 18, 19][i], i === 1);
+        D('idle', 5, true, cyc(3, 5, (a, i) => { at(a, 16, [19, 17, 18][i], i === 1);
           a.px(10 - i, 12, '#c08ef0'); a.px(22 + i, 13, '#c08ef0'); })),
-        // bristle: quills flare before a charge
-        D('bristle', 12, false, seq(4, 12, (a, i, t) => {
-          at(a, 16, 20, i % 2 === 0);
-          for (let k = 0; k < 9; k++) { const ang = Math.PI + (k / 8) * Math.PI;
-            a.line(16 + Math.cos(ang) * 10, 20 + Math.sin(ang) * 9, 16 + Math.cos(ang) * (11 + t * 3), 20 + Math.sin(ang) * (10 + t * 2.6), quill, 1); }
-        })),
-        D('hurt', 10, false, seq(3, 10, (a, i) => { at(a, 16 + (i === 1 ? -2 : 1), 20 + i, i % 2 === 0, 'hurt');
-          for (let k = 0; k < 4 - i; k++) a.px(16 + Math.cos(k * 1.7) * (11 + i * 2), 19 + Math.sin(k * 1.7) * (9 + i), '#e43b44'); }))
+        // bristle: every quill grows, so the flare is part of the taper rather
+        // than a second set of thin lines laid over the first.
+        D('bristle', 12, false, seq(4, 12, (a, i, t) => at(a, 16, 19, i % 2 === 0, null, t * 3.4))),
+        D('hurt', 10, false, seq(3, 10, (a, i) => { at(a, 16 + (i === 1 ? -2 : 1), 19 + i, i % 2 === 0, 'hurt');
+          // Chevrons, not dots: a lone pixel gets a full 1px border and reads
+          // as a crumb rather than as a hit.
+          for (let k = 0; k < 3 - i; k++) {
+            const d = 2 + k * 3;
+            a.line(19 + d, 9 - d, 21 + d, 11 - d, '#e43b44', 1);
+            a.line(21 + d, 11 - d, 19 + d, 13 - d, '#e43b44', 1);
+          }
+        }))
       ]
     };
   }
@@ -300,33 +671,66 @@ PF.Platformer = (() => {
   /* ============================================================ FLYER ===
      Tagged 'flying' so the ground-contact gate skips it. Wings are two arcs
      whose span is the animation; the body barely moves. */
+  const BAT = {
+    memb: '#b5443a', membSh: '#7a2a24', membDk: '#511a16', membHi: '#e07a63',
+    bone: '#d9a08c', fur: '#4a3a56', furHi: '#7a648c', furDk: '#2a2038',
+    ruff: '#9a86ac', muzzle: '#5e4a6c', eye: '#ffd24a', eyeHi: '#fff3b0'
+  };
   function flyerSuite() {
-    const memb = '#b5443a', membHi = '#e07a63', fur = '#4a3a56', furHi = '#7a648c', eye = '#ffd24a';
+    const p = BAT;
     const at = (a, cy, span, mood) => {
       /* Filled membrane with a scalloped trailing edge and darker finger
          struts. Two parallel 2px lines from shoulder to tip read as a plank:
          what makes a wing is the area between a straight leading edge and a
-         notched trailing one. */
+         notched trailing one -- and, at this size, the PANELS between the
+         fingers. Each strut gets a lit pixel beside it so the membrane looks
+         stretched over a frame instead of painted flat. */
       const reach = Math.round(6 + span * 6), tipY = cy - span * 5;
-      const chordAt = f => Math.max(1, Math.round((3.5 - f * 2.2) + Math.sin(f * Math.PI * 3) * 1.1));
+      const chordAt = f => Math.max(1, Math.round((4 - f * 2.4) + Math.sin(f * Math.PI * 3) * 1.2));
       for (const s of [-1, 1]) {
         for (let d = 0; d <= reach; d++) {
           const f = d / reach, x = 16 + s * (3 + d);
           const lead = Math.round(cy - 1 + (tipY - cy + 1) * f);
-          a.line(x, lead, x, lead + chordAt(f), memb, 1);
-          a.px(x, lead, membHi);
+          const ch = chordAt(f);
+          a.line(x, lead, x, lead + ch, p.memb, 1);
+          a.px(x, lead + ch, p.membSh);                            // trailing edge in shadow
+          a.px(x, lead, p.bone);                                   // the arm bone runs the leading edge
         }
         for (let k = 1; k < 4; k++) {
           const f = k / 4, x = 16 + s * (3 + Math.round(reach * f));
           const lead = Math.round(cy - 1 + (tipY - cy + 1) * f);
-          a.line(x, lead + 1, x, lead + chordAt(f), '#7a2a24', 1);
+          const ch = chordAt(f);
+          a.line(x, lead + 1, x, lead + ch, p.membDk, 1);          // finger
+          a.line(x - s, lead + 1, x - s, lead + ch - 1, p.membHi, 1);  // the panel beside it
         }
+        // Wrist hook. Placed ON the leading edge so it is never a loose speck.
+        const wx = 16 + s * (3 + Math.round(reach * 0.5));
+        const wl = Math.round(cy - 1 + (tipY - cy + 1) * 0.5);
+        a.px(wx, wl - 1, p.bone);
       }
-      blob(a, 16, cy, 4, 4, fur, furHi, '#2a2038');
-      a.line(13, cy - 5, 14, cy - 8, fur, 1); a.line(19, cy - 5, 18, cy - 8, fur, 1);  // ears
-      if (mood === 'hurt') { a.px(14, cy - 1, OUT); a.px(15, cy, OUT); a.px(18, cy - 1, OUT); a.px(17, cy, OUT); }
-      else { a.rect(14, cy - 1, 15, cy, eye); a.rect(18, cy - 1, 19, cy, eye); a.px(14, cy - 1, '#ffffff'); a.px(18, cy - 1, '#ffffff'); }
-      a.px(15, cy + 3, '#ffffff'); a.px(18, cy + 3, '#ffffff');    // fangs
+      a.ellipse(12, cy - 4, 20, cy + 5, p.fur, true);
+      rimArc(a, 16, cy + 0.5, 4, 4.5, -2.9, -1.2, p.furHi);        // fur catches the rim
+      a.ellipse(12, cy + 1, 20, cy + 5, p.furDk, true);            // belly in shadow
+      a.ellipse(13, cy - 4, 18, cy - 1, p.furHi, true);            // lit shoulder
+      a.rect(13, cy + 1, 19, cy + 1, p.ruff);                      // fur collar
+      a.px(14, cy + 1, p.furDk); a.px(17, cy + 1, p.furDk);        // ...and it is ragged
+      for (const s of [-1, 1]) {                                   // ears
+        a.line(16 + s * 2, cy - 3, 16 + s * 3, cy - 8, p.fur, 2);
+        a.line(16 + s * 2, cy - 3, 16 + s * 3, cy - 7, p.muzzle, 1);
+        a.px(16 + s * 3, cy - 8, p.furHi);
+      }
+      a.ellipse(14, cy - 1, 18, cy + 2, p.muzzle, true);           // snout
+      a.px(16, cy, p.furDk); a.px(15, cy, p.furDk);                // nose
+      if (mood === 'hurt') {
+        a.line(13, cy - 3, 15, cy - 1, OUT, 1); a.line(15, cy - 3, 13, cy - 1, OUT, 1);
+        a.line(17, cy - 3, 19, cy - 1, OUT, 1); a.line(19, cy - 3, 17, cy - 1, OUT, 1);
+        a.rect(15, cy + 2, 17, cy + 3, OUT);
+      } else {
+        a.rect(13, cy - 2, 14, cy - 1, p.eye); a.rect(18, cy - 2, 19, cy - 1, p.eye);
+        a.px(13, cy - 2, p.eyeHi); a.px(18, cy - 2, p.eyeHi);
+        a.px(14, cy - 1, OUT); a.px(18, cy - 1, OUT);              // slit pupils
+        a.px(15, cy + 2, '#ffffff'); a.px(17, cy + 2, '#ffffff');  // fangs
+      }
     };
     return {
       width: 32, height: 32, name: 'Cave Flyer', layers: [{ name: 'flyer' }],
@@ -343,26 +747,54 @@ PF.Platformer = (() => {
            already reads from the pose — descending body, wings swept back. */
         D('swoop', 14, false, seq(4, 14, (a, i, t) => at(a, 10 + i * 4, 0.1 + t * 0.2))),
         D('hurt', 11, false, seq(3, 11, (a, i) => { at(a, 14 + i * 2, 0.2, 'hurt');
-          for (let k = 0; k < 4; k++) a.px(16 + Math.cos(k * 1.6) * (8 + i * 2), 14 + Math.sin(k * 1.6) * (6 + i), '#e43b44'); }))
+          for (let k = 0; k < 3 - i; k++) {
+            const d = 2 + k * 3;
+            a.line(19 + d, 10 - d, 21 + d, 12 - d, '#e43b44', 1);
+            a.line(21 + d, 12 - d, 19 + d, 14 - d, '#e43b44', 1);
+          }
+        }))
       ]
     };
   }
 
   /* ========================================================= COLLECTABLES ===
-     A coin has to read as currency in 16 pixels and 4 frames: the trick is
-     that the "edge on" frame is 2px wide and nearly white, so the spin has a
-     flash rather than a smooth squash. */
+     A struck coin is three concentric values -- a rolled edge, a milled
+     bevel and a field -- carrying an incuse mark. One flat disc with a bar
+     down it was a token, not currency. The spin squashes the width; at 2px
+     the coin is edge on and the bevel is the whole sprite. */
   function pickupSuite() {
-    const coinFrames = (gold, rim, hiC) => cyc(6, 12, (a, i) => {
+    const coinFrames = (gold, rim, hiC, dk) => cyc(6, 12, (a, i) => {
       const w = Math.abs(Math.cos((i / 6) * Math.PI)) * 6 + 0.6;
-      a.ellipse(16 - w, 12, 16 + w, 24, rim, true);
-      if (w > 2) {
-        a.ellipse(16 - w + 1, 13, 16 + w - 1, 23, gold, true);
-        a.ellipse(16 - w + 2, 14, 16 - w + 3, 17, hiC, true);
-        a.rect(16 - 1, 16, 16 + 1, 20, rim);        // struck face mark
-      } else a.rect(16 - 1, 12, 16 + 1, 24, hiC);   // edge-on flash
-      const sp = 14 + Math.round(Math.sin((i / 6) * TAU) * 3);
-      a.px(sp, 9, '#fff6c9'); a.px(30 - sp, 27, '#fff6c9');
+      a.ellipse(16 - w, 12, 16 + w, 24, dk, true);              // rolled edge
+      if (w > 2.2) {
+        a.ellipse(16 - w + 1, 13, 16 + w - 1, 23, rim, true);   // bevel
+        a.ellipse(16 - w + 2, 14, 16 + w - 2, 22, gold, true);  // struck field
+        rimArc(a, 16, 18, w - 0.5, 5.5, -2.85, -1.45, hiC);     // key light off the bevel
+        if (w > 4.5) {
+          // Milling, sampled on the bevel ring so every notch lands on metal
+          // rather than beside the silhouette as a loose speck.
+          for (let k = 0; k < 14; k++) {
+            const ang = (k / 14) * TAU;
+            a.px(16 + Math.cos(ang) * (w - 1.3), 18 + Math.sin(ang) * 4.5, k % 2 ? dk : rim);
+          }
+        }
+        const sw = Math.max(1, Math.round(w * 0.45));
+        if (i > 3) {                                  // reverse: two struck bars
+          a.rect(16 - sw, 17, 16 + sw, 17, dk); a.rect(16 - sw, 19, 16 + sw, 19, dk);
+          a.px(16 - sw, 16, hiC); a.px(16 - sw, 18, hiC);
+        } else {                                      // obverse: an incuse lozenge
+          for (let r = -3; r <= 3; r++) {
+            const hw = Math.round((1 - Math.abs(r) / 3.6) * sw);
+            a.rect(16 - hw, 18 + r, 16 + hw, 18 + r, dk);
+            a.px(16 - hw, 18 + r, r <= 0 ? hiC : gold);   // the lip of the strike
+          }
+        }
+      } else {
+        const hw = Math.max(0, Math.round(w) - 1);
+        a.rect(16 - hw, 14, 16 + hw, 22, hiC);        // edge-on flash
+        a.rect(16 - hw, 12, 16 + hw, 13, rim);
+        a.rect(16 - hw, 23, 16 + hw, 24, rim);
+      }
     });
     /* A cut gem is a table (flat top), a crown that WIDENS to the girdle and
        a pavilion that tapers to a point. Narrowing from row 0 gives an
@@ -374,19 +806,20 @@ PF.Platformer = (() => {
       HW.forEach((hw, r) => a.rect(16 - hw, cy - 4 + r, 16 + hw, cy - 4 + r, r < 2 ? c1 : c0));
       a.line(16 - 3, cy - 4, 16, cy + 2, c2, 1);     // left crown facet, lit
       a.line(16 + 3, cy - 4, 16, cy + 2, c0, 1);     // right facet, in shadow
+      // Light the stone from one side. A symmetric ramp reads as a plastic
+      // bead; the lit flank is what makes it look cut.
+      HW.forEach((hw, r) => a.px(16 - hw, cy - 4 + r, r < 4 ? c2 : c1));
       a.rect(16 - 3, cy - 5, 16 - 1, cy - 5, '#ffffff');
       a.px(16 - 4, cy - 3, '#ffffff');
-      // A glint sweeping the facets plus a sparkle orbiting the stone: both
-      // move every frame, so no two frames of the float can coincide.
+      // A glint sweeping the facets. The sparkle that used to orbit the stone
+      // was a detached pixel, and the outline pass gave it its own border.
       const g = (i + 2) % 6;
       if (g < 4) a.rect(16 + 4 - g, cy - 4 + g, 16 + 4 - g, cy - 3 + g, '#ffffff');
-      const oa = t * TAU, sx = 16 + Math.cos(oa) * 10, sy = cy + Math.sin(oa) * 8;
-      a.px(sx, sy, '#ffffff'); a.px(sx + 1, sy, c2); a.px(sx, sy + 1, c2);
     });
     /* Filled star polygon: 10 alternating vertices, each edge fanned back to
        the centre. Drawing only the spokes (the obvious shortcut) gives a
        starfish, not a star. */
-    const starShape = (a, cx, cy, ro, ri, rot, fillC, hiC, edgeC) => {
+    const starShape = (a, cx, cy, ro, ri, rot, fillC, hiC, edgeC, shC) => {
       const V = [];
       for (let k = 0; k < 10; k++) {
         const ang = rot - Math.PI / 2 + (k / 10) * TAU, r = k % 2 ? ri : ro;
@@ -396,14 +829,23 @@ PF.Platformer = (() => {
         const [x0, y0] = V[k], [x1, y1] = V[(k + 1) % 10];
         for (let q = 0; q <= 8; q++) a.line(cx, cy, x0 + (x1 - x0) * q / 8, y0 + (y1 - y0) * q / 8, fillC, 1);
       }
-      for (let k = 0; k < 10; k += 2) a.line(cx, cy, V[k][0], V[k][1], hiC, 1);   // lit ridge per point
+      /* Every point is a shallow pyramid. Its ridge runs centre -> tip, and
+         whether that ridge is lit depends on which way the tip faces the key
+         light (upper left) -- lighting all ten the same gave a flat decal. */
+      const face = k => { const dx = V[k][0] - cx, dy = V[k][1] - cy; return (-dx - dy) / (Math.hypot(dx, dy) || 1); };
+      for (let k = 1; k < 10; k += 2) if (face(k) < 0) a.line(cx, cy, V[k][0], V[k][1], shC, 1);   // valley falling away
+      for (let k = 0; k < 10; k += 2) {
+        const u = face(k);
+        a.line(cx, cy, V[k][0], V[k][1], u > 0.25 ? hiC : u < -0.25 ? shC : fillC, 1);
+      }
       for (let k = 0; k < 10; k++) { const [x0, y0] = V[k], [x1, y1] = V[(k + 1) % 10]; a.line(x0, y0, x1, y1, edgeC, 1); }
+      a.px(cx - 2, cy - 2, '#ffffff');                                                  // specular off the boss
     };
     return {
       width: 32, height: 32, name: 'Collectables', layers: [{ name: 'pickup' }],
       states: [
-        D('coin_gold', 12, true, coinFrames('#f6c33a', '#b07a12', '#fff6c9')),
-        D('coin_silver', 12, true, coinFrames('#c9d4e0', '#6d7d92', '#ffffff')),
+        D('coin_gold', 12, true, coinFrames('#f6c33a', '#c9922a', '#fff6c9', '#7a4e0c')),
+        D('coin_silver', 12, true, coinFrames('#c9d4e0', '#93a2b5', '#ffffff', '#4e5c6e')),
         D('gem_red', 10, true, gemFrames('#8a1d33', '#e43b44', '#ff9aa2')),
         D('gem_blue', 10, true, gemFrames('#1d4d8a', '#2f8ee0', '#9ad8ff')),
         D('gem_green', 10, true, gemFrames('#1d6a3a', '#3fc46a', '#a4f2b8')),
@@ -411,29 +853,42 @@ PF.Platformer = (() => {
         D('heart', 8, true, cyc(4, 8, (a, i, t) => {
           const s = 1 + Math.sin(t * TAU) * 0.1, cy = 18 - Math.round(Math.cos(t * TAU) * 2);
           const rows = [[3, 4, 7, 8], [2, 9], [1, 10], [1, 10], [1, 10], [2, 9], [3, 8], [4, 7], [5, 6]];
+          // Three values down the form and a lit left flank on every run: the
+          // two-tone version had lobes but no volume under them.
           rows.forEach((sp, dy) => { for (let q = 0; q < sp.length; q += 2) {
-            const x0 = 16 - 6 + sp[q] * s, x1 = 16 - 6 + sp[q + 1] * s;
-            a.rect(x0, cy - 5 + dy, x1, cy - 5 + dy, dy < 3 ? '#ff5a6e' : '#c2283c'); } });
-          a.rect(16 - 3, cy - 4, 16 - 2, cy - 3, '#ffc0c8');
-          if (i % 2 === 0) { a.px(24, 11, '#ffffff'); a.px(9, 22, '#ffffff'); }
+            const x0 = 16 - 6 + sp[q] * s, x1 = 16 - 6 + sp[q + 1] * s, y = cy - 5 + dy;
+            a.rect(x0, y, x1, y, dy < 2 ? '#e8384f' : dy < 5 ? '#c2283c' : '#8a1830');
+            a.px(x0, y, dy < 6 ? '#ff7a8c' : '#c2283c'); } });
+          a.rect(16 - 4, cy - 3, 16 - 3, cy - 2, '#ff9aa8');   // gloss on the near lobe
+          a.px(16 - 4, cy - 3, '#ffd6dc');
+          a.px(16 - 5, cy - 2, '#ffc0c8');
         })),
         D('star', 12, true, cyc(6, 12, (a, i, t) => {
           const cy = 18 + [0, -1, -1, 0, 1, 1][i];
-          starShape(a, 16, cy, 11, 4.6, t * 0.5, '#f6c33a', '#fff6c9', '#b07a12');
-          a.rect(13, cy - 1, 14, cy, OUT); a.rect(18, cy - 1, 19, cy, OUT);   // face
-          a.px(13, cy - 1, '#ffffff'); a.px(18, cy - 1, '#ffffff');
-          a.line(15, cy + 3, 17, cy + 3, '#b07a12', 1);
-          const k = i % 3;
-          a.px(6 + k, 7 + k, '#ffffff'); a.px(25 - k, 27 - k, '#ffffff');
+          // One point-to-point turn per loop, so the lit side travels round
+          // the star instead of the whole decal sliding sideways.
+          starShape(a, 16, cy, 11, 4.6, (i / 6) * (TAU / 5), '#f6c33a', '#fff6c9', '#b07a12', '#c9922a');
         })),
+        /* A wire outline of a key barely reads at 32px. Fill the bow solid,
+           then punch the ward hole THROUGH it, so the brass has thickness to
+           catch light -- and give the shank a spine and a shadowed underside
+           instead of one flat bar. */
         D('key', 8, true, cyc(4, 8, (a, i, t) => {
-          const b = Math.round(Math.sin(t * TAU) * 2.5);
-          a.ellipse(9, 13 + b, 17, 21 + b, '#c9a227', false);
-          a.ellipse(10, 14 + b, 16, 20 + b, '#f6d64a', false);
-          a.rect(17, 16 + b, 25, 18 + b, '#f6d64a');
-          a.rect(17, 16 + b, 25, 16 + b, '#fff6c9');
-          a.rect(22, 18 + b, 23, 21 + b, '#c9a227'); a.rect(25, 18 + b, 25, 20 + b, '#c9a227');
-          if (i % 2) { a.px(12, 11 + b, '#ffffff'); a.px(26, 20 + b, '#ffffff'); }
+          const b = Math.round(Math.sin(t * TAU) * 2.5), Y = y => y + b, cx = 9, cy = 16;
+          a.ellipse(cx - 6, Y(cy - 5), cx + 6, Y(cy + 5), '#7a5a10', true);
+          a.ellipse(cx - 5, Y(cy - 4), cx + 5, Y(cy + 4), '#c9a227', true);
+          a.ellipse(cx - 4, Y(cy - 3), cx + 4, Y(cy + 3), '#f6d64a', true);
+          a.ellipse(cx - 3, Y(cy - 2), cx + 3, Y(cy + 2), '#7a5a10', true);   // ward hole
+          a.ellipse(cx - 2, Y(cy - 1), cx + 2, Y(cy + 1), '#3a2a06', true);
+          rimArc(a, cx, Y(cy), 5.5, 4.5, -2.9, -1.25, '#fff6c9');
+          a.rect(15, Y(14), 27, Y(18), '#7a5a10');
+          a.rect(15, Y(14), 27, Y(14), '#fff6c9');                            // spine
+          a.rect(15, Y(15), 27, Y(16), '#f6d64a');
+          a.rect(15, Y(17), 27, Y(17), '#c9a227');
+          a.rect(21, Y(19), 22, Y(22), '#c9a227'); a.rect(21, Y(19), 21, Y(22), '#f6d64a');
+          a.rect(25, Y(19), 26, Y(21), '#c9a227'); a.rect(25, Y(19), 25, Y(21), '#f6d64a');
+          const ga = (i / 4) * TAU;                                           // glint travelling the bow
+          a.px(cx + Math.cos(ga) * 4.6, Y(cy) + Math.sin(ga) * 3.6, '#ffffff');
         }))
       ]
     };
@@ -478,26 +933,41 @@ PF.Platformer = (() => {
           // Rest sits high enough that the coil stack is readable; a "rest"
           // pose only 4px above the base is just a red slab on a plate.
           const top = [18, 24, 9, 14][i], span = Math.max(1, 25 - top);
-          const coils = Math.max(2, Math.min(5, Math.round(span / 3)));
+          /* A coil, not a stack of plates. Each turn is a wire slanting down
+             across the spring with the near flank lit; the flanks join the
+             turns so the whole spring stays one island for the outline pass.
+             At a 3px pitch with a 2px wire the turns fused into a slab. */
+          const coils = Math.max(2, Math.min(4, Math.round(span / 4)));
           a.rect(8, 26, 23, 27, '#5a6988'); a.rect(8, 26, 23, 26, '#8b9bb4');
           for (let k = 0; k < coils; k++) {
-            const y = 25 - span * (k / coils);
-            a.line(9, y, 22, y - 1, '#c0cbdc', 2);
-            a.line(9, y, 22, y - 1, k % 2 ? '#8b9bb4' : '#e4eaf2', 1);
+            const y0 = 25 - span * (k / coils), y1 = 25 - span * ((k + 1) / coils);
+            // Front half of the turn sweeps left to right and the back half
+            // returns behind it, so the wire is one unbroken zigzag chain.
+            const fwd = k % 2 === 0, xa = fwd ? 9 : 22, xb = fwd ? 22 : 9;
+            a.line(xa, y0, xb, y1, fwd ? '#8b9bb4' : '#3d4a5c', 2);
+            if (fwd) a.line(xa, y0 - 1, xb, y1 - 1, '#e4eaf2', 1);
           }
-          a.rect(6, top - 3, 25, top, '#e43b44');
-          a.rect(6, top - 3, 25, top - 3, '#ff7a86');
+          a.rect(6, top - 4, 25, top, '#c2283c');
+          a.rect(6, top - 4, 25, top - 3, '#e43b44');
+          a.rect(6, top - 4, 25, top - 4, '#ff7a86');         // lit lip of the pad
           a.rect(6, top, 25, top, '#8a1d33');
+          for (let x = 8; x <= 23; x += 3) a.px(x, top - 1, '#8a1d33');   // grip tread
         })),
         D('checkpoint', 8, true, cyc(4, 8, (a, i, t) => {
           a.rect(9, 8, 10, 27, '#8b9bb4'); a.rect(9, 8, 9, 27, '#c0cbdc');
           a.ellipse(7, 25, 13, 27, '#5a6988', true);
+          // Swallow tail cut INTO the fly edge as the rows are drawn. There is
+          // no erase primitive, so the notch has to be part of the length.
           for (let y = 0; y < 8; y++) {
             const wv = Math.sin(t * TAU + y * 0.5) * 2;
-            a.line(11, 9 + y, 22 + wv, 9 + y, y < 4 ? '#3fc46a' : '#1d8a4a');
+            const cut = Math.max(0, 4 - Math.abs(y - 3.5) * 1.5);
+            a.line(11, 9 + y, 22 + wv - cut, 9 + y, y < 4 ? '#3fc46a' : '#1d8a4a');
           }
-          a.px(11, 8, '#c0cbdc');
-          if (i % 2 === 0) { a.px(16, 5, '#a4f2b8'); a.px(20, 6, '#a4f2b8'); }
+          // Swallow-tail notch, so the pennant has a silhouette rather than
+          // ending in a flat edge, plus a finial the pole can hold up.
+          a.rect(11, 9, 11, 16, '#a4f2b8');                    // luff, lit by the sky
+          a.ellipse(8, 4, 11, 7, '#e4eaf2', true);             // finial
+          a.ellipse(9, 5, 10, 6, '#8b9bb4', true);
         })),
         // The door reads as opening only if something is revealed behind it:
         // a lit interior with the glow strongest at the floor, and a leading
@@ -542,7 +1012,13 @@ PF.Platformer = (() => {
           for (let x = 5; x < 28; x += 6) a.rect(x, y + 2, x + 2, y + 3, '#3d4a5c');
           a.rect(14, y + 6, 17, 27, '#3d4a5c');       // support column
           a.rect(15, y + 6, 15, 27, '#6d7d92');
-          for (let k = 0; k < 3; k++) a.px(8 + k * 8, y - 2 - (i % 2), '#7fd4ff');
+          // Running lamps sunk INTO the deck. Floating above it they were
+          // detached pixels, and the outline pass boxed each one in.
+          for (let k = 0; k < 3; k++) {
+            const x = 6 + k * 9;
+            a.rect(x, y + 2, x + 1, y + 3, k === i % 3 ? '#e4eaf2' : '#3d7fa8');
+            a.px(x, y + 2, k === i % 3 ? '#ffffff' : '#7fd4ff');
+          }
         }))
       ]
     };
@@ -560,15 +1036,35 @@ PF.Platformer = (() => {
     const STONE = '#6d7d92', STONE_D = '#48566a', STONE_L = '#a3b1c4';
     const cell = (api, cx, cy) => P().offsetApi(api, cx * 16, cy * 16);
 
-    const dirtBase = a => { a.rect(0, 0, 15, 15, DIRT); speck(a, 0, 0, 15, 15, 21, [DIRT_D, DIRT_L], 0.32); };
+    /* Packed earth, not noise: the speck pass alone gave a uniform TV-static
+       brown. Stones sit in it with a lit top and a shadow under them, which
+       is what makes the surface read as having depth at 16px. */
+    const dirtBase = a => {
+      a.rect(0, 0, 15, 15, DIRT);
+      speck(a, 0, 0, 15, 15, 21, [DIRT_D, DIRT_L], 0.3);
+      for (let k = 0; k < 4; k++) {
+        const sx = Math.floor(a.hash(k, 11, 3) * 12) + 1, sy = Math.floor(a.hash(k, 17, 3) * 12) + 1;
+        const w = 1 + Math.floor(a.hash(k, 23, 3) * 2);
+        a.rect(sx, sy, sx + w, sy + 1, DIRT_D);
+        a.rect(sx, sy, sx + w, sy, '#8d5e39');
+        a.px(sx, sy, DIRT_L);
+      }
+    };
     const grassCap = (a, left, right) => {
       a.rect(0, 0, 15, 4, GRASS);
-      a.rect(0, 0, 15, 1, GRASS_L);
-      // ragged root line into the dirt, deterministic per column
-      for (let x = 0; x < 16; x++) { const d = Math.floor(a.hash(x, 3, 5) * 3); a.rect(x, 5, x, 5 + d, GRASS_D); }
+      a.rect(0, 0, 15, 0, GRASS_L);
+      a.rect(0, 1, 15, 1, '#5ab54a');
+      /* Dither the sward down into the soil. Butted edge to edge, the two
+         flats read as a green stripe painted across a brown one; the roots
+         have to interleave for the tile to look like ground. */
+      for (let x = 0; x < 16; x++) {
+        const d = Math.floor(a.hash(x, 3, 5) * 3);
+        a.rect(x, 4, x, 5 + d, GRASS_D);
+        if ((x + d) % 2 === 0) a.px(x, 6 + d, GRASS_D);
+        if (a.hash(x, 7, 9) > 0.52) a.px(x, 2, GRASS_L);   // a blade catching the sun
+      }
       if (left) { a.rect(0, 0, 1, 15, DIRT_D); a.rect(0, 0, 1, 4, GRASS_D); }
       if (right) { a.rect(14, 0, 15, 15, DIRT_D); a.rect(14, 0, 15, 4, GRASS_D); }
-      for (let x = 1; x < 15; x += 5) { a.px(x, 0, GRASS_L); a.px(x + 2, 1, GRASS_L); }
     };
     const paint = (a) => {
       // ---- row 0: grass surface
@@ -593,14 +1089,25 @@ PF.Platformer = (() => {
       br.rect(0, 0, 15, 15, STONE_D);
       for (let row = 0; row < 4; row++) for (let k = -1; k < 3; k++) {
         const bx = k * 8 + (row % 2 ? 4 : 0), by = row * 4;
-        br.rect(bx, by, bx + 6, by + 2, STONE);
+        // Every brick is a slab with a lit top arris and its own shadow cast
+        // into the mortar below; one flat tone per brick reads as wallpaper.
+        br.rect(bx, by, bx + 6, by + 2, (row + k) % 2 ? STONE : '#7a8a9e');
         br.rect(bx, by, bx + 6, by, STONE_L);
+        br.rect(bx, by + 2, bx + 6, by + 2, '#5a6878');
+        br.px(bx, by + 1, '#5a6878');                 // shaded left return
       }
       const ore = cell(a, 2, 2);
       ore.rect(0, 0, 15, 15, STONE); speck(ore, 0, 0, 15, 15, 33, [STONE_D], 0.36);
       [[4, 4], [9, 7], [5, 11]].forEach(([ox, oy], k) => {
-        const c2 = ['#f6c33a', '#7fd4ff', '#f6c33a'][k];
-        ore.ellipse(ox, oy, ox + 2, oy + 2, c2, true); ore.px(ox, oy, '#ffffff');
+        /* A crystal seam, not a sparkle: a 3px blob with a white dot on it
+           looked like a highlight someone dropped on the rock. Each nodule
+           gets a socket chipped into the stone, a table and a pavilion. */
+        const [hi, mid, dk] = k === 1 ? ['#bdeaff', '#7fd4ff', '#2a6fa8'] : ['#fff0a8', '#f6c33a', '#9a6a10'];
+        ore.rect(ox - 1, oy - 1, ox + 3, oy + 3, STONE_D);
+        ore.rect(ox - 1, oy - 1, ox + 3, oy - 1, '#5a6878');
+        ore.rect(ox, oy, ox + 2, oy + 1, mid);
+        ore.px(ox + 1, oy + 2, dk);
+        ore.px(ox, oy, hi); ore.px(ox + 2, oy + 1, dk);
       });
       const ledge = cell(a, 3, 2);
       ledge.rect(0, 2, 15, 8, STONE); ledge.rect(0, 2, 15, 3, STONE_L); ledge.rect(0, 7, 15, 8, STONE_D);
@@ -615,10 +1122,16 @@ PF.Platformer = (() => {
       for (let k = 0; k < 4; k++) { const x = k * 4;
         for (let r = 0; r < 11; r++) sp.rect(x + Math.floor(r / 4), 11 - r, x + 3 - Math.floor(r / 4), 11 - r, r > 6 ? '#e4eaf2' : '#c0cbdc'); }
       const wat = cell(a, 2, 3);
-      wat.rect(0, 0, 15, 15, '#2a6fa8');
-      wat.rect(0, 0, 15, 2, '#4e9ed6');
-      for (let x = 0; x < 16; x++) { const y = 3 + Math.round(Math.sin(x * 0.6) * 1.2); wat.rect(x, y, x, y, '#9ad8ff'); }
-      speck(wat, 0, 4, 15, 15, 44, ['#17456d', '#4e9ed6'], 0.28);
+      // Depth ramp down the column plus a lit crest with foam riding on it:
+      // flat blue with noise over it read as a swatch, not as water.
+      for (let y = 0; y < 16; y++) wat.rect(0, y, 15, y, y < 3 ? '#4e9ed6' : y < 9 ? '#2a6fa8' : y < 13 ? '#1f5a8e' : '#17456d');
+      for (let x = 0; x < 16; x++) {
+        const y = 3 + Math.round(Math.sin(x / 16 * TAU) * 1.4);
+        wat.rect(x, y, x, y, '#9ad8ff');
+        wat.rect(x, y + 1, x, y + 2, '#4e9ed6');
+        if ((x + (y > 3 ? 1 : 0)) % 3 === 0) wat.px(x, y - 1, '#dff2ff');   // foam on the crest
+      }
+      speck(wat, 0, 6, 15, 15, 44, ['#17456d', '#4e9ed6'], 0.22);
       const cl = cell(a, 3, 3);
       cl.ellipse(0, 5, 9, 13, '#e4eaf2', true); cl.ellipse(5, 2, 15, 12, '#e4eaf2', true);
       cl.ellipse(1, 6, 8, 11, '#ffffff', true); cl.ellipse(6, 3, 13, 9, '#ffffff', true);
@@ -651,6 +1164,10 @@ PF.Platformer = (() => {
           + Math.sin(x / 64 * TAU * 5 + seed) * amp * 0.18);
         a.rect(x, baseY - h, x, 31, fill);
         a.rect(x, baseY - h, x, baseY - h, cap);
+        // Haze feathering off the crest. Drawn as a separate bright ribbon it
+        // read as a zip fastener stitched across the range; the distance is
+        // sold by softening the ridge line itself.
+        if ((x + h) % 2 === 0) a.px(x, baseY - h + 1, cap);
       }
     };
     /* Foliage has to wrap. A parallax layer whose sprites clip at x=63 shows a
@@ -673,18 +1190,26 @@ PF.Platformer = (() => {
         })),
         D('hills_mid', 1, false, still(a => {
           band(a, 0, 31, '#6a4a86', '#8c5f96');
+          // Three ranges receding into haze: two gave a cut-out look, and the
+          // atmosphere between them is what sells the distance.
+          ridge(a, 18, 7, '#5c4278', '#7a5a96', 1.9);
           ridge(a, 22, 6, '#4a3566', '#6b4f8a', 0.7);
           ridge(a, 28, 4, '#33254a', '#4a3566', 2.4);
         })),
         D('trees_near', 1, false, still(a => {
-          band(a, 0, 31, '#1d2340', '#141a30');
+          /* The near layer was so dark it was a black bar: a silhouette still
+             needs two values inside it and a rim where the sky touches the
+             canopy, or it stops reading as trees at all. */
+          band(a, 0, 31, '#2a3358', '#1a2340');
           for (let k = 0; k < 9; k++) {
             const x = (k * 7 + 2) % 64, h = 10 + ((k * 5) % 9);
-            wrapLine(a, x, x + 1, 31, '#0d1224');
             for (let ty = 31 - h; ty <= 31; ty++) wrapLine(a, x, x + 1, ty, '#0d1224');
-            for (let b = 0; b < 4; b++) { const by = 31 - h + b * 3;
-              wrapLine(a, x - 3 - b, x + 4 + b, by + 2, '#111a2e');
-              wrapLine(a, x - 2 - b, x + 3 + b, by + 1, '#0d1224'); }
+            for (let b = 0; b < 4; b++) {
+              const by = 31 - h + b * 3;
+              wrapLine(a, x - 3 - b, x + 4 + b, by + 2, '#141c34');
+              wrapLine(a, x - 2 - b, x + 3 + b, by + 1, '#0d1224');
+              wrapLine(a, x - 2 - b, x - b, by, '#233052');        // moonlit crown, left flank only
+            }
           }
           a.rect(0, 30, 63, 31, '#0a0e1c');
         }))

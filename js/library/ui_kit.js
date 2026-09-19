@@ -36,14 +36,63 @@ PF.UIKit = (() => {
   }
 
   /* Panel themes. br = border ramp (dark/mid/light), bg = interior ramp,
-     acc = corner stud / rivet colour. */
+     acc = corner stud / rivet colour, tex = interior material pass.
+
+     Without `tex` all six panels were the same flat gradient in six hues —
+     wood, stone and parchment are not distinguishable by colour alone at UI
+     contrast. The texture is what names the material. Every pass is a pure
+     function of (x, y) so it survives nine-slice stretching: no shape depends
+     on where the edges happen to be. */
+  const WOOD_TEX = (a, x0, y0, x1, y1) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if ((y - y0) % 9 === 8) { a.px(x, y, '#3d2a25'); continue; }       // plank seam
+      if ((y - y0) % 9 === 0) { a.px(x, y, '#6e4938'); continue; }       // lit top of each plank
+      if (a.hash(x, y, 11) > 0.86) a.px(x, y, '#4a3128');                // grain
+      else if (a.hash(x, y, 12) > 0.93) a.px(x, y, '#704a34');
+    }
+  };
+  const STONE_TEX = (a, x0, y0, x1, y1) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const row = Math.floor((y - y0) / 7), off = row % 2 ? 6 : 0;
+      if ((y - y0) % 7 === 6) { a.px(x, y, '#262b44'); continue; }       // course joint
+      if ((x - x0 + off) % 13 === 12) { a.px(x, y, '#262b44'); continue; }  // staggered head joint
+      if ((y - y0) % 7 === 0) { a.px(x, y, '#4a5878'); continue; }
+      if (a.hash(x, y, 21) > 0.9) a.px(x, y, '#4a5878');
+    }
+  };
+  const PARCH_TEX = (a, x0, y0, x1, y1) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (a.hash(x, y, 31) > 0.955) a.px(x, y, '#c9a273');              // fibre fleck
+      else if (a.hash(x, y, 32) > 0.96) a.px(x, y, '#fbe9c4');
+      const s = a.hash(x >> 2, y >> 2, 33);
+      if (s > 0.88) a.px(x, y, '#dcbc8c');                              // soft foxing
+    }
+  };
+  const DARK_TEX = (a, x0, y0, x1, y1) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++)
+      if (a.hash(x, y, 41) > 0.94) a.px(x, y, '#252a48');
+  };
+  const SCIFI_TEX = (a, x0, y0, x1, y1) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if ((y - y0) % 3 === 0) a.px(x, y, '#0e2236');                    // scanlines
+      if ((x - x0) % 16 === 3 && (y - y0) % 3 !== 0) a.px(x, y, '#124e6b');  // bus traces
+    }
+    for (let x = x0; x <= x1; x += 16) { a.px(x + 3, y0 + 2, '#2ce8f5'); a.px(x + 3, y1 - 2, '#0099db'); }
+  };
+  const ORNATE_TEX = (a, x0, y0, x1, y1) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const u = (x - x0 + y - y0) % 10, v = (x - x0 - y + y0 + 400) % 10;
+      if (u === 0 || v === 0) a.px(x, y, '#352a44');                    // damask lattice
+      if (u === 5 && v === 5) a.px(x, y, '#6b5320');                    // the knot at each crossing
+    }
+  };
   const THEMES = {
-    wood:    { br: ['#3d2a25', '#8f563b', '#c08552'], bg: ['#5c3c2e', '#3d2a25'], acc: '#fee761' },
-    stone:   { br: ['#262b44', '#5a6988', '#8b9bb4'], bg: ['#3a4466', '#262b44'], acc: '#c0cbdc' },
-    parch:   { br: ['#733e39', '#b86f50', '#e4a672'], bg: ['#f0d6a8', '#d9b380'], acc: '#733e39' },
-    dark:    { br: ['#10101c', '#262b44', '#3a4466'], bg: ['#1c2039', '#10101c'], acc: '#b55088' },
-    scifi:   { br: ['#0b2a3a', '#0099db', '#2ce8f5'], bg: ['#102a43', '#0a1a2a'], acc: '#2ce8f5' },
-    ornate:  { br: ['#4a3512', '#a07a1e', '#fee761'], bg: ['#2b2137', '#191325'], acc: '#e43b44' }
+    wood:    { br: ['#3d2a25', '#8f563b', '#c08552'], bg: ['#5c3c2e', '#3d2a25'], acc: '#fee761', tex: WOOD_TEX },
+    stone:   { br: ['#262b44', '#5a6988', '#8b9bb4'], bg: ['#3a4466', '#262b44'], acc: '#c0cbdc', tex: STONE_TEX },
+    parch:   { br: ['#733e39', '#b86f50', '#e4a672'], bg: ['#f0d6a8', '#d9b380'], acc: '#733e39', tex: PARCH_TEX },
+    dark:    { br: ['#10101c', '#262b44', '#3a4466'], bg: ['#1c2039', '#10101c'], acc: '#b55088', tex: DARK_TEX },
+    scifi:   { br: ['#0b2a3a', '#0099db', '#2ce8f5'], bg: ['#102a43', '#0a1a2a'], acc: '#2ce8f5', tex: SCIFI_TEX },
+    ornate:  { br: ['#4a3512', '#a07a1e', '#fee761'], bg: ['#2b2137', '#191325'], acc: '#e43b44', tex: ORNATE_TEX }
   };
 
   // 9-slice panel: 1px outline, 2px bevelled border band, flat gradient centre.
@@ -56,6 +105,7 @@ PF.UIKit = (() => {
     api.rect(x1 - 1, y0 + 2, x1 - 1, y1 - 2, th.br[0]);   // shaded right
     api.rectO(x0 + 3, y0 + 3, x1 - 3, y1 - 3, K);
     api.grad(x0 + 4, y0 + 4, x1 - 4, y1 - 4, th.bg[0], th.bg[1]);
+    if (th.tex && opts.tex !== false) th.tex(api, x0 + 4, y0 + 4, x1 - 4, y1 - 4, th);
     if (opts.studs) {
       const s = th.acc;
       [[x0 + 3, y0 + 3], [x1 - 3, y0 + 3], [x0 + 3, y1 - 3], [x1 - 3, y1 - 3]].forEach(([x, y]) => {

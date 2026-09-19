@@ -42,6 +42,8 @@ const FILES = [
   'js/library/modern.js',
   'js/library/farm.js',
   'js/library/iso.js',
+  'js/library/topdown.js',
+  'js/library/forge.js',
   'js/library/index.js'
 ];
 

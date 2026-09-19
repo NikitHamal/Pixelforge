@@ -93,11 +93,18 @@ PF.Modern = (() => {
       a.rect(11, hy + 4, 21, hy + 4, '#6b4a7d');
     }
   });
+  /* The values here always stepped correctly — the problem was hue. Skin,
+     shirt, trousers, belt and hair were all olive-khaki, five desaturated
+     greens, so the whole figure was one murky mass and the face had nothing
+     to separate from the collar. Clothing goes cold and grimy-neutral; that
+     leaves the sickly green skin as the only saturated thing on the sprite,
+     which is exactly where you want a player's eye to land when three of
+     these are walking at them. */
   const ZOMBIE = Object.assign({}, base, {
-    skin: '#7d9464', skinHi: '#9cb37e', skinSh: '#4c5c3a',
+    skin: '#8fae66', skinHi: '#aecb84', skinSh: '#566a3c',
     brow: '#3b4a2b', eye: '#d8dce4', eyeHi: null, mouth: '#4a1c1c',
-    shirt: '#6f7263', shirtHi: '#8e9180', shirtSh: '#41443a',
-    leg: '#5a5342', legSh: '#332e24', shoe: '#3a342a', shoeSh: '#221e18',
+    shirt: '#565c6e', shirtHi: '#767d92', shirtSh: '#353a49',
+    leg: '#3b4152', legSh: '#262a36', shoe: '#2b2f3a', shoeSh: '#1c1f27',
     belt: '#4a4130', beltDark: '#2b251b',
     hair: '#39322a', hairHi: '#554a3d', hairSh: '#221d18',
     gear: (a, hy) => {
@@ -106,8 +113,8 @@ PF.Modern = (() => {
          just reads as a wig sat on a green face. */
       a.ellipse(12, hy - 5, 20, hy - 2, '#39322a', true);
       a.ellipse(13, hy - 5, 16, hy - 4, '#554a3d', true);
-      a.rect(17, hy - 5, 19, hy - 3, '#7d9464');          // bald patch
-      a.px(18, hy - 4, '#4c5c3a');
+      a.rect(17, hy - 5, 19, hy - 3, '#8fae66');          // bald patch
+      a.px(18, hy - 4, '#566a3c');
       a.rect(12, hy - 3, 12, hy, '#39322a');
       a.px(20, hy - 3, '#221d18');
       a.rect(13, hy - 2, 15, hy - 2, '#4a1c1c');          // scalp wound

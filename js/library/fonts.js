@@ -13,7 +13,10 @@ PF.Font = (() => {
   /* ---- small: 5x7 cell, 5-row cap height, true descenders ---- */
   const SMALL = {
     ' ': '', '!': '..#../..#../..#../...../..#..', '"': '.#.#./.#.#.', '#': '.#.#./#####/.#.#./#####/.#.#.',
-    '$': '..#../.####/.###./####./..#..', '%': '##..#/##.#./..#../.#.##/#..##', '&': '.##../#.#../.#.../#.#.#/.##.#',
+    /* The stem has to run through every row or the glyph is just a fat S --
+       and filled across the middle three rows it was indistinguishable from
+       the # sitting next to it on the sheet. */
+    '$': '.####/#.#../.###./..#.#/####.', '%': '##..#/##.#./..#../.#.##/#..##', '&': '.##../#.#../.#.../#.#.#/.##.#',
     "'": '..#../..#..', '(': '...#./..#../..#../..#../...#.', ')': '.#.../..#../..#../..#../.#...',
     '*': '..#../#.#.#/.###./#.#.#/..#..', '+': '...../..#../.###./..#..', ',': '...../...../...../..#../..#../.#...',
     '-': '...../...../.###.', '.': '...../...../...../...../..#..', '/': '....#/...#./..#../.#.../#....',
@@ -44,7 +47,7 @@ PF.Font = (() => {
     'p': '...../####./#...#/#...#/####./#..../#....', 'q': '...../.####/#...#/#...#/.####/....#/....#',
     'r': '...../#.##./##.../#..../#....', 's': '...../.####/##.../...##/####.', 't': '..#../.###./..#../..#../..###',
     'u': '...../#...#/#...#/#...#/.####', 'v': '...../#...#/#...#/.#.#./..#..', 'w': '...../#.#.#/#.#.#/#.#.#/.#.#.',
-    'x': '...../...../.#.#./..#../.#.#.', 'y': '...../#...#/#...#/#...#/.####/....#/####.',
+    'x': '...../#...#/.#.#./..#../.#.#.', 'y': '...../#...#/#...#/#...#/.####/....#/####.',
     'z': '...../#####/...#./.#.../#####',
     '{': '..##./..#../.##../..#../..##.', '|': '..#../..#../..#../..#../..#..', '}': '.##../..#../..###/..#../.##..',
     '~': '...../.#..#/#.##.'
@@ -68,7 +71,15 @@ PF.Font = (() => {
     'Q': '.#./#.#/#.#/###/.##', 'R': '##./#.#/##./#.#/#.#', 'S': '.##/#../.#./..#/##.', 'T': '###/.#./.#./.#./.#.',
     'U': '#.#/#.#/#.#/#.#/###', 'V': '#.#/#.#/#.#/#.#/.#.', 'W': '#.#/#.#/###/###/#.#', 'X': '#.#/#.#/.#./#.#/#.#',
     'Y': '#.#/#.#/.#./.#./.#.', 'Z': '###/..#/.#./#../###',
-    '_': '.../.../.../.../###', '|': '.#./.#./.#./.#./.#.'
+    '_': '.../.../.../.../###', '|': '.#./.#./.#./.#./.#.',
+    /* The rest of ASCII, so a HUD string with money, a timestamp or a
+       bracketed key prompt in it does not come back as a row of question
+       marks. The stem of the $ runs through all five rows -- without it the
+       glyph is an S and the price reads as a word. */
+    '$': '.#./###/##./.##/###', '@': '.#./#.#/###/#../.##', ';': '.../.#./.../.#./#..',
+    '[': '.##/.#./.#./.#./.##', ']': '##./.#./.#./.#./##.', '\\': '#../#../.#./..#/..#',
+    '^': '.#./#.#', '`': '#../.#.', '{': '..#/.#./##./.#./..#', '}': '#../.#./.##/.#./#..',
+    '~': '.../.##/##./...'
   };
 
   const FONTS = {
@@ -128,10 +139,15 @@ PF.Font = (() => {
         let cx = lx + dx;
         for (const ch of line) { glyph(api, ch, cx, ly + dy, c, font, scale); cx += step; }
       };
-      if (opts.outline) { stamp(-scale, 0, opts.outline); stamp(scale, 0, opts.outline); stamp(0, -scale, opts.outline); stamp(0, scale, opts.outline); }
-      if (opts.shadow) stamp(scale, scale, opts.shadow);
+      /* Outline, shadow and the bold smear all move by ONE DEVICE PIXEL, not
+         by one glyph cell. Offset by `scale` they shift a whole cell at 2x
+         and above: the four outline passes then land squarely on top of the
+         counters and the word comes back as a solid black bar with the
+         letters faintly visible inside it. */
+      if (opts.outline) { stamp(-1, 0, opts.outline); stamp(1, 0, opts.outline); stamp(0, -1, opts.outline); stamp(0, 1, opts.outline); }
+      if (opts.shadow) stamp(1, 1, opts.shadow);
       stamp(0, 0, color);
-      if (opts.bold) stamp(scale, 0, color);
+      if (opts.bold) stamp(1, 0, color);
     });
     return measure(str, opts);
   }
@@ -166,6 +182,7 @@ PF.Font = (() => {
         text(a, 'SCORE 0042190', 1, 10, { font: 'mini', color: '#2ce8f5' });
         text(a, 'X3 COMBO', 1, 18, { font: 'mini', color: '#ff8d7a' });
         text(a, 'PRESS START', 1, 26, { font: 'mini', color: '#c0cbdc' });
+        text(a, '$1250 [E]', 1, 34, { font: 'mini', color: '#fee761' });
       }))
     ] };
   }
@@ -180,7 +197,8 @@ PF.Font = (() => {
         row(a, 19, { color: '#ffffff', outline: '#181425' });
         row(a, 28, { color: '#63c74d', bold: true });
         row(a, 37, { color: '#2ce8f5', outline: '#124e89', bold: true });
-        text(a, 'BIG', 2, 46, { font: 'mini', color: '#e43b44', scale: 2, outline: '#181425' });
+        text(a, 'BIG', 2, 46, { font: 'mini', color: '#e43b44', scale: 2, shadow: '#181425' });
+        text(a, 'x2', 34, 49, { font: 'mini', color: '#8b9bb4' });
       })),
       /* 12 chars x 4px advance = 48px per repeat, scrolled 4px over 12 frames,
          so the marquee wraps exactly and the loop is seamless. */

@@ -135,39 +135,148 @@ PF.World = (() => {
       const api = apiFor(buf, W, H);
       const X = x => x + sw;
       if (variant === 0) { // oak: canopy breathes + a leaf drops each cycle
-        api.rect(14, 20, 17, 28, '#733e39'); api.rect(17, 22, 17, 28, '#3e2731');
-        api.ellipse(X(6), 6, X(25), 21, '#3e8948', true);
-        api.ellipse(X(9), 8, X(20), 17, '#63c74d', true);
-        api.ellipse(X(17), 12, X(24), 20, '#265c42', true);
-        api.px(X(11), 10, '#e43b44'); api.px(X(19), 9, '#e43b44'); api.px(X(15), 14, '#e43b44');
+        /* The old oak was one flat ellipse with a darker ellipse dropped on
+           its right and a rectangle for a trunk — a lollipop. A tree reads
+           from CLUMPS: five overlapping lobes, each with its own lit crown and
+           its own pooled shadow underneath, painted back to front so the front
+           ones cast onto the ones behind. The trunk flares into roots, because
+           a trunk that ends in a straight cut looks planted in a hole. */
+        const BK = '#4a2f26', BKh = '#6e4534', BKs = '#2b1a16';
+        const LF = '#3e8948', LFh = '#63c74d', LFhh = '#95e06c', LFs = '#265c42', LFss = '#17402f';
+        api.rect(13, 18, 18, 28, BK);
+        api.rect(13, 18, 14, 28, BKh);                       // lit side of the bole
+        api.rect(17, 18, 18, 28, BKs);
+        api.rect(12, 26, 19, 28, BK);                        // root flare
+        api.rect(11, 27, 20, 28, BK);
+        api.px(11, 27, BKh); api.px(20, 27, BKs); api.px(19, 28, BKs);
+        for (let y = 20; y < 27; y += 3) api.px(16, y, BKs); // bark grain
+        api.line(14, 19, 10, 15, BK, 2); api.line(17, 19, 22, 15, BK, 2);  // forks
+        /* Each lobe: silhouette, body, sunlit crown. `shade` drops the whole
+           lobe one rung so the far side of the canopy sits back. */
+        const lobe = (x0, y0, x1, y1, shade) => {
+          api.ellipse(X(x0), y0, X(x1), y1, LFss, true);
+          api.ellipse(X(x0), y0, X(x1), y1 - 2, shade ? LFs : LF, true);
+          api.ellipse(X(x0) + 1, y0 + 1, X(x1) - 3, y1 - 5, shade ? LF : LFh, true);
+          api.ellipse(X(x0) + 2, y0 + 2, X(x1) - 6, y1 - 8, shade ? LFh : LFhh, true);
+        };
+        lobe(15, 6, 26, 18, true);                           // back right
+        lobe(5, 9, 16, 20, true);                            // back left
+        lobe(14, 11, 25, 22, true);                          // lower right, in shadow
+        lobe(9, 2, 22, 14, false);                           // crown, full sun
+        lobe(6, 12, 17, 22, false);                          // lower left, lit
+        /* Gaps you can see sky through: what stops a canopy reading as a bush.
+           Only ever ON a leaf pixel — a speck dropped over the background is
+           an island, and the outline pass rims islands into floating bricks. */
+        for (let y = 4; y < 21; y++) for (let x = 5; x < 27; x++)
+          if (api.hash(x, y, 23) > 0.955 && buf[y * W + X(x)]) api.px(X(x), y, LFss);
+        api.px(X(11), 9, '#e43b44'); api.px(X(20), 8, '#e43b44'); api.px(X(15), 15, '#e43b44');
+        api.px(X(11), 8, '#f6757a');
         api.px(22 - t, Math.min(27, 22 + t), t % 2 ? '#63c74d' : '#3e8948'); // falling leaf
       } else if (variant === 1) { // pine: tiers sway + snow shimmer
-        api.rect(14, 22, 17, 28, '#3e2731');
-        api.ellipse(X(11), 16, X(20), 23, '#265c42', true);
-        api.ellipse(X(9), 11, X(22), 18, '#3e8948', true);
-        api.ellipse(X(11), 5, X(20), 13, '#265c42', true);
-        api.rect(X(15), 3, X(16), 6, '#265c42');
-        [[15, 10], [13, 15], [17, 19]].forEach(([x, y], k) => api.px(X(x) + ((t + k) % 2 ? 1 : 0), y, '#ffffff'));
-      } else if (variant === 2) { // bush: canopy shifts + berry glint phase
-        api.ellipse(X(7), 18, X(24), 27, '#3e8948', true);
-        api.ellipse(X(10), 19, X(20), 25, '#63c74d', true);
-        api.px(X(12), 21, '#e43b44'); api.px(X(17), 22, '#e43b44');
-        if (sw !== 0) { api.px(X(12), 20, '#ffffff'); api.px(X(17), 21, '#ffffff'); }
-      } else if (variant === 3) { // rock: still
-        api.ellipse(8, 18, 23, 27, '#8b9bb4', true);
-        api.ellipse(11, 19, 19, 25, '#c0cbdc', true);
-        api.ellipse(15, 21, 22, 26, '#5a6988', true);
-      } else if (variant === 4) { // flowers: stems bend, heads bob
-        api.rect(15, 24, 16, 27, '#3e8948');
-        [[11, 17, '#e43b44'], [20, 16, '#ffffff'], [14, 23, '#f6757a']].forEach(([hx, hy, c], k) => {
-          const bx = 13 + k * 2;
-          api.line(bx, 27, hx + sw, hy + 2, '#3e8948', 1);
-          api.rect(hx + sw - 1, hy, hx + sw + 2, hy + 3, c);
-          api.px(hx + sw, hy + 1, '#fee761');
+        /* Three stacked ellipses is a snowman painted green. A conifer is
+           TIERS: each one a shallow cone that flares as it descends, its lower
+           rim scalloped where the branch tips droop, with the bole showing in
+           the notch between tiers. Upper tiers sway further than lower ones —
+           that alone is most of what makes a tree feel like it is in wind. */
+        const NDk = '#17402f', N = '#2f6b4a', NHi = '#46875c', NLit = '#63c74d';
+        const BK = '#4a3428', BKh = '#6b4b36', BKs = '#2b1d16';
+        api.rect(15, 9, 17, 28, BK);
+        api.rect(15, 9, 15, 28, BKh); api.rect(17, 9, 17, 28, BKs);
+        api.rect(13, 27, 19, 28, BK); api.px(13, 27, BKh); api.px(19, 27, BKs);
+        const tier = (y0, h, hw, drift) => {
+          const cx = 16 + Math.round(sw * drift);
+          for (let i = 0; i <= h; i++) {
+            const w = Math.max(1, Math.round(hw * (0.22 + 0.78 * (i / h))));
+            const y = y0 + i;
+            api.rect(cx - w, y, cx + w, y, i === h ? NDk : N);
+            if (i < h) {                                     // sun comes from upper left
+              api.rect(cx - w, y, cx - Math.max(0, w - 2), y, NHi);
+              api.px(cx + w, y, NDk);
+            }
+          }
+          for (let x = cx - hw; x <= cx + hw; x += 3) {      // drooping branch tips
+            api.px(x, y0 + h + 1, NDk); api.px(x + 1, y0 + h + 1, NDk);
+          }
+          return cx;
+        };
+        tier(19, 5, 10, 0.25); tier(14, 5, 8, 0.55);
+        const cx3 = tier(9, 5, 6, 0.8), cx4 = tier(4, 4, 4, 1);
+        api.rect(cx4, 1, cx4, 4, N); api.px(cx4, 1, NLit);   // leader shoot
+        // snow caught on the lit upper edges, twinkling frame to frame
+        [[-7, 20], [5, 21], [-5, 15], [4, 16], [-3, 10], [3, 11]].forEach(([dx, y], k) => {
+          if ((t + k) % 3 === 0) return;
+          const x = 16 + Math.round(sw * (y < 13 ? 0.8 : y < 18 ? 0.55 : 0.25)) + dx;
+          if (buf[y * W + x]) api.px(x, y, '#e8f2ff');
         });
+        if (buf[9 * W + cx3]) api.px(cx3, 9, '#e8f2ff');
+      } else if (variant === 2) { // bush: canopy shifts + berry glint phase
+        /* Two concentric ellipses read as a green egg. Real shrubbery is a
+           clutch of clumps at different heights with woody stems showing in
+           the gaps at the base — and the gaps are what sell it. */
+        const BS = '#1e4a35', B = '#357a4f', BHi = '#4f9e5a', BLit = '#79d165';
+        for (const [x, h] of [[11, 24], [15, 22], [19, 25], [13, 26], [18, 26]])
+          api.line(x, 28, x + (x < 16 ? -1 : 1), h, '#3d2b22', 1);
+        const clump = (cx, cy, rx, ry, lit) => {
+          api.ellipse(X(cx) - rx, cy - ry, X(cx) + rx, cy + ry, BS, true);
+          api.ellipse(X(cx) - rx, cy - ry, X(cx) + rx, cy + ry - 2, lit ? B : BS, true);
+          api.ellipse(X(cx) - rx + 1, cy - ry + 1, X(cx) + rx - 2, cy + ry - 4, lit ? BHi : B, true);
+          if (lit) api.ellipse(X(cx) - rx + 2, cy - ry + 1, X(cx) + rx - 5, cy + ry - 7, BLit, true);
+        };
+        clump(21, 23, 6, 5, false); clump(9, 23, 6, 5, true);
+        clump(16, 21, 7, 6, true); clump(13, 25, 6, 4, false);
+        for (let y = 15; y < 28; y++) for (let x = 3; x < 29; x++)
+          if (api.hash(x, y, 41) > 0.94 && buf[y * W + x]) api.px(x, y, BS);
+        [[10, 22], [18, 20], [14, 25], [22, 24]].forEach(([bx, by], k) => {
+          api.px(X(bx), by, '#c42430'); api.px(X(bx) + 1, by, '#e43b44');
+          if ((t + k) % 3 === 0) api.px(X(bx) + 1, by - 1, '#f6757a');
+        });
+      } else if (variant === 3) { // rock: still
+        /* Boulders are faceted, not blobby: a flat top plane catching the sky,
+           two side planes falling away at different values, and a chipped
+           corner so the silhouette is not a perfect egg. */
+        const R = '#7a89a4', RHi = '#c0cbdc', RMid = '#96a3ba', RSh = '#4d5a76', RDk = '#333d52';
+        api.ellipse(6, 17, 25, 28, R, true);
+        api.ellipse(6, 23, 25, 28, RSh, true);               // base in shadow
+        api.ellipse(8, 17, 21, 23, RMid, true);              // top plane
+        api.ellipse(9, 17, 18, 21, RHi, true);               // sky-facing facet
+        api.line(18, 18, 24, 24, RSh, 1);                    // facet break
+        api.line(12, 22, 9, 27, RSh, 1);
+        api.line(19, 19, 23, 26, RDk, 1);
+        api.px(22, 20, RDk); api.px(23, 21, RDk);            // chipped corner
+        for (let y = 17; y < 28; y++) for (let x = 6; x < 26; x++)
+          if (api.hash(x, y, 57) > 0.93 && buf[y * W + x]) api.px(x, y, RDk);
+        api.px(10, 19, '#e4ecf7'); api.px(11, 18, '#e4ecf7');  // specular
+        for (const [gx, gy] of [[7, 27], [24, 27], [15, 28]]) api.px(gx, gy, '#3e8948');  // grass at the foot
+      } else if (variant === 4) { // flowers: stems bend, heads bob
+        /* Four-pixel squares on hairline stems. Flowers need PETALS — a ring
+           around a centre — and leaves on the stems, or they are pushpins. */
+        const ST = '#3e8948', STd = '#265c42', LEAF = '#63c74d';
+        [[10, 16, '#e43b44', '#f6757a'], [21, 14, '#e4e9f7', '#ffffff'],
+         [15, 19, '#c06fd8', '#e5a4f0']].forEach(([hx, hy, c, hi], k) => {
+          const bx = 12 + k * 3, x = hx + sw, y = hy + (k === 1 ? -sw : sw);
+          api.line(bx, 28, x, y + 3, k === 1 ? STd : ST, 1);
+          api.line(bx + (x > bx ? 1 : -1), 24 - k, x - (x > bx ? 2 : -2), 23 - k, LEAF, 1);  // leaf
+          api.px(x - 1, y - 1, c); api.px(x + 1, y - 1, c);   // petal ring
+          api.px(x - 2, y + 1, c); api.px(x + 2, y + 1, c);
+          api.rect(x - 2, y, x + 2, y, c); api.rect(x - 1, y + 1, x + 1, y + 1, c);
+          api.px(x, y - 2, hi); api.px(x - 1, y - 1, hi);
+          api.px(x, y, '#fee761'); api.px(x, y + 1, '#f77622');  // pollen centre
+        });
+        api.rect(13, 26, 19, 28, '#265c42');                  // foliage at the base
+        api.px(13, 26, LEAF); api.px(18, 26, LEAF);
       } else { // grass tuft: blades lean side to side
+        /* Five identical straight lines is a barcode. Blades taper, curve, and
+           fan out from one clump — no two the same length or lean. */
         const lean = sw === 0 ? 1 : -1;
-        for (let k = -2; k <= 2; k++) api.line(16 + k * 3, 27, 16 + k * 3 + lean, 21, k % 2 ? '#63c74d' : '#3e8948', 1);
+        const blades = [[-6, 24, 1], [-3, 20, 2], [0, 17, 1], [3, 19, 2], [6, 23, 1], [-1, 22, 1], [4, 25, 1]];
+        blades.forEach(([dx, top, wgt], k) => {
+          const c = k % 2 ? '#63c74d' : '#3e8948';
+          const bx = 16 + Math.round(dx * 0.5), tip = 16 + dx + lean * (k % 3 ? 2 : 1);
+          api.line(bx, 28, Math.round((bx + tip) / 2), (top + 28) >> 1, c, wgt);
+          api.line(Math.round((bx + tip) / 2), (top + 28) >> 1, tip, top, c, 1);
+          api.px(tip, top, k % 2 ? '#95e06c' : '#63c74d');
+        });
+        api.rect(12, 27, 20, 28, '#265c42');                  // root clump
       }
       finishProps(buf, W, H);
     };
@@ -236,49 +345,205 @@ PF.World = (() => {
 
   /* ---------- CHEST ---------- */
   function chestSuite() {
+    /* The old chest was three stacked rectangles: a brown box, a darker brown
+       band for a lid and a gold bar for a lock. Nothing about it was a chest
+       rather than a crate, a book or a bench. A treasure chest reads from four
+       things — a DOMED lid, iron bands wrapping from lid to body, vertical
+       plank seams, and feet lifting it off the ground — and the open state has
+       to show a cavity with something in it, not just a lid that slid upward. */
+    const WD = '#8a5a3b', WDh = '#b07c4e', WDs = '#5e3a24', WDss = '#3c2416';
+    const IR = '#6b7285', IRh = '#98a1b8', IRs = '#3b4152';
+    const GOLD = '#feae34', GOLDh = '#fee761', GOLDs = '#c06a1e';
+
+    const body = api => {
+      api.rect(5, 17, 26, 26, WD);
+      for (let x = 7; x < 26; x += 4) api.rect(x, 18, x, 25, WDs);   // plank seams
+      api.rect(5, 17, 26, 17, WDh);                                   // lit upper lip
+      api.rect(5, 25, 26, 26, WDs);
+      api.rect(26, 17, 26, 26, WDss);
+      for (const bx of [8, 21]) { api.rect(bx, 17, bx + 1, 26, IR); api.rect(bx, 17, bx, 26, IRh); }
+      api.rect(5, 26, 26, 27, IRs);                                   // iron foot rail
+      api.rect(6, 27, 8, 28, IRs); api.rect(23, 27, 25, 28, IRs);     // feet
+      api.px(6, 27, IR); api.px(23, 27, IR);
+    };
+    /* Lid rows: inset per row, so the top is narrower than the mouth and the
+       thing is a barrel top rather than another brick. */
+    const LIDIN = [5, 3, 2, 1, 0, 0];
+    const lid = (api, y0, flat) => {
+      for (let i = 0; i < LIDIN.length; i++) {
+        const y = y0 + (flat ? Math.round(i * 0.6) : i);
+        const a = 5 + LIDIN[i], b = 26 - LIDIN[i];
+        api.rect(a, y, b, y, i < 2 ? WDh : WD);
+        api.px(b, y, WDs);
+      }
+      const bot = y0 + (flat ? 3 : 5);
+      api.rect(5, bot, 26, bot, WDss);                                // shadow under the rim
+      for (const bx of [8, 21]) for (let i = 0; i < LIDIN.length; i++) {
+        const y = y0 + (flat ? Math.round(i * 0.6) : i);
+        if (5 + LIDIN[i] <= bx) { api.rect(bx, y, bx + 1, y, IR); api.px(bx, y, IRh); }
+      }
+    };
+    const lock = (api, y) => {
+      api.rect(13, y, 18, y + 5, IR);
+      api.rect(13, y, 18, y, IRh); api.rect(13, y + 5, 18, y + 5, IRs);
+      api.rect(14, y + 1, 17, y + 4, GOLD);
+      api.rect(14, y + 1, 17, y + 1, GOLDh); api.rect(14, y + 4, 17, y + 4, GOLDs);
+      api.px(15, y + 2, '#181425'); api.px(16, y + 2, '#181425'); api.px(15, y + 3, '#181425');
+    };
+    /* The cavity runs all the way from the lid's bottom row down to the rim.
+       Drawn as a floating gap instead, the thrown-back lid becomes its own
+       island and the outline pass rims it into a brick hovering over the box. */
+    const hoard = (api, lidBot) => {
+      const base = 16;                                                 // the front rim: you see INTO the box, not through its front wall
+      const avail = base - lidBot - 1;
+      api.rect(6, lidBot + 1, 25, base, '#241811');
+      api.rect(6, lidBot + 1, 6, base, '#1a110d'); api.rect(25, lidBot + 1, 25, base, '#1a110d');
+      api.rect(6, lidBot + 1, 25, lidBot + 1, '#1a110d');              // shadow cast by the lid
+      for (let x = 7; x < 25; x++) {                                   // a MOUND of coin, not a picket fence
+        const h = Math.max(1, Math.min(avail, 2 + Math.round(3 * Math.sin(((x - 6) / 18) * Math.PI)) - ((x * 5) % 2)));
+        api.rect(x, base - h, x, base, GOLDs);
+        api.rect(x, base - h, x, base - h, GOLD);
+        if ((x + h) % 4 === 0) api.px(x, base - h, GOLDh);
+      }
+      for (const [dx, dy] of [[10, 3], [15, 4], [20, 3], [13, 1]]) {   // loose coins riding the crest
+        const cy = base - Math.min(avail - 1, dy);
+        if (cy <= lidBot) continue;
+        api.rect(dx, cy, dx + 1, cy, GOLDh); api.px(dx + 2, cy, GOLDs);
+      }
+    };
+
     const closed = (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      api.rect(6, 12, 25, 27, '#b86f50');
-      api.rect(6, 12, 25, 18, '#733e39');
-      api.rect(6, 17, 25, 18, '#3e2731');
-      api.line(6, 12, 25, 12, '#ead4aa', 1);
-      api.rect(14, 15, 17, 21, '#feae34'); api.px(15, 18, '#3e2731');
-      api.line(15, 12, 15, 27, '#733e39', 1); api.line(16, 12, 16, 27, '#733e39', 1);
+      body(api); lid(api, 10, false); lock(api, 15);
+      finishProps(buf, W, H);
+    };
+    const ajar = (buf, W, H) => {
+      const api = apiFor(buf, W, H);
+      body(api); hoard(api, 12); lid(api, 9, true); lock(api, 12);
+      finishProps(buf, W, H);
+    };
+    const wide = spark => (buf, W, H) => {
+      const api = apiFor(buf, W, H);
+      body(api); hoard(api, 5);
+      lid(api, 2, true);                                               // thrown back on its hinges
+      api.rect(5, 5, 26, 5, WDss);                                     // underside of the lid
+      api.rect(13, 6, 18, 7, IR); api.px(15, 6, IRh);                  // lock hanging from it
+      api.rect(13, 18, 18, 20, IR); api.rect(14, 19, 17, 19, GOLD);    // strike plate on the front
+      api.px(15, 11, '#ffffff'); api.px(21, 13, '#fee761');
+      if (spark) PF.Pixel.sparks(api, 16, 12, 1, '#fee761', 6, 2, 5);
       finishProps(buf, W, H);
     };
     return { width: 32, height: 32, name: 'chest', layers: [{ name: 'Body' }], states: [
       D('closed', 1, true, [Fr(500, closed)]),
-      D('open', 8, false, [
-        Fr(ms(8), closed),
-        Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.rect(6, 18, 25, 27, '#b86f50'); api.rect(6, 6, 25, 12, '#733e39'); api.rect(14, 20, 17, 24, '#3e2731'); api.rect(10, 14, 21, 18, '#fee761'); api.px(15, 15, '#ffffff'); finishProps(buf, W, H); }),
-        Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.rect(6, 18, 25, 27, '#b86f50'); api.rect(6, 3, 25, 9, '#733e39'); api.rect(10, 12, 21, 18, '#fee761'); api.px(13, 13, '#ffffff'); api.px(18, 14, '#ffffff'); PF.Pixel.sparks(api, 16, 10, 1, '#fee761', 6, 2, 5); finishProps(buf, W, H); }),
-        Fr(ms(8), (buf, W, H) => { const api = apiFor(buf, W, H); api.rect(6, 18, 25, 27, '#b86f50'); api.rect(6, 3, 25, 9, '#733e39'); api.rect(10, 14, 21, 18, '#fee761'); api.px(15, 15, '#ffffff'); finishProps(buf, W, H); })
-      ])
+      D('open', 8, false, [Fr(ms(8), closed), Fr(ms(8), ajar), Fr(ms(8), wide(true)), Fr(ms(8), wide(false))])
     ] };
   }
 
   /* ---------- DOOR + PORTAL ---------- */
   function doorSuite() {
-    const door = (open) => (buf, W, H) => {
-      const api = apiFor(buf, W, H);
-      api.rect(6, 2, 25, 28, '#3e2731');
-      api.rect(8, 4, 23, 28, '#733e39');
-      if (!open) {
-        for (let y = 4; y < 28; y += 4) api.line(8, y, 23, y, '#3e2731', 1);
-        api.px(21, 17, '#fee761');
-      } else {
-        api.rect(8, 4, 23, 28, '#181425');
-        api.rect(8, 4, 12, 28, '#b86f50');
-        api.rect(8, 4, 12, 28, '#b86f50');
-        api.px(10, 17, '#fee761');
-        api.rect(14, 6, 22, 26, '#2ce8f5');
-        api.rect(15, 7, 21, 25, '#124e89');
+    /* Two nested rectangles with four scratches across them and a yellow dot
+       for a handle. Rebuilt as a real doorway: a round stone arch on jambs,
+       a planked timber leaf hung inside it, iron straps with rivets, and a
+       ring pull on a backplate. The open state swings the leaf INWARD and
+       shows the dark beyond it — the old one just recoloured the rectangle
+       cyan, which read as a swimming pool standing on end. */
+    const ST = '#79839b', SThi = '#a8b2c6', STsh = '#4e5870', STdk = '#343c52';
+    const WD = '#7a4a2e', WDh = '#a06a41', WDs = '#553119', WDss = '#3a2011';
+    const IR = '#5d6478', IRh = '#8e97ad', IRs = '#333a4c';
+    const OHW = (y, r) => y < 14 ? Math.round(Math.sqrt(Math.max(0, r * r - (y - 14) * (y - 14)))) : r;
+
+    const frame = api => {
+      for (let y = 1; y <= 28; y++) {
+        const hw = OHW(y, 13);
+        if (!hw) continue;
+        api.rect(16 - hw, y, 15 + hw, y, ST);
+        api.rect(16 - hw, y, 17 - hw, y, SThi);                 // sunlit outer edge
+        api.px(15 + hw, y, STsh);
       }
+      for (let y = 16; y < 28; y += 4) {                        // jamb courses
+        api.rect(3, y, 7, y, STsh); api.rect(24, y, 28, y, STdk);
+      }
+      for (let k = -4; k <= 4; k++) {                           // voussoir joints around the arch
+        const a = k * 0.19, sn = Math.sin(a), cs = Math.cos(a);
+        api.line(Math.round(16 - sn * 8.5), Math.round(14 - cs * 8.5),
+          Math.round(16 - sn * 13), Math.round(14 - cs * 13), STsh, 1);
+      }
+      api.rect(14, 0, 17, 3, ST); api.rect(14, 0, 15, 3, SThi); // keystone
+      api.px(17, 3, STdk);
+      api.rect(2, 27, 29, 28, STsh);                            // threshold
+      api.rect(2, 27, 29, 27, ST);
+    };
+    const leaf = api => {
+      for (let y = 6; y <= 27; y++) {
+        const hw = OHW(y, 8);
+        if (!hw) continue;
+        api.rect(16 - hw, y, 15 + hw, y, y < 10 ? WDh : WD);   // the arched head catches the light
+        api.px(16 - hw, y, WDs); api.px(15 + hw, y, WDs);
+      }
+      for (const px2 of [11, 15, 19]) {                         // plank seams, each lit on its near side
+        const top = 14 - Math.round(Math.sqrt(Math.max(0, 63 - (px2 - 15.5) * (px2 - 15.5))));
+        api.rect(px2, top, px2, 27, WDs);
+        api.rect(px2 + 1, top + 1, px2 + 1, 27, WDh);
+      }
+      /* Straps have to stop where the leaf stops. Run to a fixed x and their
+         ends stick out past the arched head onto the stonework, which reads as
+         two grey shelves bolted to the wall. */
+      for (const by of [11, 21]) {
+        const h0 = OHW(by, 8), h1 = OHW(by + 1, 8);
+        api.rect(16 - h0, by, 15 + h0, by, IRh);
+        api.rect(16 - h1, by + 1, 15 + h1, by + 1, IRs);
+        for (let x = 17 - h0; x < 15 + h0; x += 4) api.px(x, by, '#cdd4e2');   // rivets
+        api.rect(16 - h0, by - 1, 18 - h0, by - 1, IR);          // hinge lug on the hanging side
+        api.rect(16 - h1, by + 2, 18 - h1, by + 2, IRs);
+      }
+      api.rect(17, 15, 22, 19, IRs);                            // handle backplate
+      api.rect(17, 15, 22, 15, IR);
+      api.px(19, 16, IRh); api.px(20, 16, IRh);                 // the ring
+      api.px(18, 17, IRh); api.px(21, 17, IRh);
+      api.px(19, 18, IR); api.px(20, 18, IR);
+      api.px(20, 14, '#cdd4e2');                                // boss above it
+    };
+    /* Swung inward: `t` is 0 at closed and 1 at flat against the jamb. The
+       leaf narrows toward the hinge side and the gap behind it fills with the
+       dark of whatever room this opens onto. */
+    const swung = t => api => {
+      for (let y = 6; y <= 27; y++) {
+        const hw = OHW(y, 8);
+        if (!hw) continue;
+        api.rect(16 - hw, y, 15 + hw, y, '#120e1c');            // the dark beyond
+        if (y > 22) api.rect(16 - hw, y, 15 + hw, y, '#1d1726');  // floor catches a little light
+      }
+      const w = Math.round(14 * (1 - t)) + 2;
+      for (let y = 7; y <= 26; y++) {
+        const hw = OHW(y, 8);
+        if (hw < 2) continue;
+        const x0 = 16 - hw, x1 = Math.min(15 + hw, x0 + w);
+        api.rect(x0, y, x1, y, t > 0.6 ? WDs : WD);
+        api.px(x0, y, WDss);
+        api.rect(x1, y, x1, y, WDh);                            // the lit inner edge of the leaf
+      }
+      for (let k = 1; k * 4 < w; k++) {                         // planks compress toward the hinge
+        const sx = 16 - 8 + Math.round(k * 4 * (1 - t * 0.5));
+        api.rect(sx, 9, sx, 26, t > 0.6 ? WDss : WDs);
+      }
+      for (const by of [11, 21]) {
+        const h0 = OHW(by, 8), x0 = 16 - h0, x1 = Math.min(15 + h0, x0 + w);
+        api.rect(x0, by, x1, by, t > 0.6 ? IR : IRh);
+        api.rect(x0, by + 1, x1, by + 1, IRs);
+        api.px(x1, by, '#cdd4e2');
+      }
+      if (t > 0.6) { api.px(19, 24, '#f77622'); api.px(20, 25, '#feae34'); }  // firelight inside
+    };
+
+    const paint = inner => (buf, W, H) => {
+      const api = apiFor(buf, W, H);
+      frame(api); inner(api);
       finishProps(buf, W, H);
     };
     return { width: 32, height: 32, name: 'door', layers: [{ name: 'Body' }], states: [
-      D('closed', 1, true, [Fr(500, door(false))]),
-      D('open', 8, false, [Fr(ms(8), door(false)), Fr(ms(8), door(true))])
+      D('closed', 1, true, [Fr(500, paint(leaf))]),
+      D('open', 8, false, [Fr(ms(8), paint(leaf)), Fr(ms(8), paint(swung(0.35))),
+        Fr(ms(8), paint(swung(0.75))), Fr(ms(8), paint(swung(1)))])
     ] };
   }
   function portalSuite() {

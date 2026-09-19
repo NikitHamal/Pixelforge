@@ -4,6 +4,65 @@ All notable changes to PixelForge. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [semver](https://semver.org/).
 
+## [2.1.0] — 2026-09-19
+
+A quality pass over the drawing and the animation, two new asset domains, two
+new demo games, and a generator that makes the library's size stop being the
+ceiling.
+
+| | 2.0.0 | 2.1.0 |
+|---|---|---|
+| Templates | 169 | **190** |
+| Animation states | 1,809 | **2,031** |
+| Frames | 7,236 | **8,422** |
+| Demo games | 1 | **3** |
+| Sprite checks | 33,819 | **39,165** |
+
+### Added — The Forge
+
+- `js/library/forge.js` — a seeded parametric character generator. A seed
+  resolves to a kin, a role, headgear, a weapon, armour, a cloak and a full
+  palette; the result dresses the shared rig and comes back as six animated
+  states (idle, walk, run, a weapon-appropriate attack, hurt, death). 7,280
+  distinct silhouette-and-kit combinations before palette. Twelve headgear
+  painters, twelve weapons, five attack choreographies (swing, thrust, cast,
+  shoot, punch), thirteen complexions across six kin.
+- **Forge panel** on the Templates view of `app/index.html`: pick a role,
+  headgear and weapon, type a seed or roll one, and twelve animated candidates
+  appear. Click one to open its six states in the studio.
+- Agent tools `forge_character` and `forge_options`, so the generator is
+  drivable from the console, `window.PixelForge.call`, and MCP.
+- Eight showcase rolls pinned into the library as `forge_*` templates, so the
+  generator runs through every gate the hand-drawn packs do.
+
+### Added — assets and games
+
+- **Top-down pack** (`js/library/topdown.js`) — true-overhead characters drawn
+  from body-space geometry with eight-direction locomotion, a 16-tile terrain
+  sheet, thirteen props with cast shadows, five vehicles and six pickups.
+- **Isometric expansion** — buildings, terrain features and contact shadows on
+  the existing iso kit.
+- `games/nightfall/` — top-down survival shooter with a real lighting pass.
+- `games/ironvale/` — isometric skirmish on the iso lattice.
+- `scripts/sim-game.js` — boots each demo game headless and drives thousands of
+  frames of synthetic input, so a null deref in a spawn path fails in CI.
+
+### Fixed
+
+- Generated characters enforce value separation between parts that touch
+  (metal/skin, steel/metal, armour/shirt, hood/shirt, cloak/shirt, hair/skin,
+  shirt/skin, leg/shirt) — independent colour rolls hit the "a palette colour
+  equal to a neighbour erases the part" failure constantly.
+- Weapon heads are filled in the shaft's own frame rather than stacked out of
+  1px lines, which fanned into a comb the moment the weapon rotated.
+- Swing wind-up cocked nearer vertical off a fist held outside the torso: a
+  four-pixel axe head at the old angle deleted the character's face for two
+  frames.
+- Forged figures sit one pixel lower in the frame so the outline pass has
+  somewhere to put the border above the tallest headgear.
+- Nightfall's lighting overlay is cleared per frame instead of accumulating to
+  black.
+
 ## [2.0.0] — 2026-09-19
 
 The release that takes PixelForge from "a browser toy that draws sprites" to a

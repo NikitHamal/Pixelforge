@@ -2,11 +2,31 @@
 
 **A pixel-art studio and a procedural game-asset engine, in one repository, with zero dependencies and no build step.**
 
-Every sprite in PixelForge is *generated* — there are no image files anywhere in this repo. A template is a pure function that paints into a `Uint32Array`, so the whole library is a few hundred kilobytes of maths that expands into **169 templates / 1,809 animation states / 7,236 frames** at runtime. Open `index.html` in a browser and it works. Run `npx pixelforge export` and the same painters write PNGs, GIFs and engine project files to disk.
+Every sprite in PixelForge is *generated* — there are no image files anywhere in this repo. A template is a pure function that paints into a `Uint32Array`, so the whole library is a few hundred kilobytes of maths that expands into **190 templates / 2,031 animation states / 8,422 frames** at runtime. Open `index.html` in a browser and it works. Run `npx pixelforge export` and the same painters write PNGs, GIFs and engine project files to disk.
 
 ```
-Enemies 44 · World 38 · Heroes 26 · NPCs 15 · UI 14 · Items 12 · FX 12 · Animals 8
+Enemies 49 · World 43 · Heroes 32 · NPCs 19 · UI 14 · Items 13 · FX 12 · Animals 8
 ```
+
+### The Forge
+
+That catalogue is finite. `js/library/forge.js` is not: it takes a seed and derives a
+whole character from it — kin, role, headgear, weapon, armour, cloak and a complete
+palette — then dresses the shared humanoid rig and returns six animated states
+(idle, walk, run, a weapon-appropriate attack, hurt, death). **7,280 distinct
+silhouette-and-kit combinations** before palette, which is continuous. The same seed
+always forges the same character, so a seed is a shareable asset.
+
+```js
+PF.Forge.suite('ironvale-captain');                       // a whole 32x32 six-state doc
+PF.Forge.suite('42', { role: 'caster', held: 'scythe' }); // pin what you care about
+PF.Forge.roster('wave-3', 12, { role: 'undead' });        // a deduped warband
+```
+
+It is reachable three ways: the **Forge panel** on the Templates view of `app/index.html`,
+the `forge_character` / `forge_options` agent tools, and `PF.Forge` directly. Eight
+showcase rolls are pinned into the library as `forge_*` templates so the generator runs
+through every gate the hand-drawn packs do.
 
 ---
 
@@ -25,7 +45,9 @@ node scripts/serve.js          # http://localhost:5173
 | `index.html` | Asset gallery — browse, preview, export |
 | `studio.html` | Full editor: layers, timeline, palettes, effects |
 | `app/index.html` | Compact mobile-first studio |
-| `games/runefall/` | A playable demo game built entirely from library assets |
+| `games/runefall/` | Side-on action demo, built entirely from library assets |
+| `games/nightfall/` | Top-down survival shooter on the top-down pack |
+| `games/ironvale/` | Isometric skirmish on the iso pack |
 
 **On the command line** — no install, no `node_modules`:
 
@@ -190,10 +212,11 @@ npm run baseline        # accept new pixel output as the baseline
 |---|---|
 | syntax | every `.js` file parses |
 | `scripts/test.js` | engine maths, file formats, export writers, catalogue hygiene, isometric geometry — 88 assertions |
-| `scripts/check-rpg.js` | every frame of every template: silhouette, ground contact, motion between frames, loop closure, palette discipline — 33,819 checks |
+| `scripts/check-rpg.js` | every frame of every template: silhouette, ground contact, motion between frames, loop closure, palette discipline — 39,165 checks |
 | `scripts/sprite-hash.js` | pixel-exact regression against a committed baseline |
 | `scripts/check-game.js` | the demo game's data tables match the library |
 | `scripts/check-pages.js` | every DOM id a page queries exists, every local asset resolves |
+| `scripts/sim-game.js` | boots each demo game headless and drives thousands of frames of synthetic input |
 
 The pixel-regression gate fails on *any* visual change, intentional or not. That is the point: `npm run baseline` is an explicit, reviewable act.
 
@@ -205,14 +228,17 @@ The pixel-regression gate fails on *any* visual change, intentional or not. That
 bin/pixelforge.js      CLI entry point
 js/core/               engine: raster, palette, effects, tiles, gif, zip, exporters,
                        store, renderer, animation, input, io, projects
-js/library/            sprite packs (27 files) + pixel.js (draw API) + rig.js (shared
-                       humanoid skeleton) + index.js (the registry)
+js/library/            sprite packs (29 files) + pixel.js (draw API) + rig.js (shared
+                       humanoid skeleton) + forge.js (seeded character generator)
+                       + index.js (the registry)
 scripts/               render.js, verify.js, test.js, check-*.js, sheet.js, serve.js
 app/ studio.html       editors
-games/runefall/        demo game
+games/runefall/        side-on demo game
+games/nightfall/       top-down demo game
+games/ironvale/        isometric demo game
 ```
 
-Adding a library file means registering it in **six** places: `FILES` in `scripts/lib-boot.js`, the `<script>` list in each of the four HTML pages (`index.html`, `studio.html`, `app/index.html`, `games/runefall/index.html`), and `js/library/index.js`. `scripts/check-pages.js` asserts every `js/library/*.js` entry in `lib-boot.js`'s `FILES` appears in all four pages, so a missed `<script>` tag fails the gate.
+Adding a library file means registering it in **eight** places: `FILES` in `scripts/lib-boot.js`, the `<script>` list in each of the six HTML pages (`index.html`, `studio.html`, `app/index.html`, `games/runefall/index.html`, `games/nightfall/index.html`, `games/ironvale/index.html`), and `js/library/index.js`. `scripts/check-pages.js` asserts every `js/library/*.js` entry in `lib-boot.js`'s `FILES` appears in all six pages, so a missed `<script>` tag fails the gate.
 
 ---
 

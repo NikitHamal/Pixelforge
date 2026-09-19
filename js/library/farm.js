@@ -18,6 +18,7 @@ PF.Farm = (() => {
   const P = R.P, D = R.D, ms = R.ms, draw = R.draw;
   const seq = R.seq, cyc = R.cyc, still = R.still, TAU = R.TAU;
   const speck = R.speck, disc = R.disc;
+  const lit = R.lit, dim = R.dim;
   const personRig = R.person;
   const idleState = R.idleState, walkState = R.walkState;
   const hurtState = R.hurtState, downState = R.downState;
@@ -197,18 +198,34 @@ PF.Farm = (() => {
      The legs are deliberately NOT part of the bob. `dy` moves the body and the
      head while the feet stay planted on `foot`, which is what makes a two-frame
      idle read as breathing rather than as the animal hopping. */
+  /* One leg, jointed. A quadruped's leg is not a post: the upper bone carries
+     the body's width, the cannon below the knee is a pixel narrower and steps
+     in under the animal, and the hoof caps it. Four straight columns of body
+     colour merge into a single slab, which is exactly what the barnyard used
+     to read as from the knees down. */
+  function beastLeg(a, lx, top, foot, w, main, dark, hoofC, lean) {
+    const knee = top + Math.max(1, Math.round((foot - top) * 0.45));
+    a.rect(lx, top, lx + w, knee - 1, main);
+    a.rect(lx + w, top, lx + w, knee - 1, dark);        // shaded back edge
+    a.rect(lx, knee, lx + w, knee, dark);               // the joint itself
+    const cw = Math.max(0, w - 1), kx = lx + (lean || 0);
+    a.rect(kx, knee + 1, kx + cw, foot - 1, main);
+    a.rect(kx + cw, knee + 1, kx + cw, foot - 1, dark);
+    a.rect(kx, foot, kx + cw, foot, hoofC);
+  }
+
   function beast(a, p, dy) {
     const w = p.legW === undefined ? 1 : p.legW;
     const y0 = p.y0 + dy, y1 = p.y1 + dy, foot = p.foot === undefined ? 27 : p.foot;
-    for (const lx of p.farLegs || []) a.rect(lx, y1 - 1, lx + w, foot, p.sh);
+    /* The far pair is a tone down AND a pixel thinner. Matching the near pair
+       exactly is what made the four legs read as two wide posts. */
+    const fw = Math.max(0, w - 1), farSh = dim(p.sh);
+    for (const lx of p.farLegs || []) beastLeg(a, lx, y1 - 1, foot - 1, fw, p.sh, farSh, farSh);
     a.ellipse(p.x0, y0, p.x1, y1, p.c, true);
     a.ellipse(p.x0 + 1, y0, p.x1 - 2, y0 + 2, p.hi, true);
     a.ellipse(p.x0 + 1, y1 - 1, p.x1 - 1, y1, p.sh, true);
     if (p.body) p.body(a, y0, y1);
-    for (const lx of p.nearLegs || []) {
-      a.rect(lx, y1 - 1, lx + w, foot, p.c);
-      a.rect(lx, foot - 1, lx + w, foot, p.hoof || p.sh);
-    }
+    for (const lx of p.nearLegs || []) beastLeg(a, lx, y1 - 1, foot, w, p.c, p.sh, p.hoof || p.sh);
     if (p.tail) p.tail(a, y0, y1);
     if (p.head) p.head(a, y0, y1);
   }
@@ -221,7 +238,7 @@ PF.Farm = (() => {
   function animalSuite() {
     const cow = i => ({
       c: '#e8e4dc', hi: '#ffffff', sh: '#a9a49a', x0: 6, x1: 23, y0: 13, y1: 22,
-      legW: 2, hoof: '#3a332a', farLegs: [10, 18], nearLegs: [7, 20],
+      legW: 2, hoof: '#3a332a', farLegs: [11, 17], nearLegs: [7, 20],
       body: b => {
         b.ellipse(9, 14, 14, 18, '#2f2a24', true);          // hide patches
         b.ellipse(17, 17, 22, 21, '#2f2a24', true);
@@ -248,18 +265,33 @@ PF.Farm = (() => {
     });
     const pig = i => ({
       c: '#e08a94', hi: '#f7b6bd', sh: '#a85f6b', x0: 7, x1: 23, y0: 15, y1: 23,
-      legW: 2, hoof: '#6b3a42', farLegs: [10, 18], nearLegs: [8, 20],
-      body: b => { b.px(12, 18, '#a85f6b'); b.px(16, 20, '#a85f6b'); },
-      tail: b => { b.px(6, 17, '#c07a84'); b.px(5, 18, '#c07a84'); b.px(6, 19, '#c07a84'); },
+      legW: 2, hoof: '#6b3a42', farLegs: [11, 17], nearLegs: [8, 20],
+      body: b => {
+        b.rect(9, 21, 21, 21, '#a85f6b');                   // underside of the barrel
+        b.rect(18, 17, 18, 20, '#c07a84');                  // shoulder crease
+        b.px(12, 18, '#a85f6b'); b.px(16, 20, '#a85f6b');
+      },
+      // A curl that TOUCHES the rump. Three loose pixels beside the body got
+      // rimmed by the outline pass as a floating island.
+      tail: b => {
+        b.rect(6, 17, 7, 17, '#c07a84');
+        b.px(5, 18, '#c07a84'); b.px(6, 18, '#e08a94');
+        b.rect(6, 19, 7, 19, '#c07a84');
+      },
       head: (b, y0) => {
         b.ellipse(21, y0 - 1, 28, y0 + 6, '#e08a94', true);
         b.ellipse(22, y0 - 1, 26, y0 + 2, '#f7b6bd', true);
         b.rect(27, y0 + 2, 30, y0 + 5, '#c07a84');          // snout
         b.rect(27, y0 + 2, 30, y0 + 2, '#f7b6bd');
         b.px(28, y0 + 4, '#7a3f48'); b.px(30, y0 + 4, '#7a3f48');
-        b.px(25, y0 + 1, '#231a14');
-        b.rect(21, y0 - 3, 24, y0, '#c07a84');              // flop ear
-        b.rect(21, y0 - 3, 22, y0 - 3, '#f7b6bd');
+        b.px(24, y0 + 2, '#231a14');
+        /* Ear: a small triangle standing ON the skull, between the eye and the
+           topline. Drawn as a wedge raked back over the shoulders it read as a
+           dorsal fin, and squared off it was a crate on the pig's back. */
+        b.rect(24, y0 - 2, 25, y0 - 2, '#c07a84');
+        b.rect(23, y0 - 1, 26, y0 + 1, '#c07a84');
+        b.rect(23, y0 - 1, 23, y0 + 1, '#f7b6bd');
+        b.px(26, y0 + 1, '#7a3f48');
       }
     });
     const sheep = i => ({
@@ -271,61 +303,96 @@ PF.Farm = (() => {
         for (let k = 0; k < 7; k++) {
           const x = 7 + k * 2 + Math.round(b.hash(k, 1, 5) * 1);
           const y = 12 + Math.round(b.hash(k, 2, 5) * 2);
-          b.rect(x, y, x + 2, y + 1, '#efe9d8');
-          b.rect(x, y, x + 1, y, '#ffffff');
+          b.rect(x, y, x + 2, y + 2, '#efe9d8');              // one curl
+          b.px(x + 1, y, '#ffffff'); b.px(x, y + 1, '#ffffff');
+          b.px(x + 2, y + 2, '#bdb49c');                      // the shadow that parts it
         }
-        b.rect(8, 20, 21, 23, '#bdb49c');
+        /* Underside shaded along the barrel's curve. A flat band ruled across
+           the whole body read as a stripe painted on the wool. */
+        for (let x = 7; x <= 22; x++) {
+          const d = Math.round(Math.cos((x - 14) / 5.5) * 3);
+          b.rect(x, 21 - d, x, 23, '#bdb49c');
+          b.rect(x, 20 - d, x, 20 - d, '#d8d1bd');           // half-tone, so the
+        }                                                     // wool does not hard-cut
       },
-      tail: b => b.rect(5, 17, 7, 20, '#efe9d8'),
+      tail: b => { b.rect(5, 17, 7, 19, '#efe9d8'); b.rect(6, 20, 7, 20, '#bdb49c'); b.px(5, 17, '#ffffff'); },
       head: (b, y0) => {
-        b.ellipse(21, y0 + 1, 28, y0 + 8, '#5a5348', true);  // dark face
-        b.ellipse(22, y0 + 1, 26, y0 + 3, '#7c7466', true);
-        b.rect(20, y0 - 1, 25, y0 + 3, '#efe9d8');           // fleece over the crown
-        b.rect(20, y0 - 1, 23, y0 - 1, '#ffffff');
-        b.px(25, y0 + 4, '#e8e4dc'); b.px(27, y0 + 4, '#e8e4dc');
-        b.rect(27, y0 + 6, 29, y0 + 7, '#3a352c');
-        b.rect(19, y0 + 3, 20, y0 + 4, '#5a5348');           // ear
+        /* The face has to clear the fleece. Set flush with the body ellipse it
+           was a dark dent in the wool rather than a head, and a pair of light
+           dots on a dark muzzle read as nostrils, not eyes. */
+        b.ellipse(22, y0 + 2, 29, y0 + 8, '#5a5348', true);
+        b.ellipse(23, y0 + 2, 27, y0 + 4, '#7c7466', true);  // brow catching light
+        b.ellipse(19, y0 - 1, 26, y0 + 4, '#efe9d8', true);  // fleece over the crown
+        b.ellipse(20, y0 - 1, 24, y0 + 1, '#ffffff', true);
+        b.rect(21, y0 + 4, 23, y0 + 6, '#5a5348');           // ear hung off the poll
+        b.px(21, y0 + 4, '#7c7466'); b.px(23, y0 + 6, '#3a352c');
+        b.px(25, y0 + 5, '#efe9d8'); b.px(26, y0 + 5, '#231a14');   // eye
+        b.rect(28, y0 + 6, 30, y0 + 8, '#3a352c');           // muzzle
+        b.rect(28, y0 + 6, 30, y0 + 6, '#6d6459');
+        b.px(29, y0 + 7, '#1c1913');
       }
     });
     const horse = i => ({
       c: '#8a5a34', hi: '#b07c4c', sh: '#5a3820', x0: 5, x1: 21, y0: 13, y1: 21,
-      legW: 2, hoof: '#2f2a24', farLegs: [9, 16], nearLegs: [6, 18],
-      body: b => b.rect(7, 19, 19, 21, '#5a3820'),
-      tail: b => { b.rect(3, 13, 5, 22, '#3a2416'); b.rect(3, 13, 3, 20, '#6b4a2e'); },
+      legW: 2, hoof: '#2f2a24', farLegs: [10, 14], nearLegs: [6, 18],
+      body: b => {
+        /* The barrel, shaded along its own curve. A flat rectangle of shadow
+           across the underside read as a plank nailed under the horse. */
+        for (let x = 6; x <= 20; x++) {
+          const d = Math.round(Math.cos((x - 13) / 7) * 1.7);
+          b.rect(x, 20 - d, x, 21, '#5a3820');
+        }
+        b.rect(7, 14, 10, 16, '#b07c4c');                    // haunch catching light
+        b.rect(16, 14, 19, 15, '#b07c4c');                   // shoulder
+        b.rect(11, 17, 12, 19, '#5a3820');                   // flank crease behind the ribs
+        b.px(16, 16, '#5a3820');
+      },
+      // A switch that tapers and drifts, not a 3x10 slab hung off the croup
+      tail: b => {
+        for (let d = 0; d <= 9; d++) {
+          const x = 5 - Math.round(d * 0.22), w = d < 2 ? 1 : d < 7 ? 2 : 1;
+          b.rect(x - w, 13 + d, x, 13 + d, '#3a2416');
+          b.px(x, 13 + d, d % 2 ? '#3a2416' : '#6b4a2e');
+        }
+      },
       head: (b, y0) => {
         /* Neck sheared up-and-right off the withers, then a blocky skull with
            the muzzle STEPPED forward off it. Drawn as one tapering wedge from
            shoulder to nose the head and neck fuse and the animal reads as a
            moose; the step is what makes the jaw. */
-        for (let d = 0; d <= 9; d++) {
-          const y = y0 + 2 - d, xa = 17 + Math.round(d * 0.55), xb = 23 + Math.round(d * 0.35);
+        /* Eight rows of neck, sheared nearly one-for-one up and FORWARD. The
+           first cut rose nine rows while travelling five across, which is a
+           llama: a horse carries its head out over its chest, not above its
+           withers. */
+        for (let d = 0; d <= 7; d++) {
+          const y = y0 + 1 - d, xa = 16 + Math.round(d * 1.05), xb = 23 + Math.round(d * 0.6);
           b.rect(xa, y, xb, y, '#8a5a34');
           b.rect(xa, y, xa + 1, y, '#b07c4c');
           b.px(xb, y, '#5a3820');
         }
-        b.rect(24, y0 - 10, 28, y0 - 5, '#8a5a34');          // skull
-        b.rect(24, y0 - 10, 25, y0 - 5, '#b07c4c');
-        b.rect(28, y0 - 10, 28, y0 - 5, '#5a3820');
-        b.rect(28, y0 - 8, 31, y0 - 6, '#8a5a34');           // muzzle
-        b.rect(28, y0 - 8, 31, y0 - 8, '#b07c4c');
-        b.rect(29, y0 - 6, 31, y0 - 6, '#5a3820');
-        b.px(30, y0 - 7, '#2f2a24');                          // nostril
-        b.px(26, y0 - 8, '#231a14');                          // eye
-        b.rect(24, y0 - 12, 25, y0 - 10, '#8a5a34');          // ears
-        b.px(24, y0 - 12, '#b07c4c');
-        b.rect(27, y0 - 12, 28, y0 - 10, '#5a3820');
+        b.rect(23, y0 - 9, 28, y0 - 4, '#8a5a34');           // skull
+        b.rect(23, y0 - 9, 24, y0 - 4, '#b07c4c');
+        b.rect(28, y0 - 9, 28, y0 - 4, '#5a3820');
+        b.rect(28, y0 - 7, 31, y0 - 5, '#8a5a34');           // muzzle
+        b.rect(28, y0 - 7, 31, y0 - 7, '#b07c4c');
+        b.rect(29, y0 - 5, 31, y0 - 5, '#5a3820');
+        b.px(30, y0 - 6, '#2f2a24');                          // nostril
+        b.px(26, y0 - 7, '#231a14');                          // eye
+        b.rect(23, y0 - 11, 24, y0 - 9, '#8a5a34');           // ears
+        b.px(23, y0 - 11, '#b07c4c');
+        b.rect(26, y0 - 11, 27, y0 - 9, '#5a3820');
         /* Mane is a narrow crest down the BACK of the neck. Laid as a slab
            across the top of the skull it reads as the base of a pair of
            antlers. */
-        for (let d = 0; d <= 9; d++) {
-          const y = y0 - 7 + d, x = 23 - Math.round(d * 0.55);
+        for (let d = 0; d <= 8; d++) {
+          const y = y0 - 8 + d, x = 23 - Math.round(d * 0.95);
           b.rect(x - 1, y, x, y, '#3a2416');
           b.px(x - 1, y, d % 3 ? '#3a2416' : '#5a3820');
         }
         // forelock kept narrow: run across both ears it merges with them into
         // one dark mass and the horse grows antler stubs
-        b.rect(22, y0 - 11, 23, y0 - 8, '#3a2416');
-        b.px(23, y0 - 11, '#5a3820');
+        b.rect(22, y0 - 10, 23, y0 - 8, '#3a2416');
+        b.px(23, y0 - 10, '#5a3820');
       }
     });
     const goat = i => ({
@@ -355,13 +422,23 @@ PF.Farm = (() => {
     const dog = i => ({
       c: '#b98a4e', hi: '#d9ab6e', sh: '#7f5c2e', x0: 8, x1: 20, y0: 17, y1: 23,
       legW: 1, hoof: '#4a3524', farLegs: [11, 16], nearLegs: [9, 18],
-      body: b => b.rect(10, 21, 18, 23, '#7f5c2e'),
+      body: b => {
+        b.rect(10, 22, 18, 23, '#7f5c2e');                    // belly in shadow
+        b.rect(9, 18, 12, 20, '#d9ab6e');                     // haunch
+        b.rect(16, 18, 19, 19, '#d9ab6e');                    // chest
+        b.px(13, 20, '#7f5c2e');
+      },
       /* Tail wag is the whole read for a dog: it has to swing between frames,
-         not just exist. */
+         not just exist. Drawn as a 2x6 post it wagged like a lever; a plume
+         that curls and tapers is what makes it a tail. */
       tail: b => {
         const up = i === 0;
-        b.rect(6, up ? 13 : 15, 7, 18, '#b98a4e');
-        b.px(6, up ? 12 : 14, '#d9ab6e');
+        for (let d = 0; d < 6; d++) {
+          const x = 8 - Math.round(d * (up ? 0.45 : 0.75));
+          const y = 19 - d * (up ? 1 : 0.7);
+          b.rect(x, y, x + (d < 4 ? 1 : 0), y, '#b98a4e');
+          b.px(x, y, d % 2 ? '#d9ab6e' : '#b98a4e');
+        }
       },
       head: (b, y0) => {
         b.rect(20, y0 - 6, 22, y0 - 2, '#5f4420');            // far ear behind the skull
@@ -373,20 +450,29 @@ PF.Farm = (() => {
         b.px(23, y0 - 1, '#231a14');
         /* Ears hang DOWN the side of the skull. Stood up as two blocks on the
            crown the dog reads as a rabbit. */
-        b.rect(17, y0 - 4, 20, y0 + 4, '#7f5c2e');            // near ear
-        b.rect(17, y0 - 4, 18, y0 + 4, '#9b7040');
-        b.rect(17, y0 + 4, 20, y0 + 5, '#5f4420');
-        b.rect(24, y0 + 3, 27, y0 + 4, '#d94f5a');            // tongue
+        for (let d = 0; d < 7; d++) {                         // near ear, tapering
+          const xa = 17 + (d < 2 ? 1 : 0), xb = 20 - Math.max(0, d - 4);
+          b.rect(xa, y0 - 4 + d, xb, y0 - 4 + d, '#7f5c2e');
+          b.px(xa, y0 - 4 + d, '#9b7040');
+          if (d > 4) b.px(xb, y0 - 4 + d, '#5f4420');
+        }
+        b.rect(25, y0 + 3, 27, y0 + 4, '#d94f5a');            // lolling tongue
+        b.px(25, y0 + 3, '#8f2f3a');
       }
     });
     const chicken = i => ({
       c: '#f2ece0', hi: '#ffffff', sh: '#c2b9a6', x0: 10, x1: 21, y0: 16, y1: 23,
       legW: 1, hoof: '#e8a83a', farLegs: [13], nearLegs: [17],
       body: b => b.rect(11, 21, 20, 23, '#c2b9a6'),
+      /* Sickle feathers arcing up off the rump. A 5x6 slab of shadow tone
+         parked beside the bird read as a grey crate, and the outline pass
+         boxed its seam into a detached rectangle. Each stroke starts INSIDE
+         the body so the fan can never come loose from the silhouette. */
       tail: b => {
-        b.rect(6, 14, 10, 19, '#c2b9a6');                     // tail fan
-        b.rect(6, 14, 8, 15, '#f2ece0');
-        b.px(6, 18, '#8f8879');
+        b.line(12, 21, 8, 17, '#8f8879', 2);
+        b.line(12, 20, 6, 15, '#c2b9a6', 2);
+        b.line(12, 19, 5, 13, '#f2ece0', 2);
+        b.line(12, 18, 6, 13, '#ffffff', 1);
       },
       head: (b, y0) => {
         /* The peck is a real dip: the head drops five rows and the neck folds
@@ -410,7 +496,14 @@ PF.Farm = (() => {
       c: '#f7f3e8', hi: '#ffffff', sh: '#c8c0ae', x0: 8, x1: 21, y0: 17, y1: 23,
       legW: 1, hoof: '#e8a83a', farLegs: [12], nearLegs: [16],
       body: b => { b.rect(10, 21, 20, 23, '#c8c0ae'); b.ellipse(12, 18, 18, 21, '#e0d9c8', true); },
-      tail: b => { b.rect(5, 17, 8, 19, '#f7f3e8'); b.px(5, 17, '#ffffff'); },
+      /* Upswept wedge tapering to a point. A 4x3 slab hung off the flank is a
+         crate the moment the outline pass draws a seam around it. */
+      tail: b => {
+        for (let d = 0; d < 4; d++) {
+          b.rect(5 + Math.round(d * 1.05), 16 + d, 7 + d * 2, 16 + d, d < 2 ? '#f7f3e8' : '#c8c0ae');
+          b.px(5 + Math.round(d * 1.05), 16 + d, '#ffffff');
+        }
+      },
       head: (b, y0) => {
         const turn = i % 2 ? 1 : 0;
         b.rect(18, y0 - 5, 21, y0 + 1, '#f7f3e8');
@@ -838,16 +931,22 @@ PF.Farm = (() => {
           a.rect(17, 14, 22, 18, '#7fc4d9');                 // wire window
           for (let x = 17; x <= 22; x += 2) a.rect(x, 14, x, 18, WOOD_D);
           for (let y = 14; y <= 18; y += 2) a.rect(17, y, 22, y, WOOD_D);
-          a.rect(15, 2, 16, 6, '#6b7079');                   // vane mast
-          /* Cockerel weather vane: body, up-swept tail, comb. A plain red slab
-             on a stick read as a flame. */
-          a.rect(16, 1, 20, 3, PAINT);
-          a.rect(16, 1, 19, 1, PAINT_HI);
-          a.rect(20, 2, 21, 4, PAINT_SH);                    // tail
-          a.px(21, 1, PAINT);
-          a.rect(13, 0, 15, 2, PAINT);                       // head
-          a.px(13, 0, PAINT_HI);
-          a.px(12, 1, '#e8c96a');                            // beak
+          a.rect(15, 3, 16, 6, '#6b7079');                   // vane mast
+          /* Cockerel weather vane: breast forward, head up on a neck, tail
+             sweeping back over the body. The old one was a horizontal slab
+             with a square block stuck on the front of it, which at this size
+             read as an axe head on a handle. */
+          a.rect(13, 3, 19, 5, PAINT);                       // body
+          a.rect(13, 3, 19, 3, PAINT_HI);
+          a.rect(13, 5, 19, 5, PAINT_SH);
+          a.rect(12, 1, 13, 3, PAINT);                       // neck and head
+          a.px(12, 1, PAINT_HI);
+          a.px(13, 0, PAINT_HI);                             // comb
+          a.px(11, 2, '#e8c96a');                            // beak
+          for (let d = 0; d < 5; d++) {                      // sickle tail
+            const tx = 19 + Math.round(d * 0.5);
+            a.rect(tx, 4 - d, tx + 1, 4 - d, d % 2 ? PAINT_SH : PAINT);
+          }
         })),
         D('well', 1, false, still(a => {
           for (let y = 20; y <= 27; y++) {                    // stone drum
@@ -938,7 +1037,15 @@ PF.Farm = (() => {
           }
           a.rect(6, 28, 25, 29, '#7a6420');                  // contact shadow
           a.rect(6, 28, 25, 28, '#a07d22');
-          for (let k = 0; k < 6; k++) a.px(7 + k * 3, 7 - (k % 2), '#efd07a');   // loose ends
+          /* Loose ends pulled out of the roll. Laid along a flat row above the
+             bale they were detached pixels, and the outline pass drew a box
+             around every one of them. Each wisp now starts ON the rim. */
+          for (let k = 0; k < 6; k++) {
+            const dx = -8 + k * 3.2, t = dx / 11;
+            const top = 18 - Math.round(Math.sqrt(Math.max(0, 1 - t * t)) * 10.4);
+            a.px(15.5 + dx, top, '#efd07a');
+            a.px(15.5 + dx, top - 1, '#efd07a');
+          }
         })),
         D('fence', 1, false, still(a => {
           /* Three-rail post and rail, the rails running full width so the
@@ -961,6 +1068,22 @@ PF.Farm = (() => {
     };
   }
 
+
+  /* A bail handle. Sampling the arc by ANGLE leaves gaps: near the apex
+     several samples land in the same column and near the ends they skip whole
+     rows, so the handle comes out as a row of comb teeth floating over the
+     vessel. Walking x and joining consecutive samples keeps it one unbroken
+     piece of wire. */
+  const bail = (a, cx, top, rx, ry, c, cSh) => {
+    let lx = null, ly = null;
+    for (let x = Math.round(cx - rx); x <= Math.round(cx + rx); x++) {
+      const t = (x - cx) / rx;
+      const y = Math.round(top - Math.sqrt(Math.max(0, 1 - t * t)) * ry);
+      if (lx !== null) { a.line(lx, ly, x, y, c, 1); a.line(lx, ly + 1, x, y + 1, cSh, 1); }
+      a.px(x, y, c); a.px(x, y + 1, cSh);
+      lx = x; ly = y;
+    }
+  };
 
   /* ============================================================== ITEMS ====
      Inventory icons. Each one lifts a pixel on the second frame so it reads as
@@ -1077,14 +1200,7 @@ PF.Farm = (() => {
           }
           a.rect(28, 14, 31, 16, '#5a5f68');                 // rose
           a.px(29, 14, '#c0c6cf'); a.px(31, 15, '#3f444c');
-          /* Handle in a LIGHT metal grey and two pixels thick. A one-pixel
-             arc in the darkest grey in the ramp merged with the outline pass
-             and read as a scorch mark floating over the can. */
-          for (let d = 0; d <= 12; d++) {
-            const ang = Math.PI + (d / 12) * Math.PI;
-            const hx = Math.round(14 + Math.cos(ang) * 6), hy = Math.round(11 - Math.abs(Math.sin(ang)) * 5);
-            a.px(hx, hy, '#b0b6bf'); a.px(hx, hy + 1, '#6b7079');
-          }
+          bail(a, 14, 11, 6, 5, '#b0b6bf', '#6b7079');
         }),
         bob('seedbag', a => {
           a.rect(7, 12, 24, 28, '#d8c27a');                  // sack
@@ -1139,12 +1255,7 @@ PF.Farm = (() => {
           a.rect(9, 12, 20, 12, '#ffffff');
           a.rect(8, 28, 23, 28, '#3f444c');
           a.rect(6, 19, 25, 19, '#5a5f68');                  // banding
-          /* Bail in a light grey, two pixels thick — see the watering can. */
-          for (let d = 0; d <= 16; d++) {
-            const ang = Math.PI + (d / 16) * Math.PI;
-            const hx = Math.round(15.5 + Math.cos(ang) * 10), hy = Math.round(11 - Math.abs(Math.sin(ang)) * 7);
-            a.px(hx, hy, '#c0c6cf'); a.px(hx, hy + 1, '#7f858f');
-          }
+          bail(a, 15.5, 11, 10, 7, '#c0c6cf', '#7f858f');
           a.px(12, 5, '#ffffff'); a.px(19, 6, '#e0e5ec');    // a splash on the way in
         })
       ]
@@ -1467,12 +1578,23 @@ PF.Farm = (() => {
 
         // --- row 3: water, crop rows, fence --------------------------------
         const water = cell(a, 0, 3);
-        for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++)
-          water.px(x, y, ((x + y) % 8) < 4 ? '#2f6f9a' : '#27618a');
-        for (let k = 0; k < 5; k++) {                          // ripple crests
-          const y = k * 3 + 1, x = Math.floor(water.hash(k, 14, 11) * 9);
-          water.rect(x, y, x + 4, y, '#6bb0d9');
-          water.px(x + 1, y, '#a8dcf2');
+        /* Two tones alternating on an (x+y)%8 period is a diagonally striped
+           carpet, not water. The field is mottled instead and all of the
+           value range is carried by the ripples, each of which gets a trough
+           behind it so the crest reads as a surface and not a painted dash. */
+        for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+          const n = water.hash(x, y, 7);
+          water.px(x, y, n > 0.72 ? '#35799f' : n > 0.28 ? '#2f6f9a' : '#27618a');
+        }
+        for (let k = 0; k < 4; k++) {                          // ripple crests
+          const y0 = k * 4 + 1, x0 = (k * 5 + Math.floor(water.hash(k, 14, 11) * 5)) % 16;
+          for (let d = 0; d < 6; d++) {
+            const x = (x0 + d) % 16, y = y0 + (d === 0 || d === 5 ? 1 : 0);
+            water.px(x, y, '#6bb0d9');
+            water.px(x, y + 1, '#1f4f74');
+          }
+          water.px((x0 + 2) % 16, y0, '#a8dcf2');
+          water.px((x0 + 3) % 16, y0, '#a8dcf2');
         }
 
         const cropA = cell(a, 1, 3);                           // young crop row

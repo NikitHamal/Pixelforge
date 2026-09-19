@@ -11,6 +11,14 @@ PF.RPG = (() => {
   const ms = fps => Math.round(1000 / fps);
   const OUT = '#181425';
   const OUT32 = C(OUT); // cached: outline color resolved once, not per frame
+  /* Value-only lift. Palette.ramp drifts hue and bleeds saturation, which turns
+     a purple hat crown grey; a highlight on cloth only moves value. */
+  const mix = (hex, to, t) => {
+    const [r, g, b] = PF.Color.rgba(C(hex));
+    const q = v => Math.max(0, Math.min(255, Math.round(v)));
+    return PF.Color.u32ToHex(PF.Color.fromRGBA(q(r + (to - r) * t), q(g + (to - g) * t), q(b + (to - b) * t), 255));
+  };
+  const lit = h => mix(h, 255, 0.28);
 
   /* ================= palettes ================= */
   const BASE = { skin: '#e8b796', skinSh: '#c28569', hair: '#3e2731', hairSh: '#262b44', hairHi: '#5e3b4d',
@@ -158,16 +166,28 @@ PF.RPG = (() => {
       // rows of clearance above it, so the plume sweeps back horizontally
       // rather than upward - a vertical feather would fall off the canvas.
       const c = o.hat, band = o.hatBand || '#262b44', sh = o.hatSh || '#262b44', plume = o.hatPlume;
-      if (side) {
-        api.rect(X(10), Y(1), X(21), Y(2), c);
-        api.rect(X(10), Y(2), X(21), Y(3), band);
-        api.rect(X(8), Y(3), X(24), Y(4), c); api.rect(X(8), Y(4), X(24), Y(4), sh);
-        if (plume) { api.line(X(10), Y(1), X(5), Y(1), plume, 1); api.px(X(4), Y(1), plume); api.px(X(5), Y(1), plume); api.px(X(5), Y(2), plume); }
-      } else {
-        api.rect(X(9), Y(1), X(22), Y(2), c);
-        api.rect(X(9), Y(2), X(22), Y(3), band);
-        api.rect(X(7), Y(3), X(24), Y(4), c); api.rect(X(7), Y(4), X(24), Y(4), sh);
-        if (plume) { api.line(X(9), Y(1), X(4), Y(1), plume, 1); api.px(X(3), Y(1), plume); api.px(X(4), Y(1), plume); api.px(X(4), Y(2), plume); }
+      /* The old form was a two-row crown over an 18px brim sitting at rows 4-5,
+         i.e. a plank as wide as the shoulders balanced on top of the skull with
+         its own outline running underneath it. At a glance it read as a floating
+         banner, not as a hat. A hat has to OCCLUDE the head it is worn on: the
+         crown is three rows tall, the brim is narrower than the shoulders, and
+         it sits at the brow (rows 6-7) with the hair emerging below it. */
+      const cx = side ? 15 : 16;
+      api.rect(X(cx - 4), Y(1), X(cx + 3), Y(1), c);          // crown cap
+      api.rect(X(cx - 5), Y(2), X(cx + 4), Y(4), c);          // crown body
+      api.rect(X(cx - 5), Y(2), X(cx - 4), Y(4), lit(c));     // lit side
+      api.rect(X(cx + 4), Y(2), X(cx + 4), Y(4), sh);
+      api.rect(X(cx - 5), Y(5), X(cx + 4), Y(5), band);       // hatband
+      api.rect(X(cx - 7), Y(6), X(cx + 6), Y(7), c);          // brim
+      api.rect(X(cx - 7), Y(7), X(cx + 6), Y(7), sh);         // brim underside
+      api.px(X(cx - 7), Y(6), sh); api.px(X(cx + 6), Y(6), sh);
+      if (plume) {
+        /* Rooted AT the hatband and swept back over the crown, so it grows out
+           of the hat instead of hanging in the air beside it. */
+        api.line(X(cx - 5), Y(5), X(cx - 8), Y(2), plume, 1);
+        api.line(X(cx - 5), Y(4), X(cx - 7), Y(2), plume, 1);   // second strand = width
+        api.px(X(cx - 9), Y(2), plume); api.px(X(cx - 9), Y(1), lit(plume));
+        api.px(X(cx - 8), Y(1), plume);                          // the curl at the tip
       }
     }
     if (o.crown) {
@@ -193,9 +213,28 @@ PF.RPG = (() => {
       }
     }
     if (o.beard) {
+      /* A beard TAPERS. The long form used to be a flat 6x8 rectangle reaching
+         y21 — the full height of the torso — so the monk rendered as a figure
+         with a blank white board strapped to its chest. Jaw at full width, then
+         two steps in, then a point; shading down the right so it has volume. */
       const c = o.beard, sh = o.beardSh || '#8b9bb4', long = o.beardLong;
-      if (side) { api.rect(X(16), Y(11), X(20), Y(long ? 15 : 13), c); api.rect(X(19), Y(11), X(20), Y(long ? 15 : 13), sh); }
-      else { api.rect(X(13), Y(13), X(18), Y(long ? 20 : 15), c); api.rect(X(13), Y(long ? 19 : 14), X(18), Y(long ? 20 : 15), sh); }
+      if (side) {
+        api.rect(X(15), Y(11), X(20), Y(12), c);              // jaw
+        api.rect(X(19), Y(11), X(20), Y(12), sh);
+        if (long) {
+          api.rect(X(16), Y(13), X(19), Y(14), c); api.px(X(19), Y(13), sh); api.px(X(19), Y(14), sh);
+          api.rect(X(17), Y(15), X(18), Y(16), c); api.px(X(18), Y(16), sh);
+        } else { api.rect(X(16), Y(13), X(19), Y(13), c); api.px(X(19), Y(13), sh); }
+      } else {
+        api.rect(X(12), Y(10), X(19), Y(12), c);              // jaw line, cheek to cheek
+        api.rect(X(18), Y(10), X(19), Y(12), sh);
+        api.px(X(12), Y(10), sh); api.px(X(19), Y(10), sh);   // cheek corners tucked in
+        if (long) {
+          api.rect(X(13), Y(13), X(18), Y(14), c); api.rect(X(17), Y(13), X(18), Y(14), sh);
+          api.rect(X(14), Y(15), X(17), Y(16), c); api.rect(X(16), Y(15), X(17), Y(16), sh);
+          api.rect(X(15), Y(17), X(16), Y(17), c); api.px(X(16), Y(17), sh);
+        } else { api.rect(X(13), Y(13), X(18), Y(13), c); api.rect(X(17), Y(13), X(18), Y(13), sh); }
+      }
     }
     if (o.skull) {
       const c = '#e8ecf5', sh = '#8b9bb4';

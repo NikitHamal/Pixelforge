@@ -34,6 +34,42 @@ PF.StudioTools = (() => {
       return { project: pid, template: a.id, ...PF.Store.summary() };
     }, ['hub']);
 
+  /* The two tools above can only ever hand back something that already exists
+     in the library. These two can hand back something that does not. */
+  R('forge_character', 'Forge a brand-new 32x32 character from a seed and open it as a project: kin, role, headgear, weapon, armour, cloak and a full palette are all derived from the seed, and the result carries six states (idle, walk, run, attack, hurt, death). The same seed always forges the same character.',
+    obj({ seed: str('Any string or number. Omit for a random one.'),
+      role: str('fighter | caster | ranger | brute | undead | folk'),
+      gear: str('Headgear key from forge_options'), held: str('Weapon key from forge_options'),
+      armour: bool('Force body armour on or off'), cloak: bool('Force a cloak on or off'),
+      open_studio: bool('Navigate to the studio (landing page only, default false)') }),
+    a => {
+      if (!PF.Forge) throw new Error('The forge is not loaded on this page.');
+      const opts = {};
+      for (const k of ['role', 'gear', 'held', 'armour', 'cloak']) if (a[k] !== undefined) opts[k] = a[k];
+      const seed = a.seed === undefined || a.seed === null || String(a.seed) === ''
+        ? 'forge-' + Date.now().toString(36) : String(a.seed);
+      const d = PF.Forge.resolve(seed, opts);
+      const doc = PF.Forge.suite(d);
+      const pid = PF.Projects.instantiateDocData(doc, d.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+      PF.Projects.setOpenId(pid);
+      try { if (PF.App && PF.App.onNewProject) PF.App.onNewProject(pid); } catch {}
+      let onStudio = false;
+      try { onStudio = /studio\.html/.test(location.pathname || ''); } catch {}
+      if (typeof location !== 'undefined' && a.open_studio && !onStudio) {
+        try { location.href = '../studio.html?project=' + pid; } catch {}
+      }
+      return { project: pid, seed, name: d.name, role: d.role, kin: d.kin, gear: d.gear,
+        held: d.held, armour: d.armour, cloak: d.cloak, category: d.category,
+        states: doc.states.map(st => st.name), colors: d.colors };
+    }, ['hub']);
+
+  R('forge_options', 'List everything the character forge can roll: roles, kin, headgear and weapons, plus the size of the combination space. Call before forge_character when you want to pin a specific look.',
+    obj({}),
+    () => ({ roles: PF.Forge.roleKeys(), kin: PF.Forge.kinKeys(),
+      gear: PF.Forge.GEAR.map(g => ({ key: g.key, name: g.name })),
+      held: PF.Forge.HELD.map(h => ({ key: h.key, name: h.name, arc: h.arc })),
+      combinations: PF.Forge.space() }), ['hub']);
+
   R('append_template_states', 'Append every state from a template into the current project (sizes must match; template art is composited into your active layer). Great for adding e.g. coin spin to a hero.',
     obj({ id: str('Template id from list_templates') }, ['id']),
     a => {

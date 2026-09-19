@@ -264,11 +264,19 @@ PF.Pixel = (() => {
   // row stays clear. Drawn as touching pairs for the same reason the arc avoids
   // dithers — one rimed pixel reads as grit, not puff.
   function dustPuff(api, cx, groundY, seed, t, color = '#8b9bb4', n = 6) {
-    const spread = 1.5 + t * 3, lift = t * 3;
-    for (let i = 0; i < n; i++) {
-      const x = cx + Math.round((api.hash(i, seed, 11) - 0.5) * spread * 2);
-      const y = groundY - Math.round(api.hash(i, seed, 23) * lift);
-      api.px(x, y, color); api.px(x + 1, y, color);
+    /* Motes on a widening ground-hugging arc, thinning as they go. The random
+       scatter this replaces dropped every mote inside a 4x2 box at low t, and
+       the outline pass then framed that box: a walk cycle's contact dust came
+       out as a grey brick parked between the boots. */
+    const spread = 2.2 + t * 4.2, lift = 0.4 + t * 3.4;
+    const live = Math.max(2, Math.round(n * (1 - t * 0.45)));
+    for (let i = 0; i < live; i++) {
+      const a = Math.PI + (live === 1 ? 0.5 : i / (live - 1)) * Math.PI;
+      const j = (api.hash(i, seed, 11) - 0.5) * 1.7;
+      const x = Math.round(cx + Math.cos(a) * (spread + j));
+      const y = Math.round(groundY - Math.abs(Math.sin(a)) * lift - api.hash(i, seed, 23) * 0.9);
+      api.px(x, y, color);
+      if ((i & 1) === 0) api.px(x + 1, y, color);          // a pair here and there, so it is not a dotted line
     }
   }
   // Impact star for the contact frame: long cardinals, short diagonals. Small
