@@ -37,6 +37,18 @@ PF.Platformer = (() => {
     if (hi) a.ellipse(cx - rx + 1, cy - ry, cx + rx - 1, cy - ry + hb, hi, true);
     if (sh) a.ellipse(cx - rx + 1, cy + ry - hb, cx + rx - 1, cy + ry, sh, true);
   }
+  /* A rim light is an ARC, not a ring. PF.Pixel's ellipse() only draws the
+     whole outline, and the left and right sides of that outline are vertical
+     runs of the brightest colour in the palette -- on a 14px-wide body they
+     read as two light bars painted down the face. Sample the boundary
+     directly and keep only the arc the key light actually reaches. */
+  function rimArc(a, cx, cy, rx, ry, a0, a1, col) {
+    const n = Math.max(6, Math.ceil(Math.abs(a1 - a0) * Math.max(rx, ry) * 2));
+    for (let k = 0; k <= n; k++) {
+      const ang = a0 + (a1 - a0) * (k / n);
+      a.px(cx + Math.cos(ang) * rx, cy + Math.sin(ang) * ry, col);
+    }
+  }
   function speck(a, x0, y0, x1, y1, seed, colors, density = 0.1) {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++)
       if (a.hash(x, y, seed) < density) a.px(x, y, colors[Math.floor(a.hash(x, y, seed + 71) * colors.length) % colors.length]);
@@ -385,63 +397,156 @@ PF.Platformer = (() => {
   }
 
   /* ============================================================== SLIME ===
-     A hopper reads from squash alone, so the whole animation is one radius
-     pair. Highlight sits high-left; the nucleus lags behind the body, which is
-     what makes a coloured ellipse feel like liquid. */
-  function slimeBody(a, cx, cy, rx, ry, base, hi, sh, nuc) {
-    a.ellipse(cx - rx, cy - ry, cx + rx, cy + ry, base, true);
-    a.ellipse(cx - rx + 1, cy + ry - Math.max(1, ry >> 1), cx + rx - 1, cy + ry, sh, true);
-    a.ellipse(cx - rx + 2, cy - ry + 1, cx - 1, cy - ry + Math.max(2, ry >> 1), hi, true);
-    a.px(cx - rx + 2, cy - ry + 1, '#ffffff');
-    // The core sits LOW in the body. Level with the eyes it reads as a beak,
-    // which is how a slime turns into a duck.
-    if (nuc) { a.ellipse(nuc[0] - 2, nuc[1] - 1, nuc[0] + 2, nuc[1] + 1, nuc[2], true);
-      a.ellipse(nuc[0] - 1, nuc[1] - 1, nuc[0], nuc[1] - 1, '#ffffff', true); }
+     A slime is a lens of translucent gel, not a green ball with a face. Four
+     things make it read as jelly instead of a painted rock, and the old
+     three-ellipse version had none of them: light WRAPS the top edge, it
+     passes THROUGH the body and pools as a bright caustic just above the
+     floor, the mass settles darkest where it is heaviest, and the nucleus
+     floats low and soft-edged so the surface reads as something you can see
+     into. The rest is squash: every silhouette in the pack is one (rx, ry). */
+  const SLIME = {
+    base: '#3fbf52', mid: '#6fe07d', hi: '#9dff8f', rim: '#d8ffc0',
+    sh: '#1f6b34', pool: '#15492a', glow: '#7ae86a',
+    nuc: '#e8ff5a', nucSh: '#9ac41e'
+  };
+
+  /* Bands are stacked bottom-up and each one is full-width where it needs to
+     overwrite the band below -- there is no erase primitive, so the order IS
+     the shading. `lean` slides the sheen so a wobble is visible even when the
+     silhouette barely changes between two frames. */
+  function slimeBody(a, cx, cy, rx, ry, p, nuc, lean) {
+    const R = Math.max(1, Math.round(rx)), Y = Math.max(1, Math.round(ry));
+    const ln = lean || 0;
+    a.ellipse(cx - R, cy - Y, cx + R, cy + Y, p.base, true);
+    rimArc(a, cx, cy, R, Y, -2.95, -0.95, p.rim);                   // light over the top edge
+    const pool = Math.max(1, Math.round(Y * 1.15));
+    a.ellipse(cx - R, cy + Y - pool, cx + R, cy + Y, p.sh, true);   // the mass settles and darkens
+    if (Y >= 3) {
+      a.ellipse(cx - R + 2, cy + Y - 2, cx + R - 2, cy + Y - 1, p.glow, true);  // light coming through it
+      a.ellipse(cx - R + 1, cy + Y, cx + R - 1, cy + Y, p.pool, true);          // contact shadow
+    }
+    // Sheen: a soft mid ring with a hard bright core inside it, up and left.
+    const hx = cx - Math.round(R * 0.45) + ln, hy = cy - Math.round(Y * 0.45);
+    a.ellipse(hx - R * 0.5, hy - Y * 0.45, hx + R * 0.34, hy + Y * 0.3, p.mid, true);
+    a.ellipse(hx - R * 0.34, hy - Y * 0.32, hx + R * 0.16, hy + Y * 0.12, p.hi, true);
+    a.px(hx - Math.round(R * 0.2), hy - Math.round(Y * 0.22), '#ffffff');
+    a.px(hx - Math.round(R * 0.2) + 1, hy - Math.round(Y * 0.22), '#ffffff');
+    /* The core sits LOW in the body. Level with the eyes it reads as a beak,
+       which is how a slime turns into a duck. Soft-edged, so it looks
+       suspended in the gel rather than painted on the front of it. */
+    if (nuc) {
+      a.ellipse(nuc[0] - 2, nuc[1] - 1, nuc[0] + 2, nuc[1] + 1, p.nucSh, true);
+      a.ellipse(nuc[0] - 1, nuc[1] - 1, nuc[0] + 1, nuc[1], p.nuc, true);
+      a.px(nuc[0] - 1, nuc[1] - 1, '#ffffff');
+    }
   }
-  function slimeFace(a, cx, cy, mood) {
-    if (mood === 'hurt') { a.px(cx - 3, cy - 1, OUT); a.px(cx - 2, cy, OUT); a.px(cx + 2, cy - 1, OUT); a.px(cx + 3, cy, OUT); }
-    else { a.rect(cx - 4, cy - 1, cx - 3, cy, OUT); a.rect(cx + 3, cy - 1, cx + 4, cy, OUT);
-      a.px(cx - 4, cy - 1, '#ffffff'); a.px(cx + 3, cy - 1, '#ffffff'); }
-    // Mouth in the outline colour: a dark-green mouth on a green body is
-    // invisible at 1x, which is the size this sprite will actually be seen at.
-    if (mood === 'hurt') { a.line(cx - 2, cy + 4, cx + 2, cy + 4, OUT, 1); a.px(cx, cy + 3, OUT); }
-    else { a.line(cx - 2, cy + 3, cx + 2, cy + 3, OUT, 1); a.px(cx - 2, cy + 2, OUT); a.px(cx + 2, cy + 2, OUT); }
+
+  /* Eyes are a white sclera with a PUPIL that tracks the hop, not two dark
+     slabs with a white corner. `look` slides the pupil; that alone is the
+     difference between a creature and a beanbag. */
+  function slimeFace(a, cx, cy, mood, look) {
+    const lx = Math.round(look || 0);
+    if (mood === 'hurt') {
+      for (const sg of [-1, 1]) {
+        const ex = cx + sg * 3;
+        a.line(ex - 1, cy - 1, ex + 1, cy + 1, OUT, 1);
+        a.line(ex + 1, cy - 1, ex - 1, cy + 1, OUT, 1);
+      }
+      a.ellipse(cx - 2, cy + 3, cx + 2, cy + 5, OUT, true);          // an open wail
+      a.rect(cx - 1, cy + 4, cx + 1, cy + 5, '#7a2038');
+      return;
+    }
+    for (const sg of [-1, 1]) {
+      const ex = cx + sg * 3;
+      a.rect(ex - 1, cy - 1, ex + 1, cy, '#ffffff');
+      a.rect(ex - 1, cy - 2, ex + 1, cy - 2, OUT);                   // brow ridge
+      a.rect(ex + lx, cy - 1, ex + lx, cy, OUT);                     // pupil
+      a.px(ex - 1, cy - 1, '#dff5ff');
+    }
+    /* Mouth in the outline colour: a dark-green mouth on a green body is
+       invisible at 1x, which is the size this sprite will actually be seen
+       at. The corners hook up so it is a grin and not a slot. */
+    if (mood === 'open') {
+      a.ellipse(cx - 3, cy + 2, cx + 3, cy + 5, OUT, true);
+      a.rect(cx - 2, cy + 4, cx + 2, cy + 5, '#2f8f46');
+      a.rect(cx - 1, cy + 3, cx + 1, cy + 3, '#ffffff');             // teeth
+    } else {
+      a.line(cx - 2, cy + 3, cx + 2, cy + 3, OUT, 1);
+      a.line(cx - 2, cy + 4, cx + 2, cy + 4, '#2f8f46', 1);          // a lower lip catches light
+      a.px(cx - 3, cy + 2, OUT); a.px(cx + 3, cy + 2, OUT);
+    }
   }
+
+  /* A spat glob: a rimmed bead with a tail, so it reads as travelling even in
+     a still frame. Detached from the body on purpose -- it is a projectile. */
+  function slimeGlob(a, x, y, r, p, dx, dy) {
+    a.ellipse(x - r, y - r, x + r, y + r, p.base, true);
+    a.ellipse(x - r, y - r, x + r, y + r, p.rim, false);
+    a.px(x - r + 1, y - r + 1, '#ffffff');
+    a.line(x - dx, y - dy, x - dx * 2.2, y - dy * 2.2, p.sh, 1);     // the tail it left
+  }
+
   function slimeSuite() {
-    const base = '#4ac94a', hi = '#9dff8f', sh = '#2a7a34', nuc = '#c8f24a';
-    const at = (a, cx, cy, rx, ry, mood) => {
-      slimeBody(a, cx, cy, rx, ry, base, hi, sh, [cx - 1, cy + Math.max(2, ry - 2), nuc]);
-      slimeFace(a, cx, cy - 2, mood);
+    const p = SLIME;
+    const at = (a, cx, cy, rx, ry, mood, look, lean) => {
+      /* Off to one side, not centred under the mouth. A big symmetrical
+         yellow lens sitting on the chin reads as a bib, which is what the
+         old one did on every idle frame. */
+      slimeBody(a, cx, cy, rx, ry, p, [cx + 3, cy + Math.max(2, Math.round(ry) - 2)], lean);
+      slimeFace(a, cx, cy - 2, mood, look);
     };
     return {
       width: 32, height: 32, name: 'Slime Hopper', layers: [{ name: 'slime' }],
       states: [
+        // idle: the gel breathes and the sheen slides across it; the pupils
+        // drift. A slime that holds a single silhouette is a rock.
         D('idle', 6, true, cyc(4, 6, (a, i, t) => {
           const w = Math.sin(t * TAU) * 1.3;
-          at(a, 16, 21 - w * 0.5, 8 + w, 6 - w);
-          a.line(16 - 8 - w, 27, 16 + 8 + w, 27, sh, 1);
+          at(a, 16, 21 - w * 0.5, 8 + w, 6 - w, i === 2 ? 'open' : null, [-1, 0, 1, 0][i], [0, 1, 1, 0][i]);
         })),
         // hop: compress, launch, apex, land — AIRBORNE, so the gate exempts it
         D('hop', 10, true, cyc(6, 10, (a, i) => {
-          const pose = [[9, 4, 25], [8, 6, 22], [6, 8, 16], [7, 7, 13], [8, 6, 17], [9.5, 4, 25]][i];
-          at(a, 16, pose[2] - pose[1] + 6, pose[0], pose[1]);
-          if (i === 1 || i === 5) for (let k = -2; k <= 2; k++) a.px(16 + k * 3, 27, '#9dff8f');
+          //     rx    ry   bottom  look
+          // Apex heights are capped so the stretched silhouette still leaves
+          // row 0 clear -- the outline pass needs a row above the sprite.
+          const pose = [[9.5, 4, 27, 0], [7, 7, 26, -1], [5.5, 9, 21, -1], [6.5, 7.5, 17, 0], [7.5, 6.5, 20, 1], [10, 4, 27, 1]][i];
+          at(a, 16, pose[2] - pose[1], pose[0], pose[1], i === 2 || i === 3 ? 'open' : null, pose[3], i < 3 ? -1 : 1);
+          // Launch and landing both throw gel sideways along the floor.
+          if (i === 1 || i === 5) for (const sg of [-1, 1])
+            for (let k = 0; k < 3; k++) a.px(16 + sg * (pose[0] + 1 + k), 27 - (k === 1 ? 1 : 0), k > 1 ? p.sh : p.glow);
         })),
+        // attack: coil, rear back, spit, recoil.
         D('attack', 12, false, seq(4, 12, (a, i, t) => {
-          const st = [[7, 7], [10, 4], [6, 9], [8, 6]][i];
-          at(a, 16 + (i === 1 ? 2 : 0), 21, st[0], st[1]);
-          if (i === 2) for (let k = 0; k < 6; k++) { const ang = -0.4 - k * 0.22; a.px(16 + Math.cos(ang) * (10 + k), 18 + Math.sin(ang) * (10 + k), nuc); }
+          const st = [[9, 5], [7, 8], [10.5, 4.5], [8.5, 5.5]][i];
+          at(a, 16 + (i === 1 ? -1 : i === 2 ? 2 : 0), 27 - st[1], st[0], st[1],
+            i >= 1 ? 'open' : null, i === 1 ? -1 : 1, i === 1 ? -1 : 1);
+          if (i === 2) slimeGlob(a, 27, 14, 2, p, 2, 2);
+          if (i === 3) slimeGlob(a, 27, 9, 2, p, 2, 2);
         })),
         D('hurt', 12, false, seq(3, 12, (a, i, t) => {
-          at(a, 16 + (i === 1 ? -2 : 1), 21, 9 - i * 0.6, 5 + i * 0.4, 'hurt');
-          for (let k = 0; k < 4; k++) a.px(16 + Math.cos(k * 1.6) * (9 + i * 2), 20 + Math.sin(k * 1.6) * (7 + i), sh);
+          at(a, 16 + (i === 1 ? -2 : 1), 27 - (5 + i * 0.4), 9 - i * 0.6, 5 + i * 0.4, 'hurt');
+          // Torn-off gel: short teardrops flying outward, not loose dots. A
+          // single pixel gets its own 1px border and reads as grit.
+          for (let k = 0; k < 4; k++) {
+            const ang = 3.9 + k * 0.72, d = 9 + i * 2;
+            const X = 16 + Math.cos(ang) * d, Y = 20 + Math.sin(ang) * d;
+            a.line(X, Y, X - Math.cos(ang) * 2, Y - Math.sin(ang) * 2, p.sh, 1);
+            a.px(X, Y, p.glow);
+          }
         })),
-        // death: melt to a puddle. Single-direction, loop:false, no closure check
+        // death: the surface tension gives out and it melts to a puddle that
+        // keeps spreading after the nucleus has already gone dull.
         D('die', 9, false, seq(5, 9, (a, i, t) => {
-          const ry = 6 - t * 4.6, rx = 8 + t * 3;
-          slimeBody(a, 16, 26 - ry, rx, Math.max(1, ry), base, hi, sh, t < 0.5 ? [15, 25, nuc] : null);
-          if (t < 0.55) slimeFace(a, 16, 23 - ry * 0.4, 'hurt');
-          speck(a, 16 - rx, 25, 16 + rx, 27, 4, [sh, hi], 0.18 + t * 0.2);
+          const ry = 6 - t * 4.6, rx = 8 + t * 3.4;
+          slimeBody(a, 16, 27 - Math.max(1, ry), rx, Math.max(1, ry), p,
+            t < 0.5 ? [15, 25, p.nuc] : null, 0);
+          if (t < 0.55) slimeFace(a, 16, 25 - ry * 0.7, 'hurt');
+          // Gel running off the edges of the puddle.
+          for (let k = -1; k <= 1; k += 2) for (let j = 0; j < 2; j++) {
+            const X = Math.round(16 + k * (rx - 1 - j * 3));
+            if (a.hash(X, j, 4) < 0.55 + t * 0.3) a.px(X, 27, p.pool);
+          }
+          speck(a, 16 - rx, 25, 16 + rx, 27, 4, [p.sh, p.glow], 0.14 + t * 0.18);
         }))
       ]
     };
@@ -454,41 +559,111 @@ PF.Platformer = (() => {
      The quills are deliberately NOT black. At #2a1440 they sat one step off
      the #181425 outline, so on any dark background the quills, their outline
      and the backdrop merged and the sprite lost its whole silhouette. */
+  const SPIKY = {
+    body: '#8a4fd6', mid: '#a76ce8', hi: '#c89ef4', rim: '#e6d0ff',
+    sh: '#5a2e96', dk: '#3a1c66', belly: '#7a45c2',
+    quill: '#3b1f5c', quillHi: '#8a63c0', quillTip: '#d8c4f0',
+    foot: '#f6a03a', footHi: '#ffc76b', footSh: '#a85c14', claw: '#3a1c66'
+  };
+
+  /* A quill is a TAPER with a lit spine: three strokes of falling width, a
+     highlight down the thick half and a bright tip. Nine lines of constant
+     2px width read as whiskers, which is what the old crawler had -- a purple
+     ball wearing a wig. */
+  function quill(a, cx, cy, ang, r0, r1, p, flare) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    const X = d => cx + c * d, Y = d => cy + s * d;
+    const R1 = r1 + (flare || 0), L = R1 - r0;
+    const seg = (d0, d1, w, col) => a.line(X(d0), Y(d0), X(d1), Y(d1), col, w);
+    seg(r0, r0 + L * 0.35, 4, p.quill);
+    seg(r0 + L * 0.35, r0 + L * 0.7, 3, p.quill);
+    seg(r0 + L * 0.7, R1 - 1, 2, p.quill);
+    seg(R1 - 1, R1, 1, p.quill);
+    /* Lit spine on the THICK half only. Run it to the tip and the quill goes
+       hollow; put a bright pixel on the point and eleven of them become a
+       ring of confetti round the sprite, which is exactly what the first
+       version looked like. */
+    seg(r0 + L * 0.2, r0 + L * 0.6, 1, p.quillHi);
+  }
+
+  /* Two toes and a claw, not an orange brick. The foot is the only warm mass
+     on the sprite, so its shape is doing real work in the silhouette. */
+  function spikyFoot(a, x, y, p, lift) {
+    const Y = y - (lift ? 1 : 0);
+    a.rect(x, Y, x + 3, Y + 1, p.foot);
+    a.rect(x, Y, x + 3, Y, p.footHi);                              // instep
+    a.rect(x, Y + 1, x + 3, Y + 1, p.footSh);
+    a.px(x, Y + 2, p.footSh); a.px(x + 2, Y + 2, p.footSh);        // toes
+    a.px(x + 3, Y + 1, p.claw);                                    // claw
+  }
+
   function spikySuite() {
-    const body = '#8a4fd6', bodySh = '#5a2e96', bodyHi = '#c08ef0', quill = '#3b1f5c', foot = '#f6a03a';
-    const at = (a, cx, cy, step, mood) => {
-      // quills first so the body overlaps their roots
-      for (let k = 0; k < 9; k++) {
-        const ang = Math.PI + (k / 8) * Math.PI;
-        const qx = cx + Math.cos(ang) * 7, qy = cy + Math.sin(ang) * 6;
-        a.line(qx, qy, cx + Math.cos(ang) * 11, cy + Math.sin(ang) * 10, quill, 2);
-        a.px(cx + Math.cos(ang) * 11, cy + Math.sin(ang) * 10, '#7a47c0');
+    const p = SPIKY;
+    const at = (a, cx, cy, step, mood, flare) => {
+      // Quills first so the body overlaps their roots and they read as
+      // growing OUT of it rather than being stapled on.
+      // Seven long quills over the back and two short ones at the flanks.
+      // Eleven of them at 4px of reach just made a fuzzy halo: a quill has to
+      // be longer than the body is deep or it is fur.
+      for (let k = 0; k < 7; k++) {
+        const ang = Math.PI + (k / 6) * Math.PI;
+        // The CENTRE quill is the short one. Longest in the middle and it
+        // grows straight out of the forehead, lining up with the eyes.
+        quill(a, cx, cy, ang, 4, 10 + Math.abs(k - 3) * 0.7, p, flare);
       }
-      blob(a, cx, cy, 7, 6, body, bodyHi, bodySh);
-      if (mood === 'hurt') { a.px(cx - 4, cy - 2, OUT); a.px(cx - 3, cy - 1, OUT); a.px(cx + 3, cy - 2, OUT); a.px(cx + 4, cy - 1, OUT); }
-      else { a.rect(cx - 4, cy - 2, cx - 3, cy - 1, OUT); a.rect(cx + 3, cy - 2, cx + 4, cy - 1, OUT);
-        a.px(cx - 4, cy - 2, '#ffffff'); a.px(cx + 3, cy - 2, '#ffffff'); }
-      a.line(cx - 2, cy + 2, cx + 2, cy + 2, bodySh, 1);
-      // two stub feet in counter-phase: the only thing that says "walking"
-      a.rect(cx - 5, cy + 5 + (step ? 0 : 1), cx - 2, cy + 6 + (step ? 0 : 1), foot);
-      a.rect(cx + 2, cy + 5 + (step ? 1 : 0), cx + 5, cy + 6 + (step ? 1 : 0), foot);
+      for (const sg of [-1, 1]) quill(a, cx, cy, sg > 0 ? 0.42 : Math.PI - 0.42, 4, 9.5, p, (flare || 0) * 0.5);
+      a.ellipse(cx - 7, cy - 6, cx + 7, cy + 6, p.body, true);
+      rimArc(a, cx, cy, 7, 6, -3.0, -1.1, p.rim);                  // light over the shell
+      a.ellipse(cx - 7, cy, cx + 7, cy + 6, p.sh, true);           // the mass below the equator
+      a.ellipse(cx - 6, cy + 3, cx + 6, cy + 6, p.dk, true);
+      a.ellipse(cx - 4, cy + 2, cx + 4, cy + 5, p.belly, true);    // pale underbelly
+      // The lit cap stops ABOVE the eye line. Run it between the eyes and it
+      // is brighter than the sclera, so the face reads as three white patches.
+      a.ellipse(cx - 6, cy - 6, cx + 2, cy - 2, p.mid, true);      // lit cap
+      a.ellipse(cx - 5, cy - 6, cx, cy - 4, p.hi, true);
+      a.rect(cx - 4, cy - 5, cx - 3, cy - 5, '#ffffff');           // specular
+      if (mood === 'hurt') {
+        for (const sg of [-1, 1]) {
+          const ex = cx + sg * 4;
+          a.line(ex - 1, cy - 3, ex + 1, cy - 1, OUT, 1);
+          a.line(ex + 1, cy - 3, ex - 1, cy - 1, OUT, 1);
+        }
+        a.ellipse(cx - 2, cy + 1, cx + 2, cy + 3, OUT, true);
+        a.rect(cx - 1, cy + 2, cx + 1, cy + 3, '#7a2038');
+      } else {
+        for (const sg of [-1, 1]) {
+          const ex = cx + sg * 4;
+          a.rect(ex - 1, cy - 3, ex + 1, cy - 2, '#ffffff');
+          a.rect(ex + sg, cy - 3, ex + sg, cy - 2, OUT);           // pupil, looking ahead
+          // A brow slanting IN toward the nose is the whole expression.
+          a.line(ex - sg * 2, cy - 5, ex + sg * 2, cy - 4, OUT, 1);
+        }
+        a.line(cx - 2, cy, cx + 2, cy, OUT, 1);                    // set jaw
+        a.px(cx - 1, cy + 1, '#ffffff'); a.px(cx + 1, cy + 1, '#ffffff');   // fangs
+      }
+      spikyFoot(a, cx - 6, cy + 5, p, step);
+      spikyFoot(a, cx + 3, cy + 5, p, !step);
     };
     return {
       width: 32, height: 32, name: 'Spiky Crawler', layers: [{ name: 'spiky' }],
       states: [
-        D('walk', 8, true, cyc(4, 8, (a, i) => at(a, 16, 20 - (i % 2), i % 2 === 0))),
+        D('walk', 8, true, cyc(4, 8, (a, i) => at(a, 16, 19 - (i % 2), i % 2 === 0))),
         // idle breathes a full 2px: a 1px bob on a 14px-wide body fell under
         // the gate's 8-pixel minimum delta and read as a frozen sprite.
-        D('idle', 5, true, cyc(3, 5, (a, i) => { at(a, 16, [20, 18, 19][i], i === 1);
+        D('idle', 5, true, cyc(3, 5, (a, i) => { at(a, 16, [19, 17, 18][i], i === 1);
           a.px(10 - i, 12, '#c08ef0'); a.px(22 + i, 13, '#c08ef0'); })),
-        // bristle: quills flare before a charge
-        D('bristle', 12, false, seq(4, 12, (a, i, t) => {
-          at(a, 16, 20, i % 2 === 0);
-          for (let k = 0; k < 9; k++) { const ang = Math.PI + (k / 8) * Math.PI;
-            a.line(16 + Math.cos(ang) * 10, 20 + Math.sin(ang) * 9, 16 + Math.cos(ang) * (11 + t * 3), 20 + Math.sin(ang) * (10 + t * 2.6), quill, 1); }
-        })),
-        D('hurt', 10, false, seq(3, 10, (a, i) => { at(a, 16 + (i === 1 ? -2 : 1), 20 + i, i % 2 === 0, 'hurt');
-          for (let k = 0; k < 4 - i; k++) a.px(16 + Math.cos(k * 1.7) * (11 + i * 2), 19 + Math.sin(k * 1.7) * (9 + i), '#e43b44'); }))
+        // bristle: every quill grows, so the flare is part of the taper rather
+        // than a second set of thin lines laid over the first.
+        D('bristle', 12, false, seq(4, 12, (a, i, t) => at(a, 16, 19, i % 2 === 0, null, t * 3.4))),
+        D('hurt', 10, false, seq(3, 10, (a, i) => { at(a, 16 + (i === 1 ? -2 : 1), 19 + i, i % 2 === 0, 'hurt');
+          // Chevrons, not dots: a lone pixel gets a full 1px border and reads
+          // as a crumb rather than as a hit.
+          for (let k = 0; k < 3 - i; k++) {
+            const d = 2 + k * 3;
+            a.line(19 + d, 9 - d, 21 + d, 11 - d, '#e43b44', 1);
+            a.line(21 + d, 11 - d, 19 + d, 13 - d, '#e43b44', 1);
+          }
+        }))
       ]
     };
   }
@@ -496,33 +671,66 @@ PF.Platformer = (() => {
   /* ============================================================ FLYER ===
      Tagged 'flying' so the ground-contact gate skips it. Wings are two arcs
      whose span is the animation; the body barely moves. */
+  const BAT = {
+    memb: '#b5443a', membSh: '#7a2a24', membDk: '#511a16', membHi: '#e07a63',
+    bone: '#d9a08c', fur: '#4a3a56', furHi: '#7a648c', furDk: '#2a2038',
+    ruff: '#9a86ac', muzzle: '#5e4a6c', eye: '#ffd24a', eyeHi: '#fff3b0'
+  };
   function flyerSuite() {
-    const memb = '#b5443a', membHi = '#e07a63', fur = '#4a3a56', furHi = '#7a648c', eye = '#ffd24a';
+    const p = BAT;
     const at = (a, cy, span, mood) => {
       /* Filled membrane with a scalloped trailing edge and darker finger
          struts. Two parallel 2px lines from shoulder to tip read as a plank:
          what makes a wing is the area between a straight leading edge and a
-         notched trailing one. */
+         notched trailing one -- and, at this size, the PANELS between the
+         fingers. Each strut gets a lit pixel beside it so the membrane looks
+         stretched over a frame instead of painted flat. */
       const reach = Math.round(6 + span * 6), tipY = cy - span * 5;
-      const chordAt = f => Math.max(1, Math.round((3.5 - f * 2.2) + Math.sin(f * Math.PI * 3) * 1.1));
+      const chordAt = f => Math.max(1, Math.round((4 - f * 2.4) + Math.sin(f * Math.PI * 3) * 1.2));
       for (const s of [-1, 1]) {
         for (let d = 0; d <= reach; d++) {
           const f = d / reach, x = 16 + s * (3 + d);
           const lead = Math.round(cy - 1 + (tipY - cy + 1) * f);
-          a.line(x, lead, x, lead + chordAt(f), memb, 1);
-          a.px(x, lead, membHi);
+          const ch = chordAt(f);
+          a.line(x, lead, x, lead + ch, p.memb, 1);
+          a.px(x, lead + ch, p.membSh);                            // trailing edge in shadow
+          a.px(x, lead, p.bone);                                   // the arm bone runs the leading edge
         }
         for (let k = 1; k < 4; k++) {
           const f = k / 4, x = 16 + s * (3 + Math.round(reach * f));
           const lead = Math.round(cy - 1 + (tipY - cy + 1) * f);
-          a.line(x, lead + 1, x, lead + chordAt(f), '#7a2a24', 1);
+          const ch = chordAt(f);
+          a.line(x, lead + 1, x, lead + ch, p.membDk, 1);          // finger
+          a.line(x - s, lead + 1, x - s, lead + ch - 1, p.membHi, 1);  // the panel beside it
         }
+        // Wrist hook. Placed ON the leading edge so it is never a loose speck.
+        const wx = 16 + s * (3 + Math.round(reach * 0.5));
+        const wl = Math.round(cy - 1 + (tipY - cy + 1) * 0.5);
+        a.px(wx, wl - 1, p.bone);
       }
-      blob(a, 16, cy, 4, 4, fur, furHi, '#2a2038');
-      a.line(13, cy - 5, 14, cy - 8, fur, 1); a.line(19, cy - 5, 18, cy - 8, fur, 1);  // ears
-      if (mood === 'hurt') { a.px(14, cy - 1, OUT); a.px(15, cy, OUT); a.px(18, cy - 1, OUT); a.px(17, cy, OUT); }
-      else { a.rect(14, cy - 1, 15, cy, eye); a.rect(18, cy - 1, 19, cy, eye); a.px(14, cy - 1, '#ffffff'); a.px(18, cy - 1, '#ffffff'); }
-      a.px(15, cy + 3, '#ffffff'); a.px(18, cy + 3, '#ffffff');    // fangs
+      a.ellipse(12, cy - 4, 20, cy + 5, p.fur, true);
+      rimArc(a, 16, cy + 0.5, 4, 4.5, -2.9, -1.2, p.furHi);        // fur catches the rim
+      a.ellipse(12, cy + 1, 20, cy + 5, p.furDk, true);            // belly in shadow
+      a.ellipse(13, cy - 4, 18, cy - 1, p.furHi, true);            // lit shoulder
+      a.rect(13, cy + 1, 19, cy + 1, p.ruff);                      // fur collar
+      a.px(14, cy + 1, p.furDk); a.px(17, cy + 1, p.furDk);        // ...and it is ragged
+      for (const s of [-1, 1]) {                                   // ears
+        a.line(16 + s * 2, cy - 3, 16 + s * 3, cy - 8, p.fur, 2);
+        a.line(16 + s * 2, cy - 3, 16 + s * 3, cy - 7, p.muzzle, 1);
+        a.px(16 + s * 3, cy - 8, p.furHi);
+      }
+      a.ellipse(14, cy - 1, 18, cy + 2, p.muzzle, true);           // snout
+      a.px(16, cy, p.furDk); a.px(15, cy, p.furDk);                // nose
+      if (mood === 'hurt') {
+        a.line(13, cy - 3, 15, cy - 1, OUT, 1); a.line(15, cy - 3, 13, cy - 1, OUT, 1);
+        a.line(17, cy - 3, 19, cy - 1, OUT, 1); a.line(19, cy - 3, 17, cy - 1, OUT, 1);
+        a.rect(15, cy + 2, 17, cy + 3, OUT);
+      } else {
+        a.rect(13, cy - 2, 14, cy - 1, p.eye); a.rect(18, cy - 2, 19, cy - 1, p.eye);
+        a.px(13, cy - 2, p.eyeHi); a.px(18, cy - 2, p.eyeHi);
+        a.px(14, cy - 1, OUT); a.px(18, cy - 1, OUT);              // slit pupils
+        a.px(15, cy + 2, '#ffffff'); a.px(17, cy + 2, '#ffffff');  // fangs
+      }
     };
     return {
       width: 32, height: 32, name: 'Cave Flyer', layers: [{ name: 'flyer' }],
@@ -539,7 +747,12 @@ PF.Platformer = (() => {
            already reads from the pose — descending body, wings swept back. */
         D('swoop', 14, false, seq(4, 14, (a, i, t) => at(a, 10 + i * 4, 0.1 + t * 0.2))),
         D('hurt', 11, false, seq(3, 11, (a, i) => { at(a, 14 + i * 2, 0.2, 'hurt');
-          for (let k = 0; k < 4; k++) a.px(16 + Math.cos(k * 1.6) * (8 + i * 2), 14 + Math.sin(k * 1.6) * (6 + i), '#e43b44'); }))
+          for (let k = 0; k < 3 - i; k++) {
+            const d = 2 + k * 3;
+            a.line(19 + d, 10 - d, 21 + d, 12 - d, '#e43b44', 1);
+            a.line(21 + d, 12 - d, 19 + d, 14 - d, '#e43b44', 1);
+          }
+        }))
       ]
     };
   }
