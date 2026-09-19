@@ -46,143 +46,339 @@ PF.Platformer = (() => {
      One rig, six states. Everything is driven by (hipY, lean, armA, legA) so a
      new state is a pose description, not another 40 lines of rectangles. */
   const HERO = {
-    skin: '#f2c094', skinSh: '#c28569', hair: '#c04a2a', hairHi: '#e8734a',
+    /* The old palette put the far leg (#252540) and the shirt's shadow side
+       (#17456d) two luma apart, so the back arm dissolved into the hip and
+       the hero read as a bottle. Every neighbouring pair is separated by
+       value AND hue now, and the belt gives the torso a hard waistline. */
+    skin: '#f2c094', skinHi: '#ffe0bc', skinSh: '#a9674f', lip: '#8c4a3c',
+    hair: '#a83a1e', hairHi: '#e0663a', hairSh: '#6d2210',
     shirt: '#2a6fa8', shirtSh: '#17456d', shirtHi: '#4e9ed6',
-    pants: '#3a3a5c', pantsSh: '#252540', boot: '#6b3f2a', bootSh: '#432618',
-    scarf: '#e8c547', scarfSh: '#b08d1e', glove: '#c9563a'
+    belt: '#7a4a22', beltHi: '#a9702e', buckle: '#e8c547',
+    pants: '#4e4a66', pantsSh: '#2d2b40', pantsDk: '#1b1a29',
+    boot: '#6b3f2a', bootSh: '#432618', bootHi: '#9a6440', soleDk: '#2a1610',
+    scarf: '#e8c547', scarfSh: '#b08d1e', glove: '#c9563a', gloveSh: '#8d3c28'
   };
 
-  /* legs(a, hipX, hipY, phase, pal, far) — one leg from a phase angle.
-     The knee is placed on the arc rather than interpolated, which is what
-     keeps a 4-frame run from looking like scissors. */
-  function leg(a, hx, hy, ang, pal, far) {
-    const c = far ? pal.pantsSh : pal.pants, bc = far ? pal.bootSh : pal.boot;
-    const kx = hx + Math.cos(ang) * 3, ky = hy + 3 + Math.abs(Math.sin(ang)) * 0.6;
-    const fx = kx + Math.cos(ang * 0.55 + 1.35) * 3, fy = Math.min(26, ky + 3.2);
-    a.line(hx, hy, kx, ky, c, 3);
+  /* leg(a, hipX, hipY, ang, pal, far)
+     `ang` is the THIGH's direction and the shin counter-rotates off the knee,
+     because that is what a knee does. The old rig placed the foot with an
+     unrelated cosine of the same angle, so the two legs of the idle pose
+     landed on the same pixel column and the hero stood on one stump. */
+  function leg(a, hx, hy, ang, pal, far, tuck) {
+    const c = far ? pal.pantsSh : pal.pants;
+    const cd = far ? pal.pantsDk : pal.pantsSh;
+    const bc = far ? pal.bootSh : pal.boot;
+    const bh = far ? pal.boot : pal.bootHi;
+    const bd = far ? pal.soleDk : pal.bootSh;
+    const kx = hx + Math.cos(ang) * 2.9, ky = hy + Math.sin(ang) * 2.9;
+    /* The shin follows the thigh instead of counter-rotating against it: the
+       old rule pulled both feet back under the hips, so a run with a 5px
+       thigh swing landed its boots two pixels apart and read as a shuffle.
+       `tuck` is heel-lift — at 1 the trailing leg folds up behind the hero
+       the way a sprinter's does, at 0 the foot stays planted for a stance. */
+    const sa = 1.5708 + (ang - 1.5708) * (ang < 1.5708 ? 0.55 : 0.55 + (tuck || 0) * 0.85);
+    const fx = Math.round(kx + Math.cos(sa) * 3.4);
+    const fy = Math.min(26, Math.round(ky + Math.sin(sa) * 3.4));
+    a.line(hx - 1, hy, kx - 1, ky, cd, 3);             // the leg's own dark back edge,
+    a.line(hx, hy, kx, ky, c, 3);                      //   so two legs never merge
+    a.line(kx - 1, ky, fx - 1, fy, cd, 2);             // shin
     a.line(kx, ky, fx, fy, c, 2);
-    a.rect(fx - 1, fy, fx + 2, fy + 1, bc);          // boot
-    a.px(fx + 2, fy + 1, far ? pal.bootSh : pal.bootSh);
+    a.px(kx - 1, ky, cd);                              // knee crease
+    a.rect(fx - 1, fy - 1, fx + 1, fy + 1, bc);        // boot
+    a.rect(fx - 1, fy - 1, fx, fy - 1, bh);            // instep catches the light
+    a.px(fx + 2, fy + 1, bc);                          // toe
+    a.rect(fx - 1, fy + 1, fx + 1, fy + 1, bd);        // sole
   }
-  /* Arms hang from the shoulder *point*, not the torso centre. With a 7px
-     torso the shoulder sits at cx±4, which is the only way a 2px limb stays
-     outside the body silhouette instead of vanishing into it. */
+
+  /* Arms hang from the shoulder *point*, not the torso centre, and they bend:
+     a 3px sleeve, a bare forearm and a glove, so the limb has a joint at any
+     pose instead of being one stick with a brick on the end. */
   function arm(a, sx, sy, ang, pal, far, hand) {
-    const c = far ? pal.shirtSh : pal.shirt, g = far ? '#8d3c28' : pal.glove;
-    const ex = sx + Math.cos(ang) * 3.2, ey = sy + Math.sin(ang) * 3.2;
-    const hx = ex + Math.cos(ang + 0.45) * 3, hy = ey + Math.sin(ang + 0.45) * 3;
-    a.line(sx, sy, ex, ey, c, 3);
-    a.line(ex, ey, hx, hy, far ? pal.skinSh : pal.skin, 2);
-    a.rect(hx - 1, hy - 1, hx + 1, hy + 1, g);
+    const c = far ? pal.shirtSh : pal.shirt, hi = far ? pal.shirt : pal.shirtHi;
+    const sk = far ? pal.skinSh : pal.skin, skh = far ? pal.skinSh : pal.skinHi;
+    const g = far ? '#9c4a34' : pal.glove;
+    const ex = sx + Math.cos(ang) * 3.4, ey = sy + Math.sin(ang) * 3.4;
+    const ha = ang + 0.45;
+    const hx = Math.round(ex + Math.cos(ha) * 3.2), hy = Math.round(ey + Math.sin(ha) * 3.2);
+    /* The near arm passes IN FRONT of a chest painted in its own sleeve
+       colour, so without a dark keyline around the limb the whole arm
+       dissolved into the torso and left a glove floating at the hip. */
+    const key = far ? '#0f2c48' : pal.shirtSh;
+    a.line(sx, sy, ex, ey, key, 4);
+    a.line(sx, sy, ex, ey, c, 3);                      // sleeve
+    a.line(sx, sy, ex, ey, hi, 1);                     // lit core down the middle of it
+    a.line(ex, ey, hx, hy, far ? '#7a4632' : pal.skinSh, 3);
+    a.line(ex, ey, hx, hy, sk, 2);                     // bare forearm
+    a.line(ex, ey, hx, hy, skh, 1);
+    /* The fist hangs at belt height and the belt is brown leather, so the
+       far glove used to be the same value as the strap behind it and read as
+       a satchel slung at the hip. A lighter leather plus a hard cuff line
+       above the knuckles is enough; a full keyline ring just made the hand a
+       five-pixel brick. */
+    /* A fist is knuckles over a tapered heel, not a 3x3 square, and the cuff
+       is a short band ACROSS the wrist. A full-width dark bar under a full
+       square simply stacked two bricks on the end of the arm. */
+    const cw = Math.round(hx - Math.cos(ha) * 1.7), cv = Math.round(hy - Math.sin(ha) * 1.7);
+    const nx = Math.round(-Math.sin(ha)), ny = Math.round(Math.cos(ha));
+    a.px(cw, cv, '#2a140e');
+    a.px(cw + nx, cv + ny, '#2a140e');
+    a.rect(hx - 1, hy - 1, hx + 1, hy, g);             // knuckles
+    a.rect(hx - 1, hy + 1, hx, hy + 1, pal.gloveSh);   // heel of the hand
+    a.px(hx - 1, hy - 1, far ? '#c06848' : '#e07a5a'); // lit knuckle
     if (hand) hand(a, hx, hy);
   }
-  /* Profile head. faceX = +1 looks right. Kept at y>=4 so the outline pass
-     always has a row above it — a head touching row 0 reads as decapitated. */
+
+  /* Profile head, built row by row — a profile is not an ellipse. The brow
+     stands proud of the socket, the nose breaks the front edge and the jaw
+     tucks back under it. The old head was a flat peach square under a flat
+     orange square with one big eye floating between them.
+     Occupies cy-5..cy+3, so cy must stay >= 6 for the outline to close. */
   function head(a, cx, cy, pal, faceX, eye) {
-    blob(a, cx, cy, 4, 4, pal.skin, null, pal.skinSh);
-    a.rect(cx - 4, cy - 5, cx + 4, cy - 2, pal.hair);        // hair cap
-    a.rect(cx - 4, cy - 5, cx + 1, cy - 4, pal.hairHi);
-    a.px(cx - 4 * faceX, cy - 1, pal.hair); a.px(cx - 4 * faceX, cy, pal.hair);   // back of head
-    a.rect(cx + 1 * faceX, cy + 2, cx + 3 * faceX, cy + 3, pal.skinSh);           // jaw shade
-    const ex = cx + 2 * faceX;
-    if (eye === 'shut') a.line(ex - 1, cy, ex, cy, OUT, 1);
-    else if (eye === 'hurt') { a.px(ex - 1, cy - 1, OUT); a.px(ex, cy, OUT); a.px(ex, cy - 1, OUT); a.px(ex - 1, cy, OUT); }
-    else { a.rect(ex - 1, cy - 1, ex, cy, OUT); a.px(ex - 1, cy - 1, '#ffffff'); }
-    a.px(cx + 4 * faceX, cy + 1, pal.skinSh);                                     // nose notch
-  }
-  function torso(a, cx, y0, pal, lean) {
-    const s = Math.round(lean);
-    blob(a, cx + s, y0 + 4, 3, 5, pal.shirt, pal.shirtHi, pal.shirtSh);
-    a.rect(cx - 3 + s, y0 + 7, cx + 3 + s, y0 + 8, pal.shirtSh);      // belt shadow
-    a.rect(cx - 3 + s, y0, cx + 3 + s, y0 + 1, pal.scarf);            // scarf collar
-    a.rect(cx - 3 + s, y0 + 1, cx + s, y0 + 1, pal.scarfSh);
-  }
-  /* The trailing scarf: the hero's whole read at 32px. It leaves the BACK of
-     the collar (never across the jaw) and tapers from 2px to 1px, so it reads
-     as cloth rather than a stick. Amplitude scales with speed — idle barely
-     drifts, a fall whips. */
-  function scarf(a, x, y, t, amp, pal, len = 6) {
-    for (let i = 0; i < len; i++) {
-      const k = i / len;
-      const sy = y + Math.sin(t * TAU + k * 3.6) * (0.6 + amp * k) + k * 1.2;
-      a.px(x - i, sy, k > 0.55 ? pal.scarfSh : pal.scarf);
-      if (k < 0.62) a.px(x - i, sy + 1, pal.scarfSh);
+    const f = faceX, L = x => cx + x * f;
+    a.rect(L(-3), cy - 2, L(4), cy - 2, pal.skin);                 // forehead
+    a.rect(L(-4), cy - 1, L(4), cy + 1, pal.skin);                 // brow to nose
+    a.rect(L(-3), cy + 2, L(3), cy + 2, pal.skin);                 // upper lip
+    a.rect(L(-2), cy + 3, L(3), cy + 3, pal.skin);                 // jaw
+    a.px(L(5), cy, pal.skin);                                      // bridge of the nose
+    a.px(L(5), cy + 1, pal.skin);                                  // tip
+    a.rect(L(-4), cy - 1, L(-3), cy + 1, pal.skinSh);              // back of the skull
+    a.rect(L(-2), cy + 2, L(0), cy + 3, pal.skinSh);               // shadowed side of the jaw
+    a.px(L(4), cy + 2, pal.skinSh);                                // under the nose
+    a.rect(L(1), cy - 2, L(4), cy - 2, pal.skinHi);                // forehead catches the light
+    a.rect(L(1), cy + 2, L(2), cy + 2, pal.lip);                   // mouth
+    a.px(L(-1), cy, pal.skinSh);                                   // ear
+    a.px(L(-1), cy + 1, pal.skinSh);
+    /* Hair: a cap that sweeps back to a point, with a fringe over the brow.
+       A squared-off block across the forehead is the single most reliable way
+       to make a pixel head look like a Lego brick. */
+    a.rect(L(-3), cy - 5, L(2), cy - 5, pal.hair);
+    a.rect(L(-4), cy - 4, L(4), cy - 3, pal.hair);
+    a.rect(L(-4), cy - 2, L(-2), cy + 1, pal.hair);                // it falls over the ear
+    a.px(L(4), cy - 2, pal.hair);                                  // fringe point on the brow
+    a.rect(L(-3), cy - 5, L(0), cy - 5, pal.hairHi);
+    a.rect(L(-4), cy - 4, L(1), cy - 4, pal.hairHi);
+    a.rect(L(-4), cy - 1, L(-3), cy + 1, pal.hairSh);              // nape in shadow
+    a.px(L(3), cy - 3, pal.hairSh);
+    const ex = L(2);
+    if (eye === 'shut') { a.rect(ex - 1, cy, ex + 1, cy, OUT); a.px(ex - 1, cy - 1, pal.skinSh); }
+    else if (eye === 'hurt') { a.px(ex - 1, cy - 1, OUT); a.px(ex + 1, cy - 1, OUT); a.px(ex, cy, OUT); a.px(ex - 1, cy + 1, OUT); a.px(ex + 1, cy + 1, OUT); }
+    else {
+      a.rect(ex, cy - 1, ex + 1, cy, OUT);                         // socket
+      a.px(ex + 1, cy - 1, '#ffffff');
+      a.rect(ex - 1, cy - 2, ex + 1, cy - 2, pal.skinSh);          // brow ridge over it
     }
+  }
+
+  /* Shoulders wide, waist narrow, a hard leather belt between shirt and
+     trousers. The torso used to be one flat capsule whose highlight and
+     shadow were both buried inside the silhouette. Spans hip-11..hip-1. */
+  function torso(a, cx, hip, pal, lean) {
+    const s = Math.round(lean), x = cx + s, t = hip - 11;
+    a.rect(x - 1, t, x + 2, t + 1, pal.skinSh);                    // neck
+    a.rect(x - 4, t + 2, x + 4, t + 6, pal.shirt);                 // shoulders and chest
+    a.rect(x - 3, t + 7, x + 3, t + 8, pal.shirt);                 // waist
+    a.rect(x - 4, t + 2, x - 3, t + 8, pal.shirtSh);               // back in shadow
+    a.rect(x + 3, t + 3, x + 4, t + 6, pal.shirtHi);               // chest edge catches the light
+    a.rect(x - 1, t + 2, x + 2, t + 2, pal.shirtHi);               // top of the shoulder
+    a.rect(x - 3, t + 2, x + 3, t + 2, pal.scarf);                 // the scarf wraps the collar
+    a.rect(x - 3, t + 3, x + 1, t + 3, pal.scarfSh);
+    a.rect(x - 3, t + 9, x + 3, t + 9, pal.belt);
+    a.rect(x - 3, t + 9, x - 1, t + 9, pal.beltHi);
+    a.rect(x + 1, t + 9, x + 2, t + 9, pal.buckle);
+    a.rect(x - 3, t + 10, x + 3, t + 10, pal.pants);               // hips
+    a.rect(x - 3, t + 10, x - 2, t + 10, pal.pantsSh);
+  }
+
+  /* The trailing scarf: the hero's whole read at 32px. Drawn as a CHAIN of
+     line segments — the old version stepped one pixel left per sample and let
+     the sine jump two rows between them, so the tail came out as a dotted
+     curve full of holes that the outline pass then rimmed one speck at a
+     time. It also drifted a row lower every step, which is how a scarf ends
+     up hanging at hip height looking like a banana. It streams BACKWARD. */
+  function scarf(a, x, y, t, amp, pal, len = 8) {
+    /* Standing still it DRAPES; running it streams. The old one always shot
+       straight out to the left whatever the hero was doing, which is why the
+       idle pose had a yellow wing bolted to its shoulder. */
+    const dx = Math.min(1, 0.22 + amp * 0.32), dy = 1 - dx * 0.86;
+    let px = x, py = y;
+    for (let i = 1; i <= len; i++) {
+      const k = i / len;
+      const nx = Math.round(x - i * dx);
+      const ny = Math.round(y + i * dy + Math.sin(t * TAU + k * 3.6) * (0.5 + amp * k * 0.8));
+      /* Taper in three steps. A cloth that is two pixels wide for half its
+         length and then stops square reads as a sock nailed to the collar. */
+      /* The 3px root only when the cloth DRAPES. Streaming flat at collar
+         height it merged with the collar wrap and gave the hero a yellow
+         yoke across both shoulders. */
+      const w = k < 0.3 ? (dy > 0.45 ? 3 : 2) : k < 0.62 ? 2 : 1;
+      a.line(px, py, nx, ny, k > 0.55 ? pal.scarfSh : pal.scarf, w);
+      if (w === 3) a.line(px, py - 1, nx, ny - 1, pal.scarf, 1);   // lit top fold
+      if (k > 0.62) a.px(nx, ny + 1, pal.scarfSh);                 // the underside in shadow
+      px = nx; py = ny;
+    }
+    a.px(px - 1, py, pal.scarfSh);                                 // frayed tip
+  }
+
+  /* A sword is a taper, a guard ACROSS the blade and a pommel behind the
+     fist. The old one was a 2px grey line with an axis-aligned 5x3 brick
+     stuck on the hand, which read as a spanner whatever the arm was doing. */
+  function sword(a, hx, hy, ang, len) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    const tx = hx + c * len, ty = hy + s * len;
+    const mx = hx + c * len * 0.55, my = hy + s * len * 0.55;
+    const gx = hx + c * 2, gy = hy + s * 2;
+    a.line(hx, hy, tx, ty, '#8b9bb4', 2);                          // blade
+    a.line(hx, hy, mx, my, '#8b9bb4', 3);                          // forte, thicker
+    a.line(hx, hy, tx, ty, '#c0cbdc', 1);                          // lit edge
+    a.line(gx + s * 2, gy - c * 2, gx - s * 2, gy + c * 2, '#b08d1e', 2);  // crossguard
+    a.line(gx + s * 2, gy - c * 2, gx - s * 2, gy + c * 2, '#e8c547', 1);
+    a.rect(hx - c * 2 - 1, hy - s * 2 - 1, hx - c * 2, hy - s * 2, '#b08d1e');  // pommel
+    a.px(tx, ty, '#ffffff');                                       // point
+  }
+  /* The slash used to plant its point through the floor and off the canvas on
+     the follow-through, because the blade length was a constant while the
+     fist travelled. Shorten the blade until the tip is inside the frame. */
+  function swordFit(a, hx, hy, ang, len) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    let L = len;
+    while (L > 5 && (hx + c * L < 2 || hx + c * L > 29 || hy + s * L < 2 || hy + s * L > 28)) L -= 1;
+    sword(a, hx, hy, ang, L);
+  }
+
+  /* Frames 1 and 2 of a slash do not show a sword. At fourteen frames a
+     second the blade is a blur, and a 5px stub (which is all that fits once
+     the fist has travelled to x26) reads as the hero waving a butter knife.
+     A crescent swept about the SHOULDER is what sells the speed — and it is
+     centred on the pivot, so the fist always lands inside it and the arc is
+     never a detached island for the outline pass to rim. */
+  function slashArc(a, cx, cy, a1, a2, r1, core, edge) {
+    const n = 24;
+    for (let k = 0; k <= n; k++) {
+      const u = k / n, ang = a1 + (a2 - a1) * u;
+      const c = Math.cos(ang), s = Math.sin(ang);
+      const th = 1 + 2.2 * Math.sin(u * Math.PI);                  // thickest mid-sweep
+      a.line(cx + c * (r1 - th), cy + s * (r1 - th), cx + c * r1, cy + s * r1, edge, 1);
+      a.px(cx + c * r1, cy + s * r1, core);                        // bright leading edge
+      if (u > 0.6) a.px(cx + c * (r1 - 1), cy + s * (r1 - 1), core);
+    }
+  }
+  /* Just the furniture: guard, grip and pommel, with the blade lost in the
+     blur. Keeps the hand from being a bare glove mid-swing. */
+  function hilt(a, hx, hy, ang) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    const gx = hx + c * 2, gy = hy + s * 2;
+    a.line(hx, hy, hx + c * 4, hy + s * 4, '#c0cbdc', 2);
+    a.line(gx + s * 2, gy - c * 2, gx - s * 2, gy + c * 2, '#b08d1e', 2);
+    a.line(gx + s * 2, gy - c * 2, gx - s * 2, gy + c * 2, '#e8c547', 1);
+    a.rect(hx - c * 2 - 1, hy - s * 2 - 1, hx - c * 2, hy - s * 2, '#b08d1e');
   }
 
   function heroSuite() {
     const p = HERO;
     const body = (a, t, opts) => {
       const o = opts || {};
-      // The rig spans hip-20 (hair cap) to hip+7 (boot sole, clamped at y27),
-      // so hip must stay >= 21 or the head clips the top of the frame.
-      const hip = o.hip === undefined ? 21 : o.hip;
+      /* The rig spans hip-16 (hair) to hip+7 (sole), so hip must stay >= 17
+         or the head clips the top of the frame and the outline cannot close. */
+      const hip = o.hip === undefined ? 20 : o.hip;
       const lean = o.lean || 0;
       const s = Math.round(lean);
-      leg(a, 16 + lean, hip, o.legB, p, true);
-      arm(a, 16 + s - 4, hip - 10, o.armB, p, true, o.handB);
-      // The scarf leaves the back of the shoulder, not the jaw: two rows above
-      // and it crosses the face on every frame with any lean.
-      scarf(a, 12 + s, hip - 9, t, o.wind === undefined ? 0.6 : o.wind, p, o.scarfLen);
-      torso(a, 16, hip - 12, p, lean);
-      head(a, 16 + s + 1, hip - 15, p, 1, o.eye);
-      leg(a, 16 + lean, hip, o.legA, p, false);
-      arm(a, 16 + s + 4, hip - 10, o.armA, p, false, o.handA);
+      leg(a, 16 + s - 1, hip, o.legB, p, true, o.tuck);
+      arm(a, 16 + s - 3, hip - 8, o.armB, p, true, o.handB);
+      // The scarf leaves the BACK of the collar, never the jaw: two rows up
+      // and it crosses the face on every frame that has any lean at all.
+      scarf(a, 13 + s, hip - 8, t, o.wind === undefined ? 0.6 : o.wind, p, o.scarfLen);
+      torso(a, 16, hip, p, lean);
+      head(a, 16 + s + 1, hip - 14, p, 1, o.eye);
+      leg(a, 16 + s + 1, hip, o.legA, p, false, o.tuck);
+      arm(a, 16 + s + 4, hip - 8, o.armA, p, false, o.handA);
     };
     return {
       width: 32, height: 32, name: 'Platform Hero',
       layers: [{ name: 'hero' }],
       states: [
-        // idle: a 2px breath on the torso, scarf drifting — never frozen
+        // idle: a 1px breath on the torso, scarf drifting — never frozen.
+        // The stance is contrapposto: the two legs must not share a column.
         D('idle', 6, true, cyc(4, 6, (a, i, t) => {
-          const b = Math.round(Math.sin(t * TAU) * 0.9);
-          body(a, t, { hip: 22 - b, legA: 1.62 + b * 0.05, legB: 1.52, armA: 1.45 + b * 0.12, armB: 1.6, wind: 0.8 });
+          const b = [0, 1, 1, 0][i];                 // a breath, and hip stays >= 20
+          body(a, t, { hip: 20 + b, legA: 1.40 + b * 0.05, legB: 1.80, armA: 1.22 + b * 0.12, armB: 1.8, wind: 0.7 });
         })),
         D('run', 12, true, cyc(8, 12, (a, i) => {
           const ph = (i / 8) * TAU;
           body(a, i / 8, {
-            hip: 21 + (i % 2 === 0 ? 1 : 0), lean: 1.4,
-            legA: 1.57 + Math.sin(ph) * 0.95, legB: 1.57 + Math.sin(ph + Math.PI) * 0.95,
-            armA: 1.5 - Math.sin(ph) * 0.9, armB: 1.5 - Math.sin(ph + Math.PI) * 0.9, wind: 2.1
+            // Lowest as the body passes over a planted foot, highest at the
+            // two heel strikes — the half-period the old (i % 2) bob missed.
+            hip: 20 + Math.round(Math.abs(Math.sin(ph))), lean: 2.2, tuck: 1,
+            legA: 1.57 + Math.sin(ph) * 1.25, legB: 1.57 + Math.sin(ph + Math.PI) * 1.25,
+            armA: 1.5 - Math.sin(ph) * 0.95, armB: 1.5 - Math.sin(ph + Math.PI) * 0.95, wind: 2.1
           });
         })),
         // jump: one rise + apex, no ground contact expected (AIRBORNE state)
         D('jump', 10, false, seq(4, 10, (a, i, t) => {
           // The engine translates a jumping sprite; the frame itself only
           // tucks the legs and throws the arms up, so nothing leaves the canvas.
-          body(a, t, { hip: 22 - i * 0.3, lean: 0.6, legA: 2.6 - t * 1.1, legB: 1.05 + t * 0.55,
-            armA: 4.2 + t * 0.5, armB: 3.9 - t * 0.4, wind: 2.6, scarfLen: 8 });
+          /* Arms thrown UP used to be armA ~ -2 rad, which sweeps the fist
+             straight across a head whose centre is three pixels behind the
+             shoulder: every airborne frame had a skin-coloured mitten parked
+             on the hero's face. One arm reaches forward, the other trails. */
+          body(a, t, { hip: 21 - i * 0.3, lean: 0.6, tuck: 1, legA: 2.5 - t * 1.0, legB: 1.15 + t * 0.5,
+            armA: -0.6 + t * 0.3, armB: 2.6 - t * 0.35, wind: 2.6, scarfLen: 9 });
         })),
         D('fall', 8, true, cyc(3, 8, (a, i, t) => {
-          body(a, t, { hip: 21 + i * 0.4, lean: -0.6, legA: 1.2 + i * 0.25, legB: 2.3 - i * 0.2,
-            armA: 4.6, armB: 4.4 - i * 0.2, wind: 3.0, scarfLen: 9 });
+          body(a, t, { hip: 20 + i * 0.4, lean: -0.6, tuck: 1, legA: 1.2 + i * 0.25, legB: 2.3 - i * 0.2,
+            // The far arm stays BELOW the streaming scarf: raised up-and-back
+            // it sat in the cloth's lane, the scarf painted over the sleeve and
+            // left the glove hanging in space.
+            armA: -1.0 + i * 0.12, armB: 2.5 + i * 0.18, wind: 3.0, scarfLen: 10 });
         })),
-        // land: a hard squash that recovers — the frame that sells weight
+        // land: a hard squash that recovers — the frame that sells weight.
+        // The dust is drawn as WEDGES: loose single pixels get rimmed into
+        // little bordered bricks by the outline pass and read as gravel.
         D('land', 14, false, seq(3, 14, (a, i, t) => {
           const sq = [3, 1, 0][i];
-          body(a, t, { hip: 21 + sq * 0.4, legA: 2.3 - t, legB: 0.9 + t, armA: 3.6 - t, armB: 3.4 - t, wind: 1.4 });
-          for (let k = 0; k < 4 - i; k++) { const dx = 5 + k * 2; a.px(16 - dx, 26 - k, '#c8c3bc'); a.px(16 + dx, 26 - k, '#c8c3bc'); }
+          body(a, t, { hip: 20 + sq * 0.5, legA: 2.2 - t * 0.9, legB: 0.95 + t * 0.9,
+            armA: 1.0 - t * 0.25, armB: 2.25 + t * 0.2, wind: 1.4 });
+          /* Dust as a plume that HUGS the ground and starts at the boot, not
+             a scatter of loose specks. Anything detached gets its own 1px
+             border from the outline pass, so the first two attempts read as
+             gravel and then as grey teeth. One connected arc per side, two
+             pixels thick, fading as it settles. */
+          const reach = [9, 6, 4][i];
+          for (const sg of [-1, 1]) {
+            for (let k = 2; k <= reach; k++) {
+              const X = 16 + sg * k;
+              const top = 27 - Math.round(Math.sin((k - 1) / reach * Math.PI) * 2.8);
+              a.rect(X, top, X, Math.min(27, top + 1), k > reach - 2 ? '#6d635c' : (k < 4 ? '#8a8078' : '#c8c3bc'));
+            }
+          }
         })),
         // attack: wind-up, slash arc, recover
         D('attack', 14, false, seq(4, 14, (a, i, t) => {
           // Wind-up stops at -0.8rad with a shortened blade: a full overhead
           // raise puts the sword tip on row 0, where the outline cannot close.
-          const sw = [-0.8, -0.2, 0.9, 1.5][i], L = i === 0 ? 8 : 10;
-          body(a, t, { hip: 21, lean: i === 1 ? 1.6 : 0.4, legA: 2.1, legB: 1.1, armB: 2.0, wind: 1.8,
+          // The recovery stops at 1.1rad for the same reason at the bottom —
+          // the old 1.5 drove the point through the floor and off the canvas.
+          const sw = [0.45, -0.3, 0.55, 1.05][i];
+          body(a, t, { hip: 20, lean: 0.4, legA: 2.25, legB: 0.95, armB: 2.0, wind: 1.8,
             armA: sw, handA: (ap, hx, hy) => {
-              const ang = sw - 0.2;
-              ap.line(hx, hy, hx + Math.cos(ang) * L, hy + Math.sin(ang) * L, '#c0cbdc', 2);
-              ap.line(hx + 2, hy, hx + Math.cos(ang) * (L - 1), hy + Math.sin(ang) * (L - 1), '#ffffff', 1);
-              ap.rect(hx - 2, hy - 1, hx + 2, hy + 1, '#8b9bb4');
+              if (i === 0) swordFit(ap, hx, hy, -1.45, 10);       // raised, before the swing
+              else if (i === 3) swordFit(ap, hx, hy, 1.45, 9);    // planted low, after it
+              else hilt(ap, hx, hy, i === 1 ? -0.9 : 0.8);
             } });
-          if (i >= 1 && i <= 2) for (let k = 0; k < 9; k++) {
-            const ar = sw - 0.9 + (k / 9) * 1.9;
-            a.px(16 + Math.cos(ar) * 13, 11 + Math.sin(ar) * 13, i === 1 ? '#8b9bb4' : '#ffffff');
-          }
+          // Pivoted on the shoulder, starting past the nose: swept from the
+          // torso centre the crescent laid a white wedge across the hero's face.
+          if (i === 1) slashArc(a, 20, 12, -0.95, 0.35, 11, '#ffffff', '#c0cbdc');
+          if (i === 2) slashArc(a, 20, 12, 0.2, 1.45, 11, '#dfe6f2', '#8b9bb4');
         })),
         D('hurt', 10, false, seq(3, 10, (a, i, t) => {
-          body(a, t, { hip: 21 + i * 0.6, lean: -1.6, legA: 2.4 - i * 0.2, legB: 1.0 + i * 0.2, armA: 4.4, armB: 4.6, eye: 'hurt', wind: 2.4 });
-          for (let k = 0; k < 5 - i; k++) a.px(22 + k, 8 + k * 2 - i, '#e43b44');
+          body(a, t, { hip: 20 + i * 0.6, lean: -1.6, legA: 2.4 - i * 0.2, legB: 1.0 + i * 0.2,
+            armA: -0.35 - i * 0.12, armB: 2.55 + i * 0.14, eye: 'hurt', wind: 2.4 });
+          // Impact chevrons stacking away from the blow, kept inside the frame
+          // so the outline pass can close around the outermost one.
+          for (let k = 0; k < 3 - i; k++) {
+            const d = 2 + k * 3;
+            a.line(19 + d, 10 - d, 21 + d, 12 - d, '#e43b44', 1);
+            a.line(21 + d, 12 - d, 19 + d, 14 - d, '#e43b44', 1);
+          }
         }))
       ]
     };
