@@ -1036,15 +1036,35 @@ PF.Platformer = (() => {
     const STONE = '#6d7d92', STONE_D = '#48566a', STONE_L = '#a3b1c4';
     const cell = (api, cx, cy) => P().offsetApi(api, cx * 16, cy * 16);
 
-    const dirtBase = a => { a.rect(0, 0, 15, 15, DIRT); speck(a, 0, 0, 15, 15, 21, [DIRT_D, DIRT_L], 0.32); };
+    /* Packed earth, not noise: the speck pass alone gave a uniform TV-static
+       brown. Stones sit in it with a lit top and a shadow under them, which
+       is what makes the surface read as having depth at 16px. */
+    const dirtBase = a => {
+      a.rect(0, 0, 15, 15, DIRT);
+      speck(a, 0, 0, 15, 15, 21, [DIRT_D, DIRT_L], 0.3);
+      for (let k = 0; k < 4; k++) {
+        const sx = Math.floor(a.hash(k, 11, 3) * 12) + 1, sy = Math.floor(a.hash(k, 17, 3) * 12) + 1;
+        const w = 1 + Math.floor(a.hash(k, 23, 3) * 2);
+        a.rect(sx, sy, sx + w, sy + 1, DIRT_D);
+        a.rect(sx, sy, sx + w, sy, '#8d5e39');
+        a.px(sx, sy, DIRT_L);
+      }
+    };
     const grassCap = (a, left, right) => {
       a.rect(0, 0, 15, 4, GRASS);
-      a.rect(0, 0, 15, 1, GRASS_L);
-      // ragged root line into the dirt, deterministic per column
-      for (let x = 0; x < 16; x++) { const d = Math.floor(a.hash(x, 3, 5) * 3); a.rect(x, 5, x, 5 + d, GRASS_D); }
+      a.rect(0, 0, 15, 0, GRASS_L);
+      a.rect(0, 1, 15, 1, '#5ab54a');
+      /* Dither the sward down into the soil. Butted edge to edge, the two
+         flats read as a green stripe painted across a brown one; the roots
+         have to interleave for the tile to look like ground. */
+      for (let x = 0; x < 16; x++) {
+        const d = Math.floor(a.hash(x, 3, 5) * 3);
+        a.rect(x, 4, x, 5 + d, GRASS_D);
+        if ((x + d) % 2 === 0) a.px(x, 6 + d, GRASS_D);
+        if (a.hash(x, 7, 9) > 0.52) a.px(x, 2, GRASS_L);   // a blade catching the sun
+      }
       if (left) { a.rect(0, 0, 1, 15, DIRT_D); a.rect(0, 0, 1, 4, GRASS_D); }
       if (right) { a.rect(14, 0, 15, 15, DIRT_D); a.rect(14, 0, 15, 4, GRASS_D); }
-      for (let x = 1; x < 15; x += 5) { a.px(x, 0, GRASS_L); a.px(x + 2, 1, GRASS_L); }
     };
     const paint = (a) => {
       // ---- row 0: grass surface
@@ -1069,14 +1089,25 @@ PF.Platformer = (() => {
       br.rect(0, 0, 15, 15, STONE_D);
       for (let row = 0; row < 4; row++) for (let k = -1; k < 3; k++) {
         const bx = k * 8 + (row % 2 ? 4 : 0), by = row * 4;
-        br.rect(bx, by, bx + 6, by + 2, STONE);
+        // Every brick is a slab with a lit top arris and its own shadow cast
+        // into the mortar below; one flat tone per brick reads as wallpaper.
+        br.rect(bx, by, bx + 6, by + 2, (row + k) % 2 ? STONE : '#7a8a9e');
         br.rect(bx, by, bx + 6, by, STONE_L);
+        br.rect(bx, by + 2, bx + 6, by + 2, '#5a6878');
+        br.px(bx, by + 1, '#5a6878');                 // shaded left return
       }
       const ore = cell(a, 2, 2);
       ore.rect(0, 0, 15, 15, STONE); speck(ore, 0, 0, 15, 15, 33, [STONE_D], 0.36);
       [[4, 4], [9, 7], [5, 11]].forEach(([ox, oy], k) => {
-        const c2 = ['#f6c33a', '#7fd4ff', '#f6c33a'][k];
-        ore.ellipse(ox, oy, ox + 2, oy + 2, c2, true); ore.px(ox, oy, '#ffffff');
+        /* A crystal seam, not a sparkle: a 3px blob with a white dot on it
+           looked like a highlight someone dropped on the rock. Each nodule
+           gets a socket chipped into the stone, a table and a pavilion. */
+        const [hi, mid, dk] = k === 1 ? ['#bdeaff', '#7fd4ff', '#2a6fa8'] : ['#fff0a8', '#f6c33a', '#9a6a10'];
+        ore.rect(ox - 1, oy - 1, ox + 3, oy + 3, STONE_D);
+        ore.rect(ox - 1, oy - 1, ox + 3, oy - 1, '#5a6878');
+        ore.rect(ox, oy, ox + 2, oy + 1, mid);
+        ore.px(ox + 1, oy + 2, dk);
+        ore.px(ox, oy, hi); ore.px(ox + 2, oy + 1, dk);
       });
       const ledge = cell(a, 3, 2);
       ledge.rect(0, 2, 15, 8, STONE); ledge.rect(0, 2, 15, 3, STONE_L); ledge.rect(0, 7, 15, 8, STONE_D);
@@ -1091,10 +1122,16 @@ PF.Platformer = (() => {
       for (let k = 0; k < 4; k++) { const x = k * 4;
         for (let r = 0; r < 11; r++) sp.rect(x + Math.floor(r / 4), 11 - r, x + 3 - Math.floor(r / 4), 11 - r, r > 6 ? '#e4eaf2' : '#c0cbdc'); }
       const wat = cell(a, 2, 3);
-      wat.rect(0, 0, 15, 15, '#2a6fa8');
-      wat.rect(0, 0, 15, 2, '#4e9ed6');
-      for (let x = 0; x < 16; x++) { const y = 3 + Math.round(Math.sin(x * 0.6) * 1.2); wat.rect(x, y, x, y, '#9ad8ff'); }
-      speck(wat, 0, 4, 15, 15, 44, ['#17456d', '#4e9ed6'], 0.28);
+      // Depth ramp down the column plus a lit crest with foam riding on it:
+      // flat blue with noise over it read as a swatch, not as water.
+      for (let y = 0; y < 16; y++) wat.rect(0, y, 15, y, y < 3 ? '#4e9ed6' : y < 9 ? '#2a6fa8' : y < 13 ? '#1f5a8e' : '#17456d');
+      for (let x = 0; x < 16; x++) {
+        const y = 3 + Math.round(Math.sin(x / 16 * TAU) * 1.4);
+        wat.rect(x, y, x, y, '#9ad8ff');
+        wat.rect(x, y + 1, x, y + 2, '#4e9ed6');
+        if ((x + (y > 3 ? 1 : 0)) % 3 === 0) wat.px(x, y - 1, '#dff2ff');   // foam on the crest
+      }
+      speck(wat, 0, 6, 15, 15, 44, ['#17456d', '#4e9ed6'], 0.22);
       const cl = cell(a, 3, 3);
       cl.ellipse(0, 5, 9, 13, '#e4eaf2', true); cl.ellipse(5, 2, 15, 12, '#e4eaf2', true);
       cl.ellipse(1, 6, 8, 11, '#ffffff', true); cl.ellipse(6, 3, 13, 9, '#ffffff', true);
@@ -1127,6 +1164,10 @@ PF.Platformer = (() => {
           + Math.sin(x / 64 * TAU * 5 + seed) * amp * 0.18);
         a.rect(x, baseY - h, x, 31, fill);
         a.rect(x, baseY - h, x, baseY - h, cap);
+        // Haze feathering off the crest. Drawn as a separate bright ribbon it
+        // read as a zip fastener stitched across the range; the distance is
+        // sold by softening the ridge line itself.
+        if ((x + h) % 2 === 0) a.px(x, baseY - h + 1, cap);
       }
     };
     /* Foliage has to wrap. A parallax layer whose sprites clip at x=63 shows a
@@ -1149,18 +1190,26 @@ PF.Platformer = (() => {
         })),
         D('hills_mid', 1, false, still(a => {
           band(a, 0, 31, '#6a4a86', '#8c5f96');
+          // Three ranges receding into haze: two gave a cut-out look, and the
+          // atmosphere between them is what sells the distance.
+          ridge(a, 18, 7, '#5c4278', '#7a5a96', 1.9);
           ridge(a, 22, 6, '#4a3566', '#6b4f8a', 0.7);
           ridge(a, 28, 4, '#33254a', '#4a3566', 2.4);
         })),
         D('trees_near', 1, false, still(a => {
-          band(a, 0, 31, '#1d2340', '#141a30');
+          /* The near layer was so dark it was a black bar: a silhouette still
+             needs two values inside it and a rim where the sky touches the
+             canopy, or it stops reading as trees at all. */
+          band(a, 0, 31, '#2a3358', '#1a2340');
           for (let k = 0; k < 9; k++) {
             const x = (k * 7 + 2) % 64, h = 10 + ((k * 5) % 9);
-            wrapLine(a, x, x + 1, 31, '#0d1224');
             for (let ty = 31 - h; ty <= 31; ty++) wrapLine(a, x, x + 1, ty, '#0d1224');
-            for (let b = 0; b < 4; b++) { const by = 31 - h + b * 3;
-              wrapLine(a, x - 3 - b, x + 4 + b, by + 2, '#111a2e');
-              wrapLine(a, x - 2 - b, x + 3 + b, by + 1, '#0d1224'); }
+            for (let b = 0; b < 4; b++) {
+              const by = 31 - h + b * 3;
+              wrapLine(a, x - 3 - b, x + 4 + b, by + 2, '#141c34');
+              wrapLine(a, x - 2 - b, x + 3 + b, by + 1, '#0d1224');
+              wrapLine(a, x - 2 - b, x - b, by, '#233052');        // moonlit crown, left flank only
+            }
           }
           a.rect(0, 30, 63, 31, '#0a0e1c');
         }))
