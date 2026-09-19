@@ -51,8 +51,10 @@ Three browser entry points sharing one engine:
 | `studio.html` | The pixel-art editor (canvas, timeline, tools, agent console) |
 | `app/index.html` | Workspace shell — projects, template gallery, agent cockpit, docs, MCP |
 
-Plus `games/runefall/` — a playable survivors-like that consumes the asset
-library and doubles as an integration test for it.
+Plus four playable demo games under `games/` — `runefall` (survivors-like),
+`nightfall` (top-down shooter), `ironvale` (isometric skirmish) and `gatehold`
+(settlement defence against night waves of ants). They consume the asset
+library and double as integration tests for it.
 
 The interesting part is `js/library/`: **84 template packs, 694 animation
 states, 2,485 frames**, all generated from code. Run `node scripts/info.js` for
@@ -132,7 +134,10 @@ js/library/index.js      PF.Library — THE template registry
 js/agent/*               in-browser agent tool surface (tools, studio-tools, agent, mcp)
 js/ui/*                  page boot scripts (landing, studio, panels)
 
-games/runefall/          demo game consuming the library
+games/runefall/          survivors-like demo game
+games/nightfall/         top-down shooter demo game
+games/ironvale/          isometric skirmish demo game
+games/gatehold/          settlement-defence demo game
 scripts/                 dev tooling (see §2) — all Node, all dependency-free
 ```
 
@@ -155,10 +160,10 @@ core/store → core/raster → core/renderer → core/input → core/animation
 `scripts/lib-boot.js` loads a subset (`raster` + `library/*`) headlessly into a
 fake `window` so the whole asset pipeline runs in plain Node. **If you add a
 library file, add it to `FILES` in `scripts/lib-boot.js` and to the `<script>`
-list in all four HTML pages** (`index.html`, `studio.html`, `app/index.html`,
-`games/runefall/index.html`), and register it in `js/library/index.js` — six
+list in every HTML page** (`index.html`, `studio.html`, `app/index.html`, and
+each `games/*/index.html`), and register it in `js/library/index.js` — nine
 places in all. `check-pages.js` asserts every `js/library/*.js` entry in
-`FILES` appears in all four pages, so a missed `<script>` tag fails the gate
+`FILES` appears in every page, so a missed `<script>` tag fails the gate
 rather than surfacing as `PF.YourPack is undefined` on one page only.
 
 ### 4.2 The pixel buffer contract

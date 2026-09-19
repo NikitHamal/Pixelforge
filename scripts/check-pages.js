@@ -23,7 +23,8 @@ const PAGES = [
   ['app/index.html', []],
   ['games/runefall/index.html', []],
   ['games/nightfall/index.html', []],
-  ['games/ironvale/index.html', []]
+  ['games/ironvale/index.html', []],
+  ['games/gatehold/index.html', []]
 ];
 
 let fail = 0, pass = 0, note = 0;

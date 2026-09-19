@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Gatehold &mdash; Settlement Defence</title>
+<meta name="description" content="Hold a wooden settlement through the dark: villagers, roads and gates against night waves of ants. Built on PixelForge's procedural art engine.">
+<meta name="theme-color" content="#1b1318">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<div id="app">
+  <div id="stage"><canvas id="cv"></canvas></div>
+
+  <div id="hud">
+    <div id="topbar">
+      <div class="res" id="res-row">
+        <span class="stat"><canvas class="ico" data-ico="wood" width="16" height="16"></canvas><b id="res-wood">0</b></span>
+        <span class="stat"><canvas class="ico" data-ico="food" width="16" height="16"></canvas><b id="res-food">0</b></span>
+        <span class="stat"><canvas class="ico" data-ico="stone" width="16" height="16"></canvas><b id="res-stone">0</b></span>
+        <span class="stat"><canvas class="ico" data-ico="tool" width="16" height="16"></canvas><b id="res-tools">0</b></span>
+        <span class="stat"><canvas class="ico" data-ico="pop" width="16" height="16"></canvas><b id="res-pop">0/0</b></span>
+      </div>
+      <div id="wave-txt">DUSK IN 30S</div>
+      <div id="slain-box"><canvas class="ico" data-ico="skull" width="16" height="16"></canvas><b id="killed-txt">0</b></div>
+      <div id="hearth-box">
+        <canvas class="ico" data-ico="heart" width="16" height="16"></canvas>
+        <span class="bar"><i id="hearth-fill"></i></span>
+        <b id="hearth-txt">400/400</b>
+      </div>
+      <div id="clock-box">
+        <b id="day-txt">Day 1</b>
+        <span id="clock-txt">19:00</span>
+      </div>
+      <div id="sys">
+        <button class="ib" id="btn-speed" title="Fast-forward (F)">1x</button>
+        <button class="ib" id="btn-pause">PAUSE</button>
+        <button class="ib" id="btn-mute">SOUND</button>
+      </div>
+    </div>
+
+    <div id="panel" aria-label="Build"></div>
+
+    <div id="tip" class="hidden-tip">
+      <b id="tip-name">Road</b>
+      <span id="tip-line1">Cost: 1 WOOD</span>
+      <span id="tip-line2">Health: 30/30</span>
+      <p id="tip-desc"></p>
+    </div>
+
+    <div id="hint"><b>WASD</b> pan &middot; <b>1-9</b> build &middot; <b>click</b> place &middot; <b>click a villager</b> to change their work &middot; <b>P</b> pause &middot; <b>F</b> fast-forward &middot; <b>M</b> sound</div>
+    <div id="toast"></div>
+  </div>
+
+  <div id="screen-title" class="screen">
+    <div class="sheet">
+      <h1>GATE<span>HOLD</span></h1>
+      <p class="tag">The valley is quiet at dusk. It will not be at dark. Build the road, raise the gate, and keep the hearth lit.</p>
+      <div id="picker"></div>
+      <p class="hint"><b>WASD</b> pan &middot; <b>1-9</b> pick a structure &middot; <b>click</b> place &middot; <b>P</b> pause &middot; <b>F</b> fast-forward</p>
+    </div>
+  </div>
+
+  <div id="screen-over" class="screen hidden">
+    <div class="sheet">
+      <h2 id="over-title">THE HEARTH IS LOST</h2>
+      <p id="over-sub"></p>
+      <div id="over-stats"></div>
+      <button class="big" id="btn-again">BUILD AGAIN</button>
+    </div>
+  </div>
+</div>
+  <script src="../../js/core/raster.js"></script>
+  <script src="../../js/core/palette.js"></script>
+  <script src="../../js/core/effects.js"></script>
+  <script src="../../js/core/gen.js"></script>
+  <script src="../../js/core/tiles.js"></script>
+  <script src="../../js/core/gif.js"></script>
+  <script src="../../js/core/zip.js"></script>
+  <script src="../../js/core/exporters.js"></script>
+  <script src="../../js/library/pixel.js"></script>
+  <script src="../../js/library/characters.js"></script>
+  <script src="../../js/library/monsters.js"></script>
+  <script src="../../js/library/world.js"></script>
+  <script src="../../js/library/items.js"></script>
+  <script src="../../js/library/rpg_heroes.js"></script>
+  <script src="../../js/library/rpg_foes.js"></script>
+  <script src="../../js/library/rpg_world.js"></script>
+  <script src="../../js/library/rpg_items.js"></script>
+  <script src="../../js/library/rpg_expand.js"></script>
+  <script src="../../js/library/rpg_classes.js"></script>
+  <script src="../../js/library/rpg_beasts.js"></script>
+  <script src="../../js/library/rpg_props.js"></script>
+  <script src="../../js/library/rpg_medieval.js"></script>
+  <script src="../../js/library/rpg_tiny.js"></script>
+  <script src="../../js/library/rpg_life.js"></script>
+  <script src="../../js/library/fx2.js"></script>
+  <script src="../../js/library/ui_kit.js"></script>
+  <script src="../../js/library/fonts.js"></script>
+  <script src="../../js/library/platformer.js"></script>
+  <script src="../../js/library/scifi.js"></script>
+  <script src="../../js/library/space.js"></script>
+  <script src="../../js/library/rig.js"></script>
+  <script src="../../js/library/modern.js"></script>
+  <script src="../../js/library/farm.js"></script>
+  <script src="../../js/library/iso.js"></script>
+  <script src="../../js/library/topdown.js"></script>
+  <script src="../../js/library/forge.js"></script>
+  <script src="../../js/library/index.js"></script>
+<script src="../lib/bake.js"></script>
+<script src="js/art.js"></script>
+<script src="js/world.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

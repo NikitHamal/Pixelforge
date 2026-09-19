@@ -45,7 +45,7 @@ for (let i = 0; i < warm; i++) {
   pump();
 }
 
-const probe = window.NIGHTFALL || window.IRONVALE;
+const probe = window.NIGHTFALL || window.IRONVALE || window.GATEHOLD;
 if (probe) console.log('  state: ' + JSON.stringify(probe.stats()));
 const backing = cv.data;
 if (!backing) throw new Error('no raster backing on #cv — is the soft canvas wired up?');

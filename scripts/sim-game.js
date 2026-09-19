@@ -69,6 +69,37 @@ const GAMES = {
           'nothing died \u2014 melee/foe collision is broken');
       return `clock ${clock}, hp ${hp}, keep ${keep}, renown ${renown}, ${doc.byId['wave-txt'].textContent}`;
     }
+  },
+  'games/gatehold': {
+    start(doc) {
+      const picker = doc.byId['picker'];
+      const first = picker && picker.children[0];
+      if (!first) throw new Error('gatehold: title screen produced no opening buttons');
+      first.emit('click', {});
+      if (!doc.byId['screen-title'].classList.contains('hidden'))
+        throw new Error('gatehold: choosing an opening did not dismiss the title screen');
+    },
+    /* The hearth meter is the load-bearing readout: it only moves when a wave
+       walked the valley, found the settlement and chewed through it. The wood
+       counter proves the gather/haul loop closed, and the clock proves the
+       day/night drive is running. */
+    check(doc) {
+      const clock = doc.byId['clock-txt'].textContent;
+      if (!/^\d\d:\d\d$/.test(clock) || clock === '19:00')
+        throw new Error('gatehold: clock never advanced (' + clock + ')');
+      const day = doc.byId['day-txt'].textContent;
+      if (!/^Day \d+$/.test(day)) throw new Error('gatehold: day readout malformed (' + day + ')');
+      const wood = Number(doc.byId['res-wood'].textContent);
+      if (!(wood > 60))
+        throw new Error('gatehold: nobody hauled any wood in a whole run (' + wood + ') — ' +
+          'the gather/haul loop is broken');
+      const pop = doc.byId['res-pop'].textContent;
+      if (!/^\d+\/\d+$/.test(pop)) throw new Error('gatehold: population readout malformed (' + pop + ')');
+      const [hp, max] = doc.byId['hearth-txt'].textContent.split('/').map(Number);
+      if (!(max > 0) || !(hp < max))
+        throw new Error('gatehold: the swarm never hurt the hearth (' + hp + '/' + max + ')');
+      return `clock ${clock}, ${day}, wood ${wood}, pop ${pop}, hearth ${hp}/${max}, ${doc.byId['wave-txt'].textContent}`;
+    }
   }
 };
 
