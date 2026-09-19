@@ -83,7 +83,32 @@ const sweep = i => {
     clientY: global.innerHeight / 2 + Math.sin(i * 0.031) * r };
 };
 
+/* A gate that passes nineteen runs in twenty is not a gate. Both games seed
+   their spawns and their aim spread from Math.random(), so whether a bullet
+   ever met an enemy inside the sim's frame budget was a coin flip — and
+   "thousands of rounds went into a horde and nothing died" is precisely the
+   regression this harness exists to catch, so it must not fire at random.
+   Every run now draws from the same xorshift stream.
+   Both games ALSO seed their world generator from Date.now(), so the map
+   itself differed run to run; the wall clock is pinned to a fixed epoch and
+   advanced one frame at a time to match the harness's own rAF clock. */
+function seedRandom() {
+  const realRandom = Math.random, realNow = Date.now;
+  let s = 0x9e3779b9, t = 1700000000000;
+  Math.random = () => {
+    s ^= s << 13; s ^= s >>> 17; s ^= s << 5; s |= 0;
+    return (s >>> 0) / 4294967296;
+  };
+  Date.now = () => (t += 1000 / 60);
+  return () => { Math.random = realRandom; Date.now = realNow; };
+}
+
 function run(rel, frames) {
+  const restoreRandom = seedRandom();
+  try { return runGame(rel, frames); } finally { restoreRandom(); }
+}
+
+function runGame(rel, frames) {
   const dir = path.join(ROOT, rel);
   const page = path.join(dir, 'index.html');
   if (!fs.existsSync(page)) throw new Error(rel + ': no index.html');

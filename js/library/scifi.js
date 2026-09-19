@@ -49,13 +49,21 @@ PF.SciFi = (() => {
     /* Far side first, in the shadow ramp. Two tones of separation between the
        far limbs and the torso is what stops a 32px figure from reading as one
        white slab — the walk cycle is invisible without it. */
-    const limb = (x, top, phase, main, dark, boot, bootDark) => {
-      a.rect(x, top, x + 2, legY + phase, dark);
-      a.rect(x, top, x, legY + phase, main);
-      a.rect(x - 1, legY + phase, x + 2, legY + 2 + phase, boot);
-      a.rect(x - 1, legY + 2 + phase, x + 2, legY + 2 + phase, bootDark);
+    /* A leg that gets LONGER on the forward beat and shorter on the back one
+       is a piston, not a stride — which is exactly what `legY + phase` was.
+       The thigh stays put, the shin swings from the knee, and only the leg
+       travelling forward leaves the floor. */
+    const limb = (x, top, sw, main, dark, boot, bootDark) => {
+      const dx = Math.round(sw), lift = Math.round(Math.max(0, sw));
+      const knee = top + 3, foot = legY - lift;
+      a.rect(x, top, x + 2, knee, dark);
+      a.rect(x, top, x, knee, main);
+      a.rect(x + dx, knee, x + dx + 2, foot, dark);
+      a.rect(x + dx, knee, x + dx, foot, main);
+      a.rect(x + dx - 1, foot, x + dx + 2, foot + 2, boot);
+      a.rect(x + dx - 1, foot + 2, x + dx + 2, foot + 2, bootDark);
     };
-    limb(13, hip - 1, up, pal.legSh, pal.legSh, pal.bootSh, pal.bootSh);
+    limb(13, hip - 1, sw, pal.legSh, pal.legSh, pal.bootSh, pal.bootSh);
     // far arm, counter-swinging against the far leg
     a.rect(10, hip - 9, 12, hip - 2 - up, pal.suitSh);
     a.rect(10, hip - 2 - up, 12, hip - up, pal.gloveSh);
@@ -84,11 +92,22 @@ PF.SciFi = (() => {
     a.ellipse(13, hy - 2, 20, hy + 2, pal.visor, true);
     /* Reflection size is per-kit. A full-width glint on a dark combat visor
        reads as an open beak, so the marine gets a two-pixel slit instead. */
-    if (pal.glint === 'slit') { a.rect(14, hy - 1, 15, hy - 1, pal.visorHi); a.px(19, hy + 1, pal.visorHi); }
+    /* A combat visor is a LIT STRIP. A near-black ellipse with two orange
+       sparks in it read as a hole punched through the front of the helmet —
+       the marine had no face at any zoom. */
+    if (pal.glint === 'slit') {
+      a.rect(13, hy - 1, 20, hy, pal.visorMid || pal.visorHi);
+      a.rect(14, hy - 1, 16, hy - 1, pal.visorHi);
+      a.px(19, hy, pal.visorHi);
+      a.rect(13, hy + 1, 20, hy + 2, pal.helm);                    // breather mask below the strip
+      a.rect(13, hy + 2, 20, hy + 2, pal.helmSh);
+      a.rect(15, hy + 1, 18, hy + 1, pal.helmSh);                  // filter grille
+      a.rect(13, hy - 2, 20, hy - 2, pal.helm);                    // brow above it
+    }
     else { a.ellipse(14, hy - 1, 17, hy, pal.visorHi, true); a.px(14, hy - 1, '#ffffff'); }
     if (o.face === 'alert') a.rect(18, hy, 19, hy + 1, pal.accent);
     // near leg, near arm
-    limb(17, hip - 1, dn, pal.leg, pal.legSh, pal.boot, pal.bootSh);
+    limb(17, hip - 1, -sw, pal.leg, pal.legSh, pal.boot, pal.bootSh);
     a.rect(20, hip - 9, 22, hip - 2 + up, pal.suit);
     a.rect(20, hip - 9, 20, hip - 2 + up, pal.suitHi);
     a.rect(20, hip - 2 + up, 22, hip + up, pal.glove);
@@ -96,15 +115,24 @@ PF.SciFi = (() => {
   }
   const ASTRO = { suit: '#e4eaf2', suitHi: '#ffffff', suitSh: '#97a7bd', helm: '#c0cbdc', helmHi: '#ffffff',
     helmSh: '#6d7d92', visor: '#17456d', visorHi: '#2ce8f5', leg: '#c9d4e0', legSh: '#8b9bb4',
-    boot: '#3d4a5c', bootSh: '#252d3a', glove: '#f6a03a', gloveSh: '#b06a12', packSh: '#6d7d92',
+    /* The gloves used to be the belt's exact hex, and the hands hang at the
+       hip: the forearms vanished into the harness and the walk cycle showed
+       one wide orange bar where two arms and a belt ought to be. */
+    boot: '#3d4a5c', bootSh: '#252d3a', glove: '#c47a18', gloveSh: '#7d4408', packSh: '#6d7d92',
     belt: '#f6a03a', beltDark: '#b06a12', accent: '#2ce8f5' };
-  const MARINE = { suit: '#6a7d5e', suitHi: '#93a87c', suitSh: '#38442f', helm: '#3c4738', helmHi: '#5d6d51',
-    helmSh: '#222a1e', visor: '#1b1208', visorHi: '#f6a03a', glint: 'slit', leg: '#414e3a', legSh: '#252e21',
-    boot: '#252d3a', bootSh: '#14181f', glove: '#252d3a', gloveSh: '#14181f', packSh: '#2c3628',
-    belt: '#8a5a20', beltDark: '#4d320f', accent: '#252d3a' };
+  /* Everything on this figure used to sit inside fifteen luma of olive — suit,
+     helmet, legs, gloves and the chest stripe — so it rendered as one mossy
+     lump with a hole where the face goes. The ramp is spread out now, the
+     helmet is a clear step darker than the fatigues, and the accent is
+     actually an accent instead of a second shade of gun-metal. */
+  const MARINE = { suit: '#75895a', suitHi: '#a1b77e', suitSh: '#3b4729', helm: '#465040', helmHi: '#6d7a5e',
+    helmSh: '#232a1d', visor: '#241a10', visorMid: '#8f5f22', visorHi: '#ffb03a', glint: 'slit',
+    leg: '#4d5a3b', legSh: '#2b3320',
+    boot: '#2b2f26', bootSh: '#171a14', glove: '#3b4433', gloveSh: '#20261b', packSh: '#323c2a',
+    belt: '#8a5a20', beltDark: '#4d320f', accent: '#e07b2c' };
   const ENGI = { suit: '#f6a03a', suitHi: '#ffd08a', suitSh: '#a8600f', helm: '#ffd24a', helmHi: '#fff6c9',
     helmSh: '#a8600f', visor: '#2a2038', visorHi: '#9ad8ff', leg: '#4a4a5c', legSh: '#2c2c3a',
-    boot: '#252d3a', bootSh: '#14181f', glove: '#4a4a5c', gloveSh: '#2c2c3a', packSh: '#a8600f',
+    boot: '#252d3a', bootSh: '#14181f', glove: '#6a6a80', gloveSh: '#3a3a4a', packSh: '#a8600f',   // not the leg's own hex
     belt: '#c0cbdc', beltDark: '#6d7d92', accent: '#2ce8f5' };
 
   function crewSuite(pal, name, weapon) {
@@ -113,7 +141,16 @@ PF.SciFi = (() => {
       width: 32, height: 32, name, layers: [{ name: 'crew' }],
       states: [
         D('idle', 5, true, cyc(4, 5, (a, i, t) => crewRig(a, pal, { hip: 20 + [0, 1, 0, -1][i] * 0.6, swing: [0, 0.4, 0, -0.4][i], hand }))),
-        D('walk', 10, true, cyc(6, 10, (a, i) => crewRig(a, pal, { hip: 20 - (i % 2), swing: Math.sin((i / 6) * TAU) * 2, hand }))),
+        /* Body lowest as it passes over a planted foot, highest at the two heel
+           strikes — which is the half-period the (i % 2) bob was already after
+           but landed on the wrong frames. */
+        D('walk', 10, true, cyc(6, 10, (a, i) => crewRig(a, pal, {
+          hip: 20 - Math.round(Math.abs(Math.sin(((i + 0.5) / 6) * TAU))),
+          /* Half-step phase offset. Sampling sin() at i/6 gives 0, .87, .87, 0,
+             -.87, -.87 — three distinct stride positions across six frames, so
+             half the walk was duplicate frames. Offsetting by half a step puts
+             a different foot position under every frame. */
+          swing: Math.sin(((i + 0.5) / 6) * TAU) * 2.4, hand }))),
         /* The raised arm has to be drawn here, not delegated to the weapon:
            an unarmed crew member would otherwise give three identical frames. */
         D('aim', 8, false, seq(3, 8, (a, i, t) => { crewRig(a, pal, { hip: 20 - i * 0.4, swing: -0.6, face: 'alert' });
@@ -123,34 +160,79 @@ PF.SciFi = (() => {
           if (hand) hand(a, ax + 1, ay); })),
         D('hurt', 10, false, seq(3, 10, (a, i) => { crewRig(a, pal, { hip: 20 + i, swing: 1.2 - i * 0.6, hand });
           for (let k = 0; k < 4 - i; k++) a.px(22 + k, 9 + k * 2 - i, '#e43b44'); })),
-        // A vacuum death: the suit vents. One-shot, no loop closure check.
-        /* A vacuum death: knees buckle, the suit folds forward, the neck ring
-           vents in a spreading puff. An evenly-spaced diagonal of specks reads
-           as a fishing line, so the vent is a widening cloud instead. */
-        D('down', 8, false, seq(4, 8, (a, i, t) => {
-          const y = 20 + i * 2, lean = i * 2;
-          a.rect(12 + lean, y + 4, 21 + lean, y + 7, pal.legSh);
-          a.rect(11 + lean, y + 6, 22 + lean, y + 7, pal.bootSh);
-          a.ellipse(9 + lean, y - 1, 20 + lean, y + 5, pal.suit, true);
-          a.ellipse(10 + lean, y - 1, 19 + lean, y + 1, pal.suitHi, true);
-          a.rect(10 + lean, y + 2, 20 + lean, y + 2, pal.belt);
-          blob(a, 9 + lean, y - 2, 4, 4, pal.helm, pal.helmHi, pal.helmSh);
-          a.ellipse(6 + lean, y - 4, 13 + lean, y, pal.visor, true);
-          a.px(7 + lean, y - 3, pal.visorHi);
-          const r = 2 + i * 2;
-          for (let k = 0; k < 7; k++) {
-            const ang = (k / 7) * TAU - 1.2;
-            a.px(19 + lean + Math.cos(ang) * r, y - 4 + Math.sin(ang) * r * 0.7, k % 2 ? '#c0cbdc' : '#ffffff');
+        /* Four frames of one flat ellipse with a black hole punched in it read
+           as a sack of moss, not a casualty. The knees go first, the torso
+           pitches over them and the marine ends up prone, and the carbine
+           falls clear instead of evaporating the instant the state starts.
+           One-shot, so no loop-closure check applies. */
+        D('down', 8, false, seq(4, 8, (a, i) => {
+          const A = [-1.95, -2.4, -2.85, -3.06][i];    // hip -> shoulder, rotating to flat
+          const K = [1.35, 0.95, 0.5, 0.2][i];         // hip -> knee
+          const F = [1.5, 1.15, 0.6, 0.06][i];         // knee -> foot
+          /* Walked RIGHT as the body goes down, not left: the head sits nine
+             px out along the torso plus four more for the dome, so a prone
+             pose pinned at hx 13 pushed the helmet clean off the canvas and
+             the last frame had no head at all. */
+          const hx = [16, 17, 19, 20][i], hy = [20, 22, 24, 25][i];
+          const at = (x, y, ang, r) => [Math.round(x + Math.cos(ang) * r), Math.round(y + Math.sin(ang) * r)];
+          const [sx, sy] = at(hx, hy, A, 9), [kx, ky] = at(hx, hy, K, 5), [fx, fy] = at(kx, ky, F, 5);
+          const [hdx, hdy] = at(sx, sy, A, 4);
+          if (i === 0 && hand) hand(a, 22, hy);
+          a.line(hx, hy, kx, ky, pal.legSh, 5);        // thigh
+          a.line(kx, ky, fx, fy, pal.leg, 4);          // shin
+          a.rect(fx - 1, fy - 1, fx + 2, fy + 1, pal.boot);
+          a.rect(fx - 1, fy + 1, fx + 2, fy + 1, pal.bootSh);
+          a.line(hx, hy, sx, sy, pal.suitSh, 8);       // torso, lit along its upper edge only
+          a.line(hx, hy - 1, sx, sy - 1, pal.suit, 5);
+          a.line(hx, hy - 2, sx, sy - 2, pal.suitHi, 2);
+          a.rect(hx - 1, hy - 2, hx, hy + 1, pal.belt);        // hip rig, a band and not a tabard
+          a.rect(hx - 1, hy + 1, hx, hy + 1, pal.beltDark);
+          blob(a, hdx, hdy, 4, 4, pal.helm, pal.helmHi, pal.helmSh);
+          /* The face still has to face somewhere. A lit strip across the front
+             of the dome, on the side the body is falling toward. */
+          const [vx, vy] = at(hdx, hdy, A, 2);
+          a.rect(vx - 2, vy, vx + 1, vy + 1, pal.visor);
+          a.rect(vx - 2, vy, vx + 1, vy, pal.visorMid || pal.visorHi);
+          a.px(vx - 2, vy, pal.visorHi);
+          /* A full ring of specks centred on the shoulder sprays half its
+             motes across the marine's own back, where they read as snow. The
+             vent is an upward fan off the neck ring instead. */
+          const r = 1.5 + i * 2;
+          for (let k = 0; k < 6; k++) {
+            const ang = -2.6 + (k / 5) * 2;
+            a.px(sx + 1 + Math.cos(ang) * r, sy - 3 + Math.sin(ang) * r * 0.8, k % 2 ? '#c0cbdc' : '#ffffff');
+          }
+          /* The carbine leaves the hand and lands clear of the body — drawn
+             LAST, because tucked in before the torso the falling weapon spent
+             two of its three frames buried under the marine. */
+          if (i >= 1 && hand) {                      // only if there was one to drop
+            const gx = [0, 26, 30, 30][i], gy = [0, 17, 20, 22][i];
+            a.rect(gx - 8, gy, gx, gy + 1, '#2f3947');
+            a.rect(gx - 8, gy, gx, gy, '#8b9bb4');
+            a.rect(gx - 8, gy + 1, gx - 5, gy + 2, '#4a5568');
+            a.px(gx, gy + 1, '#2ce8f5');
           }
         }))
       ]
     };
   }
+  /* A carbine, not a plank. The old form was a 10x3 grey slab starting at the
+     fist and running off to the right: no stock behind the hand, no grip, no
+     magazine, so it read as a girder parked at hip height rather than a weapon
+     being held. Stock tucked under the arm, receiver at the fist, magazine
+     below it, barrel forward, one lit muzzle pixel. */
   const rifle = (a, hx, hy) => {
-    a.rect(hx - 1, hy - 1, hx + 8, hy + 1, '#3d4a5c');
-    a.rect(hx - 1, hy - 1, hx + 8, hy - 1, '#6d7d92');
-    a.rect(hx + 8, hy, hx + 9, hy, '#2ce8f5');
-    a.rect(hx + 1, hy + 2, hx + 3, hy + 3, '#252d3a');
+    const Bd = '#2f3947', St = '#4a5568', Hi = '#8b9bb4';
+    a.rect(hx - 5, hy - 1, hx - 2, hy + 1, St);                    // stock, under the armpit
+    a.rect(hx - 5, hy - 1, hx - 2, hy - 1, Hi);
+    a.rect(hx - 2, hy - 2, hx + 3, hy + 1, Bd);                    // receiver
+    a.rect(hx - 2, hy - 2, hx + 3, hy - 2, Hi);
+    a.rect(hx + 2, hy - 3, hx + 3, hy - 3, St);                    // iron sight, ON the receiver
+    a.rect(hx, hy + 2, hx + 1, hy + 4, St);                        // magazine
+    a.px(hx, hy + 4, Bd);
+    a.rect(hx + 3, hy - 1, hx + 8, hy, Bd);                        // barrel
+    a.rect(hx + 3, hy - 1, hx + 8, hy - 1, Hi);
+    a.px(hx + 8, hy, '#2ce8f5');
   };
   /* A compact spanner hanging from the fist. Swinging the head up and away
      from the hand turns it into a shepherd's crook twice the size of the
@@ -171,15 +253,25 @@ PF.SciFi = (() => {
      "machine" from hard corners the instant it reads "creature" from curves. */
   function robotSuite() {
     const body = '#8b9bb4', bodyD = '#4a5568', bodyL = '#c9d4e0', eye = '#ff4d4d', joint = '#3d4a5c';
+    /* Six greys and a red slit made this thing read as a filing cabinet. One
+       warm hazard tone on the shoulder caps and the pelvis band is enough to
+       give the silhouette a top, a middle and a bottom at thumbnail size. */
+    const haz = '#f6a03a', hazD = '#a8600f';
     const at = (a, cy, step, lean, eyeOn) => {
       const hip = 20;
       for (const s of [-1, 1]) {
         const off = s * 5, ph = s > 0 ? step : -step;
+        /* The foot travels as well as lifting. Raising it straight up and
+           setting it straight back down is marching on the spot, which is
+           what the walk cycle used to be. */
+        const dx = -Math.round(ph);
         a.rect(16 + off - 2, hip, 16 + off + 1, hip + 3 + ph, s > 0 ? body : bodyD);
-        a.rect(16 + off - 3, hip + 4 + ph, 16 + off + 2, hip + 6 + ph, joint);
-        a.rect(16 + off - 3, hip + 4 + ph, 16 + off + 2, hip + 4 + ph, s > 0 ? bodyL : body);
+        a.rect(16 + off - 3 + dx, hip + 4 + ph, 16 + off + 2 + dx, hip + 6 + ph, joint);
+        a.rect(16 + off - 3 + dx, hip + 4 + ph, 16 + off + 2 + dx, hip + 4 + ph, s > 0 ? bodyL : body);
       }
       a.rect(9, hip - 2, 22, hip + 1, joint);                          // pelvis
+      a.rect(10, hip, 21, hip, hazD);                                  // hazard band under the waist
+      for (let x = 10; x <= 21; x += 3) a.rect(x, hip, x + 1, hip, haz);
       a.rect(10, cy - 6, 21, hip - 1, body);                           // chassis
       a.rect(10, cy - 6, 21, cy - 5, bodyL);
       a.rect(10, hip - 3, 21, hip - 2, bodyD);
@@ -191,6 +283,8 @@ PF.SciFi = (() => {
         const ax = 16 + s * 8, ph = s > 0 ? -step : step;
         a.rect(ax - 1, cy - 5, ax + 1, cy + 2 + ph, s > 0 ? body : bodyD);
         a.rect(ax - 1, cy - 5, ax - 1, cy + 2 + ph, bodyL);
+        a.rect(ax - 1, cy - 6, ax + 1, cy - 5, s > 0 ? haz : hazD);     // shoulder cap, arm-width
+        a.rect(ax - 1, cy - 5, ax + 1, cy - 5, hazD);
         a.rect(ax - 2, cy + 3 + ph, ax + 2, cy + 5 + ph, joint);
       }
       // head: a visor bar, not a face. One red slit = one clear intent.
@@ -270,23 +364,27 @@ PF.SciFi = (() => {
      Tagged 'flying'. Reads from the rotor blur + the beam cone. */
   function droneSuite() {
     const hull = '#6d7d92', hullL = '#c0cbdc', hullD = '#3d4a5c', glow = '#2ce8f5';
-    const at = (a, cy, spin, beam, alert) => {
+    /* `tilt` rolls the rotor plane. A quadcopter that loses power yaws over
+       as it falls; without it the death state was the same level hull sinking
+       three rows at a time with sparks on top, which reads as a lift descending
+       rather than as a wreck. */
+    const at = (a, cy, spin, beam, alert, tilt = 0) => {
       /* Arms, motor pods and blades, in that order. Drawing the blade as one
          line across the whole sprite (the obvious shortcut) reads as a single
          plank; two separate discs on stalks is what says "rotor". */
       for (const s of [-1, 1]) {
-        const px = 16 + s * 10;
-        a.line(16 + s * 4, cy + 1, px, cy - 2, hullD, 2);
-        a.rect(px - 2, cy - 4, px + 2, cy - 1, hull);
-        a.rect(px - 2, cy - 4, px + 2, cy - 4, hullL);
-        a.rect(px - 1, cy - 3, px + 1, cy - 2, '#252d3a');
+        const px = 16 + s * 10, ty = Math.round(s * tilt);
+        a.line(16 + s * 4, cy + 1, px, cy - 2 + ty, hullD, 2);
+        a.rect(px - 2, cy - 4 + ty, px + 2, cy - 1 + ty, hull);
+        a.rect(px - 2, cy - 4 + ty, px + 2, cy - 4 + ty, hullL);
+        a.rect(px - 1, cy - 3 + ty, px + 1, cy - 2 + ty, '#252d3a');
         /* Blade blur as a flattened ring around the hub, and the sweep
            alternates so consecutive frames never match. A straight 1px line
            laid over a motor box reads as a shelf, not as a rotor. */
         const ph = (spin + (s > 0 ? 0 : 2)) % 4, w = [5, 3, 5, 3][ph], c = ph % 2 ? '#8b9bb4' : '#d6dfec';
-        a.ellipse(px - w, cy - 7, px + w, cy - 5, c, false);
-        a.rect(px - 1, cy - 6, px + 1, cy - 6, hullL);
-        a.px(px, cy - 6, '#ffffff');
+        a.ellipse(px - w, cy - 7 + ty, px + w, cy - 5 + ty, c, false);
+        a.rect(px - 1, cy - 6 + ty, px + 1, cy - 6 + ty, hullL);
+        a.px(px, cy - 6 + ty, '#ffffff');
       }
       blob(a, 16, cy + 1, 6, 4, hull, hullL, hullD);
       a.rect(10, cy + 2, 22, cy + 3, hullD);
@@ -314,7 +412,7 @@ PF.SciFi = (() => {
           if (i % 2 === 0) for (let k = 0; k < 6; k++) { const ang = (k / 6) * TAU; a.px(16 + Math.cos(ang) * 11, 14 + Math.sin(ang) * 9, '#ff4d4d'); } })),
         D('down', 9, false, seq(4, 9, (a, i, t) => {
           const cyd = 13 + i * 3;
-          at(a, cyd, i, 0, true);
+          at(a, cyd, i, 0, true, i * 1.3);
           /* Sparks cluster around the failing rotors. Evenly spaced dots
              stepping diagonally across the sprite read as a guide line. */
           for (let k = 0; k < 5; k++) {
