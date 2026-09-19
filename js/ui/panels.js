@@ -5,8 +5,13 @@ PF.Panels = (() => {
   const S = () => PF.Store;
   const ib = (icon, label, id, cls = 'icon-btn icon-btn--sm') => { const b = document.createElement('button'); b.className = cls; b.innerHTML = `<span class="ms ms--sm">${icon}</span>`; b.setAttribute('aria-label', label); b.title = label; if (id) b.dataset.agentId = id; return b; };
   let thumbRaf = 0;
+  let booted = false;
 
   function init() {
+    /* Idempotent: every listener below is a fresh addEventListener, so a second
+       init() would double every panel action. */
+    if (booted) return;
+    booted = true;
     S().on('doc', renderAll); S().on('active', syncActive); S().on('change', scheduleThumbs);
     /* Layers */
     q('#btn-add-layer').addEventListener('click', () => S().addLayer());
@@ -137,10 +142,24 @@ PF.Panels = (() => {
   function initExportDialog() {
     const dlg = q('#dlg-export'), grid = q('#export-formats');
     q('#btn-export').addEventListener('click', () => dlg.showModal());
+    /* Eighteen targets in one flat grid is a wall. Group headings span the
+       whole grid row so Images / Game engines / Everything each read as a
+       short list, and the agent ids stay stable per format id. */
+    let group = '';
     PF.IO.FORMATS.forEach(f => {
+      if (f.group && f.group !== group) {
+        group = f.group;
+        const h = document.createElement('h4'); h.className = 'option-group'; h.textContent = group;
+        grid.appendChild(h);
+      }
       const b = document.createElement('button'); b.className = 'option'; b.dataset.agentId = `export-${f.id}`; b.setAttribute('aria-label', `Export ${f.name}`);
       b.innerHTML = `<span class="ms">${f.icon}</span><b>${f.name}</b><span>${f.desc}</span>`;
-      b.addEventListener('click', async () => { try { const r = await PF.IO.run(f.id, { scale: +q('#export-scale').value, layout: q('#export-layout').value, padding: +q('#export-padding').value }); PF.UI.toast(`Exported ${f.name}`); PF.Store.emit('tool:result', { ok: true, tool: 'export', args: { format: f.id }, result: r }); } catch (e) { PF.UI.toast(e.message); } });
+      b.addEventListener('click', async () => {
+        b.disabled = true;                              // the bundle takes a beat; a second click would export it twice
+        try { const r = await PF.IO.run(f.id, { scale: +q('#export-scale').value, layout: q('#export-layout').value, padding: +q('#export-padding').value }); PF.UI.toast(`Exported ${f.name}`); PF.Store.emit('tool:result', { ok: true, tool: 'export', args: { format: f.id }, result: r }); }
+        catch (e) { PF.UI.toast(e.message); }
+        finally { b.disabled = false; }
+      });
       grid.appendChild(b);
     });
     q('#import-project').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; try { await PF.IO.importProject(f); PF.UI.toast('Project loaded'); dlg.close(); } catch (err) { PF.UI.toast(err.message); } e.target.value = ''; });

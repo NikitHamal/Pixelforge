@@ -30,8 +30,23 @@ PF.Pixel = (() => {
   Api.prototype.line = function (x0, y0, x1, y1, c, size = 1) { PF.Raster.line(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), size); };
   Api.prototype.ellipse = function (x0, y0, x1, y1, c, fill = true) { PF.Raster.ellipse(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), num(c), { fill }); };
   Api.prototype.fill = function (x, y, c) { PF.Raster.fill(this.buf, this.W, this.H, Math.round(x), Math.round(y), num(c), true); };
-  /* deterministic pseudo-random from coords (stable speckles) */
-  Api.prototype.hash = function (x, y, seed = 0) { let h = (x * 374761393 + y * 668265263 + seed * 974634211) | 0; h = (h ^ (h >> 13)) | 0; h = Math.imul(h, 1274126177); h = (h ^ (h >> 16)) >>> 0; return h / 4294967295; };
+  /* Deterministic pseudo-random from coords (stable speckles), uniform over
+     [0,1). The mixes use UNSIGNED shifts and Math.imul on every multiply. The
+     first cut finished with `h ^ (h >> 16)`: an ARITHMETIC shift smears the
+     sign bit across the top half, so bit 31 of the result was always zero and
+     the function could never return more than 0.5. Everything downstream
+     inherited that — speckle ran at twice its stated density, a two-colour
+     speck never picked its second colour, and `(hash - 0.5) * spread` only
+     ever scattered in one direction. */
+  Api.prototype.hash = function (x, y, seed = 0) {
+    let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(seed | 0, 974634211)) | 0;
+    h ^= h >>> 13;
+    h = Math.imul(h, 1274126177);
+    h ^= h >>> 16;
+    h = Math.imul(h, 2246822519);
+    h ^= h >>> 13;
+    return (h >>> 0) / 4294967296;
+  };
   Api.prototype.shadeRect = function (x0, y0, x1, y1, amt) { PF.Raster.shadeRegion(this.buf, this.W, this.H, Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), amt); };
   /* ---- Flexible volume helpers (ADDITIVE — existing methods untouched) ----
      Opt-in organic shading for bespoke painters. All deterministic (hash-based),
@@ -52,7 +67,7 @@ PF.Pixel = (() => {
     for (let y = t; y <= b; y++) for (let x = l; x <= r; x++) this.px(x, y, ((x + y + seed) & 1) ? cA : cB);
   };
   // Deterministic speckle texture. density 0..1, colours cycled by hash.
-  Api.prototype.speck = function (x0, y0, x1, y1, seed, colors, density = 0.12) {
+  Api.prototype.speck = function (x0, y0, x1, y1, seed, colors, density = 0.24) {
     const l = Math.round(Math.min(x0, x1)), r = Math.round(Math.max(x0, x1)), t = Math.round(Math.min(y0, y1)), b = Math.round(Math.max(y0, y1));
     for (let y = t; y <= b; y++) for (let x = l; x <= r; x++) {
       const h = this.hash(x, y, seed);
@@ -72,13 +87,22 @@ PF.Pixel = (() => {
   const makeApi = (buf, W, H) => new Api(buf, W, H);
   /* Offset view of a draw API: identical surface, coordinates translated by
      (ox, oy). Tilesheet painters use this to draw 16px tiles onto a 64px sheet.
-     Built on the prototype chain so untranslated calls (ellipse, rectO, fill,
-     shadeRect, hash) are inherited instead of re-wrapped. */
+
+     Every *primitive* is re-bound with the offset applied; the composites
+     (grad, dith, speck, blob, rim) are left on the prototype on purpose,
+     because they route through `this.px` / `this.rect` / `this.ellipse` and so
+     pick the translated overrides up for free. Before, only px/rect/line were
+     translated, which silently dropped ellipse/blob/rectO work at absolute
+     coordinates — a whole icon landing in the sheet's top-left corner. */
   function offsetApi(api, ox, oy) {
     const a = Object.create(api);
     a.px = (x, y, c) => api.px(ox + x, oy + y, c);
     a.rect = (x0, y0, x1, y1, c) => api.rect(ox + x0, oy + y0, ox + x1, oy + y1, c);
+    a.rectO = (x0, y0, x1, y1, c, sz) => api.rectO(ox + x0, oy + y0, ox + x1, oy + y1, c, sz);
     a.line = (x0, y0, x1, y1, c, s) => api.line(ox + x0, oy + y0, ox + x1, oy + y1, c, s);
+    a.ellipse = (x0, y0, x1, y1, c, f) => api.ellipse(ox + x0, oy + y0, ox + x1, oy + y1, c, f);
+    a.fill = (x, y, c) => api.fill(ox + x, oy + y, c);
+    a.shadeRect = (x0, y0, x1, y1, amt) => api.shadeRect(ox + x0, oy + y0, ox + x1, oy + y1, amt);
     a.hash = (x, y, s) => api.hash(x + ox, y + oy, s);
     return a;
   }
@@ -240,11 +264,19 @@ PF.Pixel = (() => {
   // row stays clear. Drawn as touching pairs for the same reason the arc avoids
   // dithers — one rimed pixel reads as grit, not puff.
   function dustPuff(api, cx, groundY, seed, t, color = '#8b9bb4', n = 6) {
-    const spread = 1.5 + t * 3, lift = t * 3;
-    for (let i = 0; i < n; i++) {
-      const x = cx + Math.round((api.hash(i, seed, 11) - 0.5) * spread * 2);
-      const y = groundY - Math.round(api.hash(i, seed, 23) * lift);
-      api.px(x, y, color); api.px(x + 1, y, color);
+    /* Motes on a widening ground-hugging arc, thinning as they go. The random
+       scatter this replaces dropped every mote inside a 4x2 box at low t, and
+       the outline pass then framed that box: a walk cycle's contact dust came
+       out as a grey brick parked between the boots. */
+    const spread = 2.2 + t * 4.2, lift = 0.4 + t * 3.4;
+    const live = Math.max(2, Math.round(n * (1 - t * 0.45)));
+    for (let i = 0; i < live; i++) {
+      const a = Math.PI + (live === 1 ? 0.5 : i / (live - 1)) * Math.PI;
+      const j = (api.hash(i, seed, 11) - 0.5) * 1.7;
+      const x = Math.round(cx + Math.cos(a) * (spread + j));
+      const y = Math.round(groundY - Math.abs(Math.sin(a)) * lift - api.hash(i, seed, 23) * 0.9);
+      api.px(x, y, color);
+      if ((i & 1) === 0) api.px(x + 1, y, color);          // a pair here and there, so it is not a dotted line
     }
   }
   // Impact star for the contact frame: long cardinals, short diagonals. Small

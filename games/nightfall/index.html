@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Nightfall — Top-Down Survival</title>
+<meta name="description" content="A top-down survival shooter built entirely from PixelForge's procedural top-down asset pack. Hold the block until dawn.">
+<meta name="theme-color" content="#0b0e18">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<div id="app">
+  <div id="stage"><canvas id="cv"></canvas></div>
+
+  <div id="hud" class="hidden">
+    <div class="row top">
+      <div class="meters">
+        <div class="bar hp"><i id="hp-fill"></i><span id="hp-txt">100</span></div>
+        <div class="bar am"><i id="am-fill"></i><span id="am-txt">30</span></div>
+      </div>
+      <div class="mid">
+        <div id="wave-txt">NIGHT 1</div>
+        <div id="clock-txt">03:00</div>
+      </div>
+      <div class="right">
+        <div id="score-box">SCORE <b id="score-txt">0</b></div>
+        <button class="ib" id="btn-mute" aria-label="Mute">SOUND</button>
+        <button class="ib" id="btn-pause" aria-label="Pause">PAUSE</button>
+      </div>
+    </div>
+    <div id="toast" class="hidden"></div>
+  </div>
+
+  <div id="stick"><i id="nub"></i></div>
+  <button id="btn-fire" aria-label="Fire">FIRE</button>
+
+  <div id="screen-title" class="screen">
+    <div class="panel">
+      <h1>NIGHT<span>FALL</span></h1>
+      <p class="tag">The block is yours until dawn. Pick who holds it.</p>
+      <div id="picker"></div>
+      <p id="best-txt"></p>
+      <p class="hint"><b>WASD</b> move &middot; <b>mouse</b> aim &middot; <b>click / space</b> fire &middot; <b>R</b> reload &middot; <b>P</b> pause<br>
+      On a phone: left thumb drives, right thumb shoots.</p>
+    </div>
+  </div>
+
+  <div id="screen-over" class="screen hidden">
+    <div class="panel">
+      <h2 id="over-title">OVERRUN</h2>
+      <p id="over-sub"></p>
+      <div id="over-stats"></div>
+      <button class="big" id="btn-again">RUN IT BACK</button>
+    </div>
+  </div>
+</div>
+  <script src="../../js/core/raster.js"></script>
+  <script src="../../js/core/palette.js"></script>
+  <script src="../../js/core/effects.js"></script>
+  <script src="../../js/core/gen.js"></script>
+  <script src="../../js/core/tiles.js"></script>
+  <script src="../../js/core/gif.js"></script>
+  <script src="../../js/core/zip.js"></script>
+  <script src="../../js/core/exporters.js"></script>
+  <script src="../../js/library/pixel.js"></script>
+  <script src="../../js/library/characters.js"></script>
+  <script src="../../js/library/monsters.js"></script>
+  <script src="../../js/library/world.js"></script>
+  <script src="../../js/library/items.js"></script>
+  <script src="../../js/library/rpg_heroes.js"></script>
+  <script src="../../js/library/rpg_foes.js"></script>
+  <script src="../../js/library/rpg_world.js"></script>
+  <script src="../../js/library/rpg_items.js"></script>
+  <script src="../../js/library/rpg_expand.js"></script>
+  <script src="../../js/library/rpg_classes.js"></script>
+  <script src="../../js/library/rpg_beasts.js"></script>
+  <script src="../../js/library/rpg_props.js"></script>
+  <script src="../../js/library/rpg_medieval.js"></script>
+  <script src="../../js/library/rpg_tiny.js"></script>
+  <script src="../../js/library/rpg_life.js"></script>
+  <script src="../../js/library/fx2.js"></script>
+  <script src="../../js/library/ui_kit.js"></script>
+  <script src="../../js/library/fonts.js"></script>
+  <script src="../../js/library/platformer.js"></script>
+  <script src="../../js/library/scifi.js"></script>
+  <script src="../../js/library/space.js"></script>
+  <script src="../../js/library/rig.js"></script>
+  <script src="../../js/library/modern.js"></script>
+  <script src="../../js/library/farm.js"></script>
+  <script src="../../js/library/iso.js"></script>
+  <script src="../../js/library/topdown.js"></script>
+  <script src="../../js/library/forge.js"></script>
+  <script src="../../js/library/index.js"></script>
+<script src="../lib/bake.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

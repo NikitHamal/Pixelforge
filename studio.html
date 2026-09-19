@@ -189,6 +189,7 @@
             <button role="tab" data-tab="animate" class="is-on" aria-label="Animation" data-agent-id="tab-animate"><span class="ms">animation</span>Animate</button>
             <button role="tab" data-tab="layers" aria-label="Layers" data-agent-id="tab-layers"><span class="ms">layers</span>Layers</button>
             <button role="tab" data-tab="canvas" aria-label="Canvas" data-agent-id="tab-canvas"><span class="ms">photo_size_select_large</span>Canvas</button>
+            <button role="tab" data-tab="fx" aria-label="Effects and palette" data-agent-id="tab-fx"><span class="ms">auto_fix_high</span>Effects</button>
           </div>
 
           <div class="tab-page is-on" id="tab-animate" role="tabpanel">
@@ -251,6 +252,43 @@
                 <button class="icon-btn" id="tgl-mirror" aria-label="Toggle horizontal symmetry" title="Symmetry X (X)" data-agent-id="toggle-mirror"><span class="ms">flip</span></button>
                 <button class="icon-btn" id="btn-fullscreen" aria-label="Fullscreen" data-agent-id="fullscreen"><span class="ms">fullscreen</span></button>
               </div>
+            </div>
+          </div>
+
+          <div class="tab-page" id="tab-fx" role="tabpanel">
+            <div class="panel__section">
+              <div class="panel__head"><span class="label">Effect</span><button class="icon-btn icon-btn--sm" id="fx-reset" aria-label="Reset options" title="Reset options" data-agent-id="fx-reset"><span class="ms">restart_alt</span></button></div>
+              <div class="row wrap">
+                <label class="field grow"><span>Type</span><select class="select input--sm" id="fx-effect" aria-label="Effect" data-agent-id="fx-effect"></select></label>
+                <label class="field grow"><span>Apply to</span><select class="select input--sm" id="fx-scope" aria-label="Apply scope" data-agent-id="fx-scope">
+                  <option value="frame">This frame</option>
+                  <option value="state">This state</option>
+                  <option value="doc">Every frame</option>
+                </select></label>
+              </div>
+              <div class="fx-opts" id="fx-opts"></div>
+              <div class="fx-thumb"><canvas id="fx-thumb" aria-label="Effect preview"></canvas></div>
+              <button class="btn btn--tonal btn--sm" id="fx-apply" data-agent-id="fx-apply"><span class="ms ms--sm">auto_fix_high</span>Apply to active layer</button>
+              <p class="muted" style="font-size:.72rem">The preview shows the active layer only — that is what Apply writes. Undo takes the whole scope back in one step.</p>
+            </div>
+            <div class="panel__section">
+              <div class="panel__head"><span class="label">Palette</span></div>
+              <div class="row wrap">
+                <label class="field grow"><span>Preset</span><select class="select input--sm" id="pal-preset" aria-label="Palette preset" data-agent-id="palette-preset"></select></label>
+              </div>
+              <div class="row wrap">
+                <button class="btn btn--soft btn--sm" id="pal-load" data-agent-id="palette-load"><span class="ms ms--sm">palette</span>Load</button>
+                <button class="btn btn--soft btn--sm" id="pal-quantize" data-agent-id="palette-quantize"><span class="ms ms--sm">filter_vintage</span>Quantize</button>
+                <button class="btn btn--soft btn--sm" id="pal-download" data-agent-id="palette-download"><span class="ms ms--sm">download</span>.gpl</button>
+                <label class="chip" style="min-height:44px"><input type="checkbox" id="pal-dither" data-agent-id="palette-dither">Dither</label>
+              </div>
+              <p class="muted" style="font-size:.72rem">Quantize follows the scope above. .gpl opens in Aseprite, GIMP and Krita.</p>
+            </div>
+            <div class="panel__section">
+              <div class="panel__head"><span class="label">Tile preview</span><button class="icon-btn icon-btn--sm" id="tile-refresh" aria-label="Refresh tile preview" title="Refresh" data-agent-id="tile-refresh"><span class="ms">refresh</span></button></div>
+              <div class="tile-box"><canvas id="tile-canvas" aria-label="Seamless tile preview"></canvas></div>
+              <div class="kv"><span>Seam</span><b id="tile-seam">&mdash;</b></div>
+              <p class="muted" style="font-size:.72rem">3&times;3 wrap of the current frame. "Seamless" means the edges differ no more than the interior does.</p>
             </div>
           </div>
         </aside>
@@ -437,9 +475,16 @@
 
   <script src="js/core/store.js"></script>
   <script src="js/core/raster.js"></script>
+  <script src="js/core/palette.js"></script>
+  <script src="js/core/effects.js"></script>
+  <script src="js/core/gen.js"></script>
+  <script src="js/core/tiles.js"></script>
+  <script src="js/core/zip.js"></script>
+  <script src="js/core/exporters.js"></script>
   <script src="js/core/renderer.js"></script>
   <script src="js/core/input.js"></script>
   <script src="js/core/animation.js"></script>
+  <script src="js/core/gif.js"></script>
   <script src="js/core/io.js"></script>
   <script src="js/core/projects.js"></script>
   <script src="js/library/pixel.js"></script>
@@ -458,6 +503,18 @@
   <script src="js/library/rpg_medieval.js"></script>
   <script src="js/library/rpg_tiny.js"></script>
   <script src="js/library/rpg_life.js"></script>
+  <script src="js/library/fx2.js"></script>
+  <script src="js/library/ui_kit.js"></script>
+  <script src="js/library/fonts.js"></script>
+  <script src="js/library/platformer.js"></script>
+  <script src="js/library/scifi.js"></script>
+  <script src="js/library/space.js"></script>
+  <script src="js/library/rig.js"></script>
+  <script src="js/library/modern.js"></script>
+  <script src="js/library/farm.js"></script>
+  <script src="js/library/iso.js"></script>
+  <script src="js/library/topdown.js"></script>
+  <script src="js/library/forge.js"></script>
   <script src="js/library/index.js"></script>
   <script src="js/agent/tools.js"></script>
   <script src="js/agent/studio-tools.js"></script>
@@ -465,6 +522,7 @@
   <script src="js/agent/harness.js"></script>
   <script src="js/agent/agent.js"></script>
   <script src="js/agent/mcp.js"></script>
+  <script src="js/ui/fx.js"></script>
   <script src="js/ui/panels.js"></script>
   <script src="js/ui/studio.js"></script>
   <script>

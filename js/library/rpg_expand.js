@@ -22,9 +22,13 @@ PF.RPG.expand = (() => {
   const PALADIN = { skin: '#f2c094', skinSh: '#c28569', hair: '#fee761', hairSh: '#feae34', hairHi: '#fff6c9',
     shirt: '#e8ecf5', shirtSh: '#8b9bb4', shirtHi: '#ffffff', pants: '#3a4466', pantsSh: '#262b44',
     boots: '#5a6988', belt: '#fee761', buckle: '#ffffff', outline: OUTLINE, lip: '#a26a5a' };
+  /* Hood, tunic, sleeves and cape were four shades of the same green inside 25
+     luma of one another, so the druid rendered as a green mass with a strip of
+     face in it. The tunic is now the brightest green and the ONLY green: the
+     hood goes deep forest (a full step below it) and the mantle goes bark. */
   const DRUID = { skin: '#e8b796', skinSh: '#a26a5a', hair: '#3e8948', hairSh: '#265c42', hairHi: '#63c74d',
-    shirt: '#265c42', shirtSh: '#193c3e', shirtHi: '#3e8948', pants: '#733e39', pantsSh: '#3e2731',
-    boots: '#3e2731', belt: '#b86f50', buckle: '#c9f27e', outline: OUTLINE, lip: '#a26a5a' };
+    shirt: '#3e8948', shirtSh: '#265c42', shirtHi: '#63c74d', pants: '#3e2731', pantsSh: '#262b44',
+    boots: '#262b44', belt: '#ead4aa', buckle: '#c9f27e', outline: OUTLINE, lip: '#a26a5a' };
   const LICH = { skin: '#c0cbdc', skinSh: '#8b9bb4', hair: '#3e2347', hairSh: '#262b44', hairHi: '#68386c',
     shirt: '#3e2347', shirtSh: '#262b44', shirtHi: '#68386c', pants: '#262b44', pantsSh: '#181425',
     boots: '#181425', belt: '#181425', buckle: '#b55088', outline: OUTLINE, lip: '#5c1a1a' };
@@ -44,8 +48,8 @@ PF.RPG.expand = (() => {
   function druidSuite() {
     return R.humanoidSuite(DRUID, 'rpg-druid', {
       weapon: 'staff', cast: true, castColors: ['#63c74d', '#c9f27e', '#2ce8f5'],
-      head: { hood: '#265c42', hoodSh: '#193c3e' },
-      garb: { cape: '#3e8948', capeSh: '#265c42' }
+      head: { hood: '#17453a', hoodSh: '#0f2b26' },
+      garb: { cape: '#7a4a2e', capeSh: '#4a2c1e' }   // bark mantle: not more green
     });
   }
   function lichSuite() {

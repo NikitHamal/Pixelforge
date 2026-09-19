@@ -55,47 +55,12 @@ PF.IO = (() => {
   }
   const exportJSON = () => { const d = PF.Store.get(), { atlas } = buildSheet({}); download(JSON.stringify(atlas, null, 2), `${safe(d.name)}.json`, 'application/json'); return { file: 'json', frames: Object.keys(atlas.frames).length }; };
 
-  /* ---------- GIF encoder ---------- */
-  function lzw(indices, minCodeSize) {
-    const clear = 1 << minCodeSize, eoi = clear + 1, out = [];
-    let codeSize = minCodeSize + 1, next = eoi + 1, dict = new Map(), bitBuf = 0, bitCnt = 0;
-    const emit = code => { bitBuf |= code << bitCnt; bitCnt += codeSize; while (bitCnt >= 8) { out.push(bitBuf & 255); bitBuf >>>= 8; bitCnt -= 8; } };
-    emit(clear);
-    let prefix = indices[0];
-    for (let i = 1; i < indices.length; i++) {
-      const k = indices[i], key = (prefix << 8) | k;
-      if (dict.has(key)) { prefix = dict.get(key); continue; }
-      emit(prefix);
-      if (next === 4096) { emit(clear); dict = new Map(); codeSize = minCodeSize + 1; next = eoi + 1; }
-      else { if (next >= (1 << codeSize)) codeSize++; dict.set(key, next++); }
-      prefix = k;
-    }
-    emit(prefix); emit(eoi); if (bitCnt > 0) out.push(bitBuf & 255);
-    return out;
-  }
-  function encodeGIF(frames, w, h, loop = true) {
-    // frames: [{pixels: Uint32Array (composited), delay ms}]
-    let colors = new Set(); frames.forEach(f => { for (let i = 0; i < f.pixels.length; i++) { const v = f.pixels[i]; if ((v >>> 24) >= 128) colors.add(v & 0xffffff); } });
-    let mask = 0xffffff, list = [...colors];
-    while (list.length > 255) { mask = ((mask << 1) & 0xfefefe) >>> 0; colors = new Set(list.map(c => c & mask)); list = [...colors]; }
-    const index = new Map(list.map((c, i) => [c, i + 1])), n = list.length + 1;
-    let bits = 1; while ((1 << bits) < n) bits++; bits = Math.max(2, bits);
-    const bytes = [], u16 = v => bytes.push(v & 255, (v >> 8) & 255), str = s => { for (const ch of s) bytes.push(ch.charCodeAt(0)); };
-    str('GIF89a'); u16(w); u16(h); bytes.push(0x80 | 0x70 | (bits - 1), 0, 0);
-    bytes.push(0, 0, 0); list.forEach(c => bytes.push(c & 255, (c >> 8) & 255, (c >> 16) & 255));
-    for (let i = n; i < (1 << bits); i++) bytes.push(0, 0, 0);
-    if (loop) { bytes.push(0x21, 0xff, 0x0b); str('NETSCAPE2.0'); bytes.push(3, 1); u16(0); bytes.push(0); }
-    for (const f of frames) {
-      bytes.push(0x21, 0xf9, 4, 0x09); u16(Math.max(2, Math.round(f.delay / 10))); bytes.push(0, 0);
-      bytes.push(0x2c); u16(0); u16(0); u16(w); u16(h); bytes.push(0);
-      const idx = new Uint8Array(w * h); for (let i = 0; i < idx.length; i++) { const v = f.pixels[i]; idx[i] = (v >>> 24) >= 128 ? index.get(v & mask & 0xffffff) || 0 : 0; }
-      const data = lzw(idx, bits); bytes.push(bits);
-      for (let i = 0; i < data.length; i += 255) { const chunk = data.slice(i, i + 255); bytes.push(chunk.length, ...chunk); }
-      bytes.push(0);
-    }
-    bytes.push(0x3b);
-    return new Blob([new Uint8Array(bytes)], { type: 'image/gif' });
-  }
+  /* ---------- GIF ----------
+     The encoder itself lives in js/core/gif.js so the headless CLI can reuse
+     it; this layer only wraps the bytes in a Blob for the download path. */
+  const encodeGIF = (frames, w, h, loop = true) =>
+    new Blob([PF.Gif.encode(frames, w, h, loop)], { type: 'image/gif' });
+
   function exportGIF({ scale = 1, state } = {}) {
     const d = PF.Store.get(), si = state ?? d.activeState, st = d.states[si], w = d.width * scale, h = d.height * scale;
     const frames = st.frames.map(f => { const cv = PF.Renderer.frameToCanvas(f, scale); const id = cv.getContext('2d').getImageData(0, 0, w, h); return { pixels: new Uint32Array(id.data.buffer), delay: f.duration }; });
@@ -118,6 +83,55 @@ PF.IO = (() => {
     const css = `.${safe(d.name)} {\n  width: ${scale}px; height: ${scale}px; margin: 0 ${(d.width - 1) * scale}px ${(d.height - 1) * scale}px 0;\n  box-shadow: ${sh.join(',\n    ')};\n}`;
     download(css, `${safe(d.name)}.css`, 'text/css'); return { file: 'css', pixels: sh.length };
   }
+  /* ---------- Engine-native targets ----------
+     PF.Exporters writes the project file; this layer supplies the atlas and
+     the download. The sheet is built once per call because every target reads
+     the same frame rectangles — an engine file whose coordinates disagree with
+     the PNG beside it is worse than no export at all. */
+  const engineAtlas = (o = {}) => {
+    const d = PF.Store.get();
+    return PF.Exporters.fromSheet(buildSheet(o), { name: safe(d.name) });
+  };
+  function exportEngine(target, o = {}) {
+    const res = PF.Exporters.run(target, engineAtlas(o), o);
+    download(res.text, res.filename, res.mime);
+    return { file: target, filename: res.filename, bytes: res.text.length };
+  }
+
+  /* ---------- Bundle ----------
+     One ZIP holding the sheet PNG, every state as a GIF, and the project files
+     for the chosen engines. This is the export a developer actually wants:
+     dropping a folder into a project beats downloading eight files one at a
+     time and hoping they were all rendered at the same scale. */
+  async function exportBundle(o = {}) {
+    const d = PF.Store.get(), base = safe(d.name);
+    const targets = o.targets || PF.Exporters.TARGETS.map(t => t.id);
+    const sheet = buildSheet(o);
+    const atlas = PF.Exporters.fromSheet(sheet, { name: base });
+    const files = [
+      { name: `${base}/${base}.png`, data: new Uint8Array(await (await toBlob(sheet.canvas)).arrayBuffer()) },
+      { name: `${base}/${base}.atlas.json`, data: JSON.stringify(sheet.atlas, null, 2) },
+      { name: `${base}/${base}.pixelforge.json`, data: PF.Store.serialize() }
+    ];
+    for (const t of targets) {
+      const r = PF.Exporters.run(t, atlas, o);
+      /* Several targets share an extension (.json ×3, .tres ×2), so inside the
+         archive they are namespaced by target rather than overwriting. */
+      files.push({ name: `${base}/engine/${t}/${r.filename}`, data: r.text });
+    }
+    const scale = o.scale || 1, w = d.width * scale, h = d.height * scale;
+    for (const st of d.states) {
+      const frames = st.frames.map(f => {
+        const cv = PF.Renderer.frameToCanvas(f, scale);
+        return { pixels: new Uint32Array(cv.getContext('2d').getImageData(0, 0, w, h).data.buffer), delay: f.duration };
+      });
+      files.push({ name: `${base}/gif/${base}_${safe(st.name)}.gif`, data: PF.Gif.encode(frames, w, h, st.loop) });
+    }
+    const zip = PF.Zip.create(files);
+    download(new Blob([zip], { type: 'application/zip' }), `${base}.zip`);
+    return { file: 'bundle', entries: files.length, bytes: zip.length };
+  }
+
   const exportProject = () => { const d = PF.Store.get(); download(PF.Store.serialize(), `${safe(d.name)}.pixelforge.json`, 'application/json'); return { file: 'project' }; };
   const dataURL = (scale = 1) => PF.Renderer.frameToCanvas(PF.Store.frame(), scale).toDataURL('image/png');
 
@@ -145,15 +159,28 @@ PF.IO = (() => {
   }
   const importProject = async file => { PF.Store.load(await file.text()); return { ok: true, name: PF.Store.get().name }; };
 
+  /* Icons are Material Symbols names; `group` drives the headings in the
+     export sheet so eighteen buttons still read as three short lists. */
+  const ENGINE_ICONS = {
+    godot4: 'joystick', 'godot-tileset': 'grid_on', unity: 'view_in_ar',
+    'phaser-atlas': 'web', 'phaser-anims': 'code', love2d: 'favorite',
+    gamemaker: 'sports_esports', aseprite: 'brush', 'css-anim': 'css', json: 'data_object'
+  };
   const FORMATS = [
-    { id: 'png', name: 'PNG frame', desc: 'Current frame, any scale', icon: 'image', run: exportPNG },
-    { id: 'spritesheet', name: 'Sprite sheet + JSON', desc: 'All states, Aseprite-compatible atlas', icon: 'grid_view', run: exportSpriteSheet },
-    { id: 'gif', name: 'Animated GIF', desc: 'Current state, looping', icon: 'gif_box', run: exportGIF },
-    { id: 'json', name: 'Atlas JSON', desc: 'Frames, tags, durations', icon: 'data_object', run: exportJSON },
-    { id: 'svg', name: 'SVG', desc: 'Crisp vector rects', icon: 'polyline', run: exportSVG },
-    { id: 'css', name: 'CSS box-shadow', desc: 'Pure-CSS sprite', icon: 'css', run: exportCSS },
-    { id: 'project', name: 'Project file', desc: 'Lossless .pixelforge.json', icon: 'save', run: exportProject }
+    { id: 'png', group: 'Images', name: 'PNG frame', desc: 'Current frame, any scale', icon: 'image', run: exportPNG },
+    { id: 'spritesheet', group: 'Images', name: 'Sprite sheet + JSON', desc: 'All states, Aseprite-compatible atlas', icon: 'grid_view', run: exportSpriteSheet },
+    { id: 'gif', group: 'Images', name: 'Animated GIF', desc: 'Current state, looping', icon: 'gif_box', run: exportGIF },
+    { id: 'svg', group: 'Images', name: 'SVG', desc: 'Crisp vector rects', icon: 'polyline', run: exportSVG },
+    { id: 'css', group: 'Images', name: 'CSS box-shadow', desc: 'Pure-CSS sprite', icon: 'css', run: exportCSS },
+    ...PF.Exporters.TARGETS.map(t => ({
+      id: `engine:${t.id}`, group: 'Game engines', name: t.name, desc: `.${t.ext} — imports straight into the engine`,
+      icon: ENGINE_ICONS[t.id] || 'extension', run: o => exportEngine(t.id, o)
+    })),
+    { id: 'bundle', group: 'Everything', name: 'Full bundle (.zip)', desc: 'Sheet, GIFs, atlas and every engine file', icon: 'folder_zip', run: exportBundle },
+    { id: 'json', group: 'Everything', name: 'Atlas JSON', desc: 'Frames, tags, durations', icon: 'data_object', run: exportJSON },
+    { id: 'project', group: 'Everything', name: 'Project file', desc: 'Lossless .pixelforge.json', icon: 'save', run: exportProject }
   ];
   const run = (id, opts) => { const f = FORMATS.find(x => x.id === id); if (!f) throw new Error(`Unknown format "${id}". Use: ${FORMATS.map(x => x.id).join(', ')}`); return f.run(opts || {}); };
-  return { FORMATS, run, download, exportPNG, exportSpriteSheet, exportGIF, exportJSON, exportSVG, exportCSS, exportProject, importPNG, importProject, buildSheet, dataURL, encodeGIF };
+  return { FORMATS, run, download, exportPNG, exportSpriteSheet, exportGIF, exportJSON, exportSVG, exportCSS, exportProject,
+    exportEngine, exportBundle, engineAtlas, importPNG, importProject, buildSheet, dataURL, encodeGIF };
 })();

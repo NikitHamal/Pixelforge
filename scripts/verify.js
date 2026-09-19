@@ -1,6 +1,7 @@
 /* One-shot verification gate. Run this before you call anything done.
 
-   Steps: syntax -> sprite quality -> pixel regression -> game wiring -> pages.
+   Steps: syntax -> unit tests -> sprite quality -> pixel regression ->
+          game wiring -> pages -> headless game sim.
 
    Usage: node scripts/verify.js [--update-baseline]
 */
@@ -40,12 +41,14 @@ const run = (name, args) => {
 
 const STEPS = [
   syntaxCheck,
+  () => run('engine unit tests', ['scripts/test.js']),
   () => run('sprite quality gate', ['scripts/check-rpg.js']),
   () => updateBaseline
     ? run('pixel baseline updated', ['scripts/sprite-hash.js', 'save', 'scripts/hashes-baseline.json'])
     : run('pixel regression', ['scripts/sprite-hash.js', 'diff', 'scripts/hashes-baseline.json']),
   () => run('game wiring', ['scripts/check-game.js']),
-  () => run('page integrity', ['scripts/check-pages.js'])
+  () => run('page integrity', ['scripts/check-pages.js']),
+  () => run('headless game sim', ['scripts/sim-game.js'])
 ];
 
 console.log('PixelForge verification\n' + '='.repeat(52));

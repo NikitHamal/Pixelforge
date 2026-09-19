@@ -76,33 +76,172 @@ PF.Items = (() => {
   }
 
   /* ---------- WEAPONS RACK ---------- */
+  /* Every item here used to be one or two axis-aligned bars: the axe was a
+     white rectangle on a stick, the bow was an oval with a cross through it,
+     the arrow was two coloured squares on a line. Rebuilt as real objects —
+     blades taper and carry a fuller, the axe has a flared bit and a back
+     spur, the bow's limbs curve away from a STRAIGHT string, the arrow is
+     fletched and set on the diagonal where a 32px cell gives it the most
+     length. Three tones minimum on every part, light from the upper left. */
   function weaponsSuite() {
+    const ST = '#c0cbdc', SThi = '#e9f1fb', STsh = '#7a879e', STdk = '#4d5a76';
+    const WD = '#8a5a3b', WDh = '#b07c4e', WDs = '#5e3a24';
+    const GD = '#feae34', GDh = '#fee761', GDs = '#c06a1e';
+
+    /* A blade as a vertical solid: `tip` rows taper to the point, the left
+       column takes the light, a fuller runs down the middle and the right
+       column falls into shadow. */
+    const blade = (api, x0, x1, yTop, yBot, tip) => {
+      const mid = (x0 + x1) >> 1;
+      for (let y = yTop; y <= yBot; y++) {
+        const k = y < yTop + tip ? Math.round(((yTop + tip - y) / tip) * ((x1 - x0) / 2)) : 0;
+        const a = x0 + k, b = x1 - k;
+        if (a > b) continue;
+        api.rect(a, y, b, y, ST);
+        api.px(a, y, SThi);
+        api.px(b, y, STsh);
+        if (b - a >= 4 && y > yTop + tip) api.px(mid, y, STsh);   // fuller
+      }
+    };
+
     const weapon = (kind) => (buf, W, H) => {
       const api = apiFor(buf, W, H);
       if (kind === 'sword') {
-        api.line(16, 26, 16, 8, '#c0cbdc', 3); api.line(16, 26, 16, 8, '#ffffff', 1);
-        api.line(10, 26, 22, 26, '#feae34', 2); api.rect(14, 27, 18, 30, '#733e39'); api.px(16, 30, '#feae34');
-        api.px(16, 8, '#ffffff');
+        blade(api, 13, 17, 4, 21, 5);
+        api.rect(8, 22, 23, 23, GD);                     // crossguard
+        api.rect(8, 22, 23, 22, GDh); api.rect(8, 23, 23, 23, GDs);
+        api.px(7, 23, GDs); api.px(24, 23, GDs);         // flared quillon tips
+        api.px(8, 21, GDh); api.px(23, 21, GDs);
+        api.rect(14, 24, 17, 29, '#5e3a24');             // wrapped grip
+        api.rect(14, 24, 14, 29, '#8a5a3b');
+        for (const gy of [25, 27]) api.rect(14, gy, 17, gy, '#3a2011');
+        api.rect(13, 29, 18, 30, GD);                    // pommel
+        api.rect(14, 29, 16, 29, GDh); api.rect(13, 30, 18, 30, GDs);
       } else if (kind === 'pickaxe') {
-        api.line(16, 28, 16, 8, '#b86f50', 2);
-        api.line(7, 8, 25, 8, '#8b9bb4', 2); api.line(7, 8, 9, 11, '#8b9bb4', 2); api.line(25, 8, 23, 11, '#8b9bb4', 2);
+        api.rect(15, 9, 16, 29, WD); api.rect(15, 9, 15, 29, WDh); api.px(16, 29, WDs);
+        /* Two curved picks off one eye. Straight arms crossing the haft is a
+           plus sign, which is how the old one read. */
+        for (let i = 0; i <= 9; i++) {
+          const t = i / 9, dx = Math.round(1 + t * 8), dy = Math.round(7 + t * t * 4);
+          for (const sgn of [-1, 1]) {
+            const x = 16 + sgn * dx;
+            api.rect(x, dy, x, dy + 1, sgn < 0 ? ST : STsh);
+            api.px(x, dy, sgn < 0 ? SThi : ST);
+          }
+        }
+        api.px(7, 12, SThi); api.px(25, 12, ST);         // sharpened points
+        api.rect(14, 6, 17, 10, STdk); api.rect(14, 6, 17, 6, STsh);   // the eye
+        api.rect(15, 12, 16, 13, '#3a2011');             // wedge binding
       } else if (kind === 'axe') {
-        api.line(15, 28, 15, 6, '#b86f50', 2);
-        api.rect(15, 6, 23, 14, '#c0cbdc'); api.rect(15, 6, 17, 14, '#ffffff');
+        api.rect(15, 7, 16, 29, WD); api.rect(15, 7, 15, 29, WDh); api.px(16, 29, WDs);
+        /* A bit that flares: widest at the middle of the head, curving back to
+           the haft top and bottom, with the cutting edge lit. */
+        /* Flat against the haft, convex at the edge: that asymmetry IS the
+           axe. Flaring the head equally on both sides gave a paddle. */
+        for (let y = 5; y <= 19; y++) {
+          const f = Math.min(1, Math.sin(((y - 5) / 14) * Math.PI) * 1.45);
+          const b = 18 + Math.round(f * 7);
+          api.rect(16, y, b, y, ST);
+          api.rect(16, y, 17, y, STsh);
+          api.px(b, y, SThi); api.px(b - 1, y, '#ffffff');
+        }
+        api.rect(12, 9, 16, 15, STsh); api.rect(12, 9, 15, 10, ST);    // poll
+        api.px(12, 15, STdk);
+        api.rect(15, 5, 16, 19, WD); api.rect(15, 5, 15, 19, WDh);     // haft through the eye
+        api.rect(14, 8, 17, 8, STdk); api.rect(14, 16, 17, 16, STdk);  // langets
+        api.rect(15, 19, 16, 20, '#3a2011');             // leather binding
       } else if (kind === 'bow') {
-        api.ellipse(11, 5, 21, 27, '#b86f50', false); api.line(11, 5, 11, 27, '#ead4aa', 1);
-        api.line(8, 16, 18, 16, '#c28569', 1); api.rect(16, 15, 19, 17, '#8b9bb4');
+        /* The string is straight and the LIMBS bend. Drawn the other way
+           round — an oval with a stick through it — a bow is a lute. */
+        for (let i = 0; i <= 28; i++) {
+          const t = i / 28, y = 3 + Math.round(t * 26);
+          const x = 21 - Math.round(Math.pow(Math.sin(t * Math.PI), 0.55) * 9.5);
+          api.rect(x, y, x + 1, y, WD); api.px(x, y, WDh); api.px(x + 1, y, WDs);
+        }
+        api.rect(21, 3, 21, 29, '#ead4aa');              // string
+        api.px(20, 3, WDs); api.px(20, 29, WDs);         // nocks
+        api.rect(11, 13, 13, 19, '#3a2011');             // grip wrap
+        api.rect(11, 14, 12, 18, '#5e3a24');
+        api.px(14, 16, GD);                              // arrow rest
       } else if (kind === 'shield') {
-        api.ellipse(9, 6, 22, 27, '#124e89', true); api.ellipse(11, 8, 20, 25, '#0099db', true);
-        api.rect(14, 12, 17, 20, '#fee761'); api.px(15, 15, '#e43b44'); api.px(16, 16, '#e43b44');
-        api.rect(9, 6, 22, 9, '#8b9bb4');
+        /* A heater: flat top, sides falling to a point. An ellipse reads as a
+           mirror, and a rectangle reads as a door. */
+        const hw = y => y <= 9 ? 9 : Math.max(0, Math.round(9 * Math.sqrt(Math.max(0, 1 - ((y - 9) / 19) * ((y - 9) / 19)))));
+        for (let y = 4; y <= 28; y++) {
+          const w = hw(y); if (!w) continue;
+          api.rect(16 - w, y, 15 + w, y, '#0f4479');
+          api.rect(16 - w, y, 17 - w, y, ST);            // steel rim, lit side
+          api.rect(14 + w, y, 15 + w, y, STsh);
+        }
+        api.rect(7, 4, 24, 5, ST); api.rect(7, 4, 24, 4, SThi);       // top band
+        for (let y = 7; y <= 22; y++) {                  // sunlit upper-left of the face
+          const w = hw(y); if (w < 3) continue;
+          api.rect(18 - w, y, 15, y, '#1d68ad');
+          if (y < 15) api.rect(18 - w, y, 13, y, '#2f86cf');
+        }
+        api.rect(14, 10, 17, 22, GD); api.rect(15, 8, 16, 24, GD);    // cross device
+        api.rect(14, 10, 17, 10, GDh); api.rect(14, 22, 17, 22, GDs);
+        api.rect(13, 14, 18, 18, STsh); api.rect(14, 15, 17, 17, ST); // boss
+        api.px(14, 15, '#ffffff'); api.px(17, 17, STdk);
+        api.px(9, 25, ST); api.px(22, 25, STsh);         // rivets
       } else if (kind === 'staff') {
-        api.line(16, 28, 16, 8, '#b86f50', 2); api.ellipse(12, 3, 20, 10, '#b55088', true); api.px(16, 6, '#ffffff'); api.px(14, 5, '#f6757a');
+        /* A gnarled shaft with a forked head holding the stone. A ball on a
+           stick is a lollipop, which is what the old one was. */
+        for (let y = 10; y <= 30; y++) {
+          const x = 15 + (y > 22 ? 1 : 0) - (y > 27 ? 1 : 0);
+          api.rect(x, y, x + 1, y, WD); api.px(x, y, WDh); api.px(x + 1, y, WDs);
+        }
+        api.rect(14, 24, 17, 25, '#3a2011');             // hand grip
+        for (const sgn of [-1, 1]) for (let i = 0; i <= 7; i++) {
+          const t = i / 7;
+          api.px(15 + Math.round(sgn * (1 + t * 4)), 10 - Math.round(t * 6), i > 4 ? WDh : WD);
+          api.px(15 + Math.round(sgn * (1 + t * 4)), 11 - Math.round(t * 6), WDs);
+        }
+        api.ellipse(13, 2, 19, 9, '#7b2ea8', true);      // the stone
+        api.ellipse(13, 2, 18, 7, '#b55088', true);
+        api.ellipse(14, 3, 17, 5, '#e59ad0', true);
+        api.px(15, 3, '#ffffff'); api.px(17, 8, '#4a1470');
+        api.px(11, 4, '#e59ad0'); api.px(21, 7, '#e59ad0'); api.px(16, 0, '#ffffff');
       } else if (kind === 'arrow') {
-        api.line(6, 16, 24, 16, '#c28569', 1); api.rect(22, 14, 27, 18, '#8b9bb4'); api.rect(4, 14, 8, 18, '#e43b44');
+        /* On the diagonal: a 32px cell gives a shaft 40% more length that
+           way, and the fletching has somewhere to go. */
+        for (let i = 0; i <= 22; i++) {
+          const x = 6 + i, y = 25 - i;
+          api.px(x, y, '#c9a27a'); api.px(x, y + 1, '#8a6a49');
+        }
+        /* Head and vanes are drawn as thick PERPENDICULAR strokes. Stepping
+           pixel by pixel along a diagonal leaves every other cell empty, so
+           the first cut rendered both as a checkerboard. */
+        /* Perpendicular offsets on a 45-degree shaft all land on the SAME
+           parity of (x+y), so stacking them alone leaves every other cell
+           empty — head and fletching both came out as checkerboards. Writing
+           each offset twice, once shifted a pixel in x, closes the lattice. */
+        const dpx = (x, y, c) => { api.px(x, y, c); api.px(x + 1, y, c); };
+        for (let i = 0; i <= 6; i++) {
+          const x = 23 + i, y = 8 - i, w = Math.max(0, 2 - Math.round(i * 0.3));
+          for (let j = -w; j <= w; j++) dpx(x + j, y + j, j < 0 ? SThi : j > 0 ? STsh : ST);
+        }
+        api.px(30, 1, '#ffffff');
+        api.px(22, 9, STdk);                             // socket
+        for (let k = 0; k <= 5; k++) {                   // two feather vanes
+          const x = 4 + k, y = 27 - k, d = Math.max(0, 3 - Math.round(k * 0.55));
+          for (let j = 1; j <= d; j++) {
+            dpx(x + j - 1, y + j, j === 1 ? '#f6757a' : '#e43b44');
+            dpx(x - j, y - j, j === 1 ? '#c42430' : '#a22633');
+          }
+        }
       } else if (kind === 'bomb') {
-        api.ellipse(9, 12, 22, 26, '#3a4466', true); api.px(12, 15, '#8b9bb4');
-        api.line(16, 12, 20, 6, '#b86f50', 1); api.px(21, 5, '#fee761'); api.px(22, 4, '#f77622');
+        api.ellipse(8, 11, 23, 27, '#2b3350', true);
+        api.ellipse(9, 12, 21, 25, '#3a4466', true);
+        api.ellipse(10, 13, 17, 19, '#55618c', true);    // rolled highlight
+        api.ellipse(11, 14, 15, 17, '#7b87b4', true);
+        api.px(12, 15, '#ffffff'); api.px(13, 15, '#c0cbdc');
+        api.ellipse(11, 24, 20, 27, '#1c2237', true);    // it sits in its own shadow
+        api.rect(14, 8, 18, 11, STsh); api.rect(14, 8, 18, 8, ST);   // fuse collar
+        api.px(18, 11, STdk);
+        api.line(16, 8, 20, 4, '#8a6a49', 1); api.line(17, 8, 21, 5, '#5e3a24', 1);
+        api.px(21, 3, '#fee761'); api.px(22, 2, '#f77622'); api.px(20, 2, '#feae34');
+        api.px(23, 1, '#e43b44'); api.px(21, 1, '#ffffff');
       }
       finish(buf, W, H);
     };
@@ -112,9 +251,28 @@ PF.Items = (() => {
 
   /* ---------- FX ---------- */
   function fxSuite() {
+    /* A one-pixel arc of constant thickness is a fingernail clipping. A slash
+       reads as a CRESCENT: fat through the middle of the sweep, tapering to
+       nothing at both ends, with a dim outer wash behind a bright core and a
+       white flash at the leading tip. */
+    const arc = (api, cx, cy, r, a0, a1, thick, c) => {
+      const steps = 28;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps, a = a0 + (a1 - a0) * t;
+        const w = Math.max(1, Math.round(thick * Math.sin(t * Math.PI)));
+        for (let k = 0; k < w; k++) api.px(cx + Math.cos(a) * (r - k), cy + Math.sin(a) * (r - k), c);
+      }
+    };
     const slashFrames = [0, 1, 2, 3].map(i => Fr(ms(12), (buf, W, H) => {
-      const api = apiFor(buf, W, H), t = i / 4;
-      PF.Pixel.slash(api, 16, 16, 4 + t * 7, -0.9 + t * 0.5, 0.6 + t * 0.5, i === 3 ? '#2ce8f5' : '#ffffff', 2);
+      const api = apiFor(buf, W, H), t = i / 3;
+      const r = 7 + t * 6, a0 = -1.8 + t * 0.9, a1 = a0 + 1.2 + t * 1.1;
+      const dim = ['#6d7a96', '#8b9bb4', '#6d7a96', '#1f8ba0'][i];
+      const mid = ['#c0cbdc', '#e4ecf7', '#c0cbdc', '#2ce8f5'][i];
+      arc(api, 16, 16, r + 1, a0, a1, 2 + i, dim);
+      arc(api, 16, 16, r, a0 + 0.14, a1 - 0.14, i === 1 || i === 2 ? 3 : 2, mid);
+      if (i < 3) arc(api, 16, 16, r - 1, a0 + 0.35, a1 - 0.45, 2, '#ffffff');
+      api.px(16 + Math.cos(a1) * (r + 1), 16 + Math.sin(a1) * (r + 1), '#ffffff');
+      api.px(16 + Math.cos(a0) * (r - 1), 16 + Math.sin(a0) * (r - 1), '#ffffff');
     }));
     const hitFrames = [0, 1, 2].map(i => Fr(ms(12), (buf, W, H) => {
       const api = apiFor(buf, W, H);

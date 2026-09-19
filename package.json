@@ -1,9 +1,26 @@
 {
   "name": "pixelforge",
-  "version": "1.1.0",
-  "private": true,
-  "description": "Browser pixel-art studio and procedural game-asset engine. Every sprite is generated at runtime by pure maths — there are no image assets.",
-  "keywords": ["pixel-art", "sprite", "game-assets", "canvas", "procedural", "rpg"],
+  "version": "2.0.0",
+  "description": "Browser pixel-art studio and procedural game-asset engine. Every sprite is generated at runtime by pure maths \u2014 there are no image assets.",
+  "keywords": [
+    "pixel-art",
+    "sprite",
+    "sprite-sheet",
+    "game-assets",
+    "gamedev",
+    "canvas",
+    "procedural",
+    "rpg",
+    "tileset",
+    "gif",
+    "godot",
+    "unity",
+    "phaser",
+    "love2d",
+    "gamemaker",
+    "aseprite",
+    "zero-dependency"
+  ],
   "license": "MIT",
   "type": "commonjs",
   "engines": {
@@ -11,13 +28,37 @@
   },
   "scripts": {
     "verify": "node scripts/verify.js",
-    "test": "node scripts/verify.js",
+    "test": "node scripts/test.js",
     "gate": "node scripts/check-rpg.js",
-    "baseline": "node scripts/sprite-hash.js save scripts/hashes-baseline.json",
+    "baseline": "node scripts/verify.js --update-baseline",
     "bench": "node scripts/bench-compare.js",
     "sheet": "node scripts/sheet.js",
-    "serve": "node scripts/serve.js"
+    "serve": "node scripts/serve.js",
+    "cli": "node bin/pixelforge.js",
+    "info": "node scripts/info.js"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {},
+  "bin": {
+    "pixelforge": "bin/pixelforge.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "js/",
+    "css/",
+    "app/",
+    "index.html",
+    "studio.html",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NikitHamal/Pixelforge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NikitHamal/Pixelforge/issues"
+  },
+  "homepage": "https://github.com/NikitHamal/Pixelforge#readme"
 }

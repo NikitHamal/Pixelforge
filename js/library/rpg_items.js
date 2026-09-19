@@ -299,14 +299,37 @@ PF.RPG.items = (() => {
 
   /* ================= BATTLE MAGIC 2 ================= */
   function magic2Suite() {
+    /* Six separate stacked ellipses with gaps between them is a wedding cake,
+       which is exactly what the old tornado looked like. A funnel is ONE
+       continuous solid, wide at the cloud and narrow at the ground, and the
+       spin is carried by a lit band spiralling down it — the band's phase
+       shifts per frame, so the whole column appears to rotate without a
+       single shape moving. */
     const tornado = i => (buf, W, H) => {
       const api = apiFor(buf, W, H);
-      for (let k = 0; k < 6; k++) {
-        const y = 6 + k * 4, w = 2 + k * 2, off = ((i + k) % 2 ? 1 : -1);
-        api.ellipse(16 - w + off, y, 16 + w + off, y + 3, k % 2 ? '#c0cbdc' : '#8b9bb4', k > 3);
-        if (k < 4) api.px(16 + off * 2, y + 1, '#ffffff');
+      const Dk = '#4c5972', M = '#8b9bb4', L = '#c0cbdc', Hi = '#e4ecf7';
+      for (let y = 1; y <= 26; y++) {
+        const t = (y - 1) / 25;
+        const hw = Math.max(2, Math.round(10 - t * t * 8 + Math.sin(y * 0.8 + i) * 0.7));
+        const lean = Math.round(Math.sin(y * 0.22 + i * 0.5) * 1.6);
+        const cx = 16 + lean;
+        api.rect(cx - hw, y, cx + hw, y, M);
+        api.px(cx - hw, y, Dk); api.px(cx + hw, y, Dk);
+        const ph = y * 0.66 - i * 1.3;                     // the spiralling band
+        const bx = cx + Math.round(Math.sin(ph) * hw * 0.55);
+        const bw = Math.max(1, Math.round(hw * 0.4));
+        api.rect(bx - bw, y, bx + bw, y, Math.cos(ph) > 0 ? L : Dk);
+        if (Math.cos(ph) > 0.65) api.px(bx, y, Hi);
       }
-      api.px(10 + i, 12, '#3e8948'); api.px(22 - i, 20, '#b86f50');
+      api.ellipse(4, 24, 28, 30, Dk, true);                // dust kicked off the ground
+      api.ellipse(7, 25, 25, 29, M, true);
+      api.ellipse(11, 26, 21, 28, L, true);
+      for (let k = 0; k < 5; k++) {                        // debris torn up and thrown wide
+        const a = k * 1.27 + i * 0.8, y = 8 + k * 4;
+        const x = 16 + Math.round(Math.cos(a) * (10 - k));
+        api.px(x, y, k % 2 ? '#3e8948' : '#b86f50');
+        api.px(x + (a > 3 ? -1 : 1), y + 1, k % 2 ? '#265c42' : '#733e39');
+      }
       finish(buf);
     };
     const meteor = i => (buf, W, H) => {
