@@ -758,20 +758,43 @@ PF.Platformer = (() => {
   }
 
   /* ========================================================= COLLECTABLES ===
-     A coin has to read as currency in 16 pixels and 4 frames: the trick is
-     that the "edge on" frame is 2px wide and nearly white, so the spin has a
-     flash rather than a smooth squash. */
+     A struck coin is three concentric values -- a rolled edge, a milled
+     bevel and a field -- carrying an incuse mark. One flat disc with a bar
+     down it was a token, not currency. The spin squashes the width; at 2px
+     the coin is edge on and the bevel is the whole sprite. */
   function pickupSuite() {
-    const coinFrames = (gold, rim, hiC) => cyc(6, 12, (a, i) => {
+    const coinFrames = (gold, rim, hiC, dk) => cyc(6, 12, (a, i) => {
       const w = Math.abs(Math.cos((i / 6) * Math.PI)) * 6 + 0.6;
-      a.ellipse(16 - w, 12, 16 + w, 24, rim, true);
-      if (w > 2) {
-        a.ellipse(16 - w + 1, 13, 16 + w - 1, 23, gold, true);
-        a.ellipse(16 - w + 2, 14, 16 - w + 3, 17, hiC, true);
-        a.rect(16 - 1, 16, 16 + 1, 20, rim);        // struck face mark
-      } else a.rect(16 - 1, 12, 16 + 1, 24, hiC);   // edge-on flash
-      const sp = 14 + Math.round(Math.sin((i / 6) * TAU) * 3);
-      a.px(sp, 9, '#fff6c9'); a.px(30 - sp, 27, '#fff6c9');
+      a.ellipse(16 - w, 12, 16 + w, 24, dk, true);              // rolled edge
+      if (w > 2.2) {
+        a.ellipse(16 - w + 1, 13, 16 + w - 1, 23, rim, true);   // bevel
+        a.ellipse(16 - w + 2, 14, 16 + w - 2, 22, gold, true);  // struck field
+        rimArc(a, 16, 18, w - 0.5, 5.5, -2.85, -1.45, hiC);     // key light off the bevel
+        if (w > 4.5) {
+          // Milling, sampled on the bevel ring so every notch lands on metal
+          // rather than beside the silhouette as a loose speck.
+          for (let k = 0; k < 14; k++) {
+            const ang = (k / 14) * TAU;
+            a.px(16 + Math.cos(ang) * (w - 1.3), 18 + Math.sin(ang) * 4.5, k % 2 ? dk : rim);
+          }
+        }
+        const sw = Math.max(1, Math.round(w * 0.45));
+        if (i > 3) {                                  // reverse: two struck bars
+          a.rect(16 - sw, 17, 16 + sw, 17, dk); a.rect(16 - sw, 19, 16 + sw, 19, dk);
+          a.px(16 - sw, 16, hiC); a.px(16 - sw, 18, hiC);
+        } else {                                      // obverse: an incuse lozenge
+          for (let r = -3; r <= 3; r++) {
+            const hw = Math.round((1 - Math.abs(r) / 3.6) * sw);
+            a.rect(16 - hw, 18 + r, 16 + hw, 18 + r, dk);
+            a.px(16 - hw, 18 + r, r <= 0 ? hiC : gold);   // the lip of the strike
+          }
+        }
+      } else {
+        const hw = Math.max(0, Math.round(w) - 1);
+        a.rect(16 - hw, 14, 16 + hw, 22, hiC);        // edge-on flash
+        a.rect(16 - hw, 12, 16 + hw, 13, rim);
+        a.rect(16 - hw, 23, 16 + hw, 24, rim);
+      }
     });
     /* A cut gem is a table (flat top), a crown that WIDENS to the girdle and
        a pavilion that tapers to a point. Narrowing from row 0 gives an
@@ -783,19 +806,20 @@ PF.Platformer = (() => {
       HW.forEach((hw, r) => a.rect(16 - hw, cy - 4 + r, 16 + hw, cy - 4 + r, r < 2 ? c1 : c0));
       a.line(16 - 3, cy - 4, 16, cy + 2, c2, 1);     // left crown facet, lit
       a.line(16 + 3, cy - 4, 16, cy + 2, c0, 1);     // right facet, in shadow
+      // Light the stone from one side. A symmetric ramp reads as a plastic
+      // bead; the lit flank is what makes it look cut.
+      HW.forEach((hw, r) => a.px(16 - hw, cy - 4 + r, r < 4 ? c2 : c1));
       a.rect(16 - 3, cy - 5, 16 - 1, cy - 5, '#ffffff');
       a.px(16 - 4, cy - 3, '#ffffff');
-      // A glint sweeping the facets plus a sparkle orbiting the stone: both
-      // move every frame, so no two frames of the float can coincide.
+      // A glint sweeping the facets. The sparkle that used to orbit the stone
+      // was a detached pixel, and the outline pass gave it its own border.
       const g = (i + 2) % 6;
       if (g < 4) a.rect(16 + 4 - g, cy - 4 + g, 16 + 4 - g, cy - 3 + g, '#ffffff');
-      const oa = t * TAU, sx = 16 + Math.cos(oa) * 10, sy = cy + Math.sin(oa) * 8;
-      a.px(sx, sy, '#ffffff'); a.px(sx + 1, sy, c2); a.px(sx, sy + 1, c2);
     });
     /* Filled star polygon: 10 alternating vertices, each edge fanned back to
        the centre. Drawing only the spokes (the obvious shortcut) gives a
        starfish, not a star. */
-    const starShape = (a, cx, cy, ro, ri, rot, fillC, hiC, edgeC) => {
+    const starShape = (a, cx, cy, ro, ri, rot, fillC, hiC, edgeC, shC) => {
       const V = [];
       for (let k = 0; k < 10; k++) {
         const ang = rot - Math.PI / 2 + (k / 10) * TAU, r = k % 2 ? ri : ro;
@@ -805,14 +829,23 @@ PF.Platformer = (() => {
         const [x0, y0] = V[k], [x1, y1] = V[(k + 1) % 10];
         for (let q = 0; q <= 8; q++) a.line(cx, cy, x0 + (x1 - x0) * q / 8, y0 + (y1 - y0) * q / 8, fillC, 1);
       }
-      for (let k = 0; k < 10; k += 2) a.line(cx, cy, V[k][0], V[k][1], hiC, 1);   // lit ridge per point
+      /* Every point is a shallow pyramid. Its ridge runs centre -> tip, and
+         whether that ridge is lit depends on which way the tip faces the key
+         light (upper left) -- lighting all ten the same gave a flat decal. */
+      const face = k => { const dx = V[k][0] - cx, dy = V[k][1] - cy; return (-dx - dy) / (Math.hypot(dx, dy) || 1); };
+      for (let k = 1; k < 10; k += 2) if (face(k) < 0) a.line(cx, cy, V[k][0], V[k][1], shC, 1);   // valley falling away
+      for (let k = 0; k < 10; k += 2) {
+        const u = face(k);
+        a.line(cx, cy, V[k][0], V[k][1], u > 0.25 ? hiC : u < -0.25 ? shC : fillC, 1);
+      }
       for (let k = 0; k < 10; k++) { const [x0, y0] = V[k], [x1, y1] = V[(k + 1) % 10]; a.line(x0, y0, x1, y1, edgeC, 1); }
+      a.px(cx - 2, cy - 2, '#ffffff');                                                  // specular off the boss
     };
     return {
       width: 32, height: 32, name: 'Collectables', layers: [{ name: 'pickup' }],
       states: [
-        D('coin_gold', 12, true, coinFrames('#f6c33a', '#b07a12', '#fff6c9')),
-        D('coin_silver', 12, true, coinFrames('#c9d4e0', '#6d7d92', '#ffffff')),
+        D('coin_gold', 12, true, coinFrames('#f6c33a', '#c9922a', '#fff6c9', '#7a4e0c')),
+        D('coin_silver', 12, true, coinFrames('#c9d4e0', '#93a2b5', '#ffffff', '#4e5c6e')),
         D('gem_red', 10, true, gemFrames('#8a1d33', '#e43b44', '#ff9aa2')),
         D('gem_blue', 10, true, gemFrames('#1d4d8a', '#2f8ee0', '#9ad8ff')),
         D('gem_green', 10, true, gemFrames('#1d6a3a', '#3fc46a', '#a4f2b8')),
@@ -820,29 +853,42 @@ PF.Platformer = (() => {
         D('heart', 8, true, cyc(4, 8, (a, i, t) => {
           const s = 1 + Math.sin(t * TAU) * 0.1, cy = 18 - Math.round(Math.cos(t * TAU) * 2);
           const rows = [[3, 4, 7, 8], [2, 9], [1, 10], [1, 10], [1, 10], [2, 9], [3, 8], [4, 7], [5, 6]];
+          // Three values down the form and a lit left flank on every run: the
+          // two-tone version had lobes but no volume under them.
           rows.forEach((sp, dy) => { for (let q = 0; q < sp.length; q += 2) {
-            const x0 = 16 - 6 + sp[q] * s, x1 = 16 - 6 + sp[q + 1] * s;
-            a.rect(x0, cy - 5 + dy, x1, cy - 5 + dy, dy < 3 ? '#ff5a6e' : '#c2283c'); } });
-          a.rect(16 - 3, cy - 4, 16 - 2, cy - 3, '#ffc0c8');
-          if (i % 2 === 0) { a.px(24, 11, '#ffffff'); a.px(9, 22, '#ffffff'); }
+            const x0 = 16 - 6 + sp[q] * s, x1 = 16 - 6 + sp[q + 1] * s, y = cy - 5 + dy;
+            a.rect(x0, y, x1, y, dy < 2 ? '#e8384f' : dy < 5 ? '#c2283c' : '#8a1830');
+            a.px(x0, y, dy < 6 ? '#ff7a8c' : '#c2283c'); } });
+          a.rect(16 - 4, cy - 3, 16 - 3, cy - 2, '#ff9aa8');   // gloss on the near lobe
+          a.px(16 - 4, cy - 3, '#ffd6dc');
+          a.px(16 - 5, cy - 2, '#ffc0c8');
         })),
         D('star', 12, true, cyc(6, 12, (a, i, t) => {
           const cy = 18 + [0, -1, -1, 0, 1, 1][i];
-          starShape(a, 16, cy, 11, 4.6, t * 0.5, '#f6c33a', '#fff6c9', '#b07a12');
-          a.rect(13, cy - 1, 14, cy, OUT); a.rect(18, cy - 1, 19, cy, OUT);   // face
-          a.px(13, cy - 1, '#ffffff'); a.px(18, cy - 1, '#ffffff');
-          a.line(15, cy + 3, 17, cy + 3, '#b07a12', 1);
-          const k = i % 3;
-          a.px(6 + k, 7 + k, '#ffffff'); a.px(25 - k, 27 - k, '#ffffff');
+          // One point-to-point turn per loop, so the lit side travels round
+          // the star instead of the whole decal sliding sideways.
+          starShape(a, 16, cy, 11, 4.6, (i / 6) * (TAU / 5), '#f6c33a', '#fff6c9', '#b07a12', '#c9922a');
         })),
+        /* A wire outline of a key barely reads at 32px. Fill the bow solid,
+           then punch the ward hole THROUGH it, so the brass has thickness to
+           catch light -- and give the shank a spine and a shadowed underside
+           instead of one flat bar. */
         D('key', 8, true, cyc(4, 8, (a, i, t) => {
-          const b = Math.round(Math.sin(t * TAU) * 2.5);
-          a.ellipse(9, 13 + b, 17, 21 + b, '#c9a227', false);
-          a.ellipse(10, 14 + b, 16, 20 + b, '#f6d64a', false);
-          a.rect(17, 16 + b, 25, 18 + b, '#f6d64a');
-          a.rect(17, 16 + b, 25, 16 + b, '#fff6c9');
-          a.rect(22, 18 + b, 23, 21 + b, '#c9a227'); a.rect(25, 18 + b, 25, 20 + b, '#c9a227');
-          if (i % 2) { a.px(12, 11 + b, '#ffffff'); a.px(26, 20 + b, '#ffffff'); }
+          const b = Math.round(Math.sin(t * TAU) * 2.5), Y = y => y + b, cx = 9, cy = 16;
+          a.ellipse(cx - 6, Y(cy - 5), cx + 6, Y(cy + 5), '#7a5a10', true);
+          a.ellipse(cx - 5, Y(cy - 4), cx + 5, Y(cy + 4), '#c9a227', true);
+          a.ellipse(cx - 4, Y(cy - 3), cx + 4, Y(cy + 3), '#f6d64a', true);
+          a.ellipse(cx - 3, Y(cy - 2), cx + 3, Y(cy + 2), '#7a5a10', true);   // ward hole
+          a.ellipse(cx - 2, Y(cy - 1), cx + 2, Y(cy + 1), '#3a2a06', true);
+          rimArc(a, cx, Y(cy), 5.5, 4.5, -2.9, -1.25, '#fff6c9');
+          a.rect(15, Y(14), 27, Y(18), '#7a5a10');
+          a.rect(15, Y(14), 27, Y(14), '#fff6c9');                            // spine
+          a.rect(15, Y(15), 27, Y(16), '#f6d64a');
+          a.rect(15, Y(17), 27, Y(17), '#c9a227');
+          a.rect(21, Y(19), 22, Y(22), '#c9a227'); a.rect(21, Y(19), 21, Y(22), '#f6d64a');
+          a.rect(25, Y(19), 26, Y(21), '#c9a227'); a.rect(25, Y(19), 25, Y(21), '#f6d64a');
+          const ga = (i / 4) * TAU;                                           // glint travelling the bow
+          a.px(cx + Math.cos(ga) * 4.6, Y(cy) + Math.sin(ga) * 3.6, '#ffffff');
         }))
       ]
     };
@@ -887,26 +933,41 @@ PF.Platformer = (() => {
           // Rest sits high enough that the coil stack is readable; a "rest"
           // pose only 4px above the base is just a red slab on a plate.
           const top = [18, 24, 9, 14][i], span = Math.max(1, 25 - top);
-          const coils = Math.max(2, Math.min(5, Math.round(span / 3)));
+          /* A coil, not a stack of plates. Each turn is a wire slanting down
+             across the spring with the near flank lit; the flanks join the
+             turns so the whole spring stays one island for the outline pass.
+             At a 3px pitch with a 2px wire the turns fused into a slab. */
+          const coils = Math.max(2, Math.min(4, Math.round(span / 4)));
           a.rect(8, 26, 23, 27, '#5a6988'); a.rect(8, 26, 23, 26, '#8b9bb4');
           for (let k = 0; k < coils; k++) {
-            const y = 25 - span * (k / coils);
-            a.line(9, y, 22, y - 1, '#c0cbdc', 2);
-            a.line(9, y, 22, y - 1, k % 2 ? '#8b9bb4' : '#e4eaf2', 1);
+            const y0 = 25 - span * (k / coils), y1 = 25 - span * ((k + 1) / coils);
+            // Front half of the turn sweeps left to right and the back half
+            // returns behind it, so the wire is one unbroken zigzag chain.
+            const fwd = k % 2 === 0, xa = fwd ? 9 : 22, xb = fwd ? 22 : 9;
+            a.line(xa, y0, xb, y1, fwd ? '#8b9bb4' : '#3d4a5c', 2);
+            if (fwd) a.line(xa, y0 - 1, xb, y1 - 1, '#e4eaf2', 1);
           }
-          a.rect(6, top - 3, 25, top, '#e43b44');
-          a.rect(6, top - 3, 25, top - 3, '#ff7a86');
+          a.rect(6, top - 4, 25, top, '#c2283c');
+          a.rect(6, top - 4, 25, top - 3, '#e43b44');
+          a.rect(6, top - 4, 25, top - 4, '#ff7a86');         // lit lip of the pad
           a.rect(6, top, 25, top, '#8a1d33');
+          for (let x = 8; x <= 23; x += 3) a.px(x, top - 1, '#8a1d33');   // grip tread
         })),
         D('checkpoint', 8, true, cyc(4, 8, (a, i, t) => {
           a.rect(9, 8, 10, 27, '#8b9bb4'); a.rect(9, 8, 9, 27, '#c0cbdc');
           a.ellipse(7, 25, 13, 27, '#5a6988', true);
+          // Swallow tail cut INTO the fly edge as the rows are drawn. There is
+          // no erase primitive, so the notch has to be part of the length.
           for (let y = 0; y < 8; y++) {
             const wv = Math.sin(t * TAU + y * 0.5) * 2;
-            a.line(11, 9 + y, 22 + wv, 9 + y, y < 4 ? '#3fc46a' : '#1d8a4a');
+            const cut = Math.max(0, 4 - Math.abs(y - 3.5) * 1.5);
+            a.line(11, 9 + y, 22 + wv - cut, 9 + y, y < 4 ? '#3fc46a' : '#1d8a4a');
           }
-          a.px(11, 8, '#c0cbdc');
-          if (i % 2 === 0) { a.px(16, 5, '#a4f2b8'); a.px(20, 6, '#a4f2b8'); }
+          // Swallow-tail notch, so the pennant has a silhouette rather than
+          // ending in a flat edge, plus a finial the pole can hold up.
+          a.rect(11, 9, 11, 16, '#a4f2b8');                    // luff, lit by the sky
+          a.ellipse(8, 4, 11, 7, '#e4eaf2', true);             // finial
+          a.ellipse(9, 5, 10, 6, '#8b9bb4', true);
         })),
         // The door reads as opening only if something is revealed behind it:
         // a lit interior with the glow strongest at the floor, and a leading
@@ -951,7 +1012,13 @@ PF.Platformer = (() => {
           for (let x = 5; x < 28; x += 6) a.rect(x, y + 2, x + 2, y + 3, '#3d4a5c');
           a.rect(14, y + 6, 17, 27, '#3d4a5c');       // support column
           a.rect(15, y + 6, 15, 27, '#6d7d92');
-          for (let k = 0; k < 3; k++) a.px(8 + k * 8, y - 2 - (i % 2), '#7fd4ff');
+          // Running lamps sunk INTO the deck. Floating above it they were
+          // detached pixels, and the outline pass boxed each one in.
+          for (let k = 0; k < 3; k++) {
+            const x = 6 + k * 9;
+            a.rect(x, y + 2, x + 1, y + 3, k === i % 3 ? '#e4eaf2' : '#3d7fa8');
+            a.px(x, y + 2, k === i % 3 ? '#ffffff' : '#7fd4ff');
+          }
         }))
       ]
     };
