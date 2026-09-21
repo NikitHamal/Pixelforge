@@ -49,16 +49,16 @@ window.HH = (() => {
   /* Harvestable map features. `work` is seconds of labour per unit pulled, so
      gold is slow and berries are quick without needing a second table. */
   const NODES = {
-    tree: { res: 'wood', spr: ['flora', 'oak'], amount: 60, work: 0.9, kind: 'wood', stump: true },
-    pine: { res: 'wood', spr: ['flora', 'pine'], amount: 60, work: 0.9, kind: 'wood', stump: true },
-    rock: { res: 'stone', spr: ['hold_nodes', 'stone'], amount: 45, work: 1.2, kind: 'ore' },
-    clay: { res: 'clay', spr: ['hold_nodes', 'clay'], amount: 40, work: 1.0, kind: 'ore' },
-    iron: { res: 'iron', spr: ['hold_nodes', 'iron'], amount: 28, work: 1.6, kind: 'ore' },
-    gold: { res: 'gold', spr: ['hold_nodes', 'gold'], amount: 16, work: 2.2, kind: 'ore' },
-    berry: { res: 'food', spr: ['hold_nodes', 'berry'], amount: 40, work: 0.7, kind: 'wild', regrow: 26 },
-    herb: { res: 'herb', spr: ['flora', 'flowers'], amount: 18, work: 1.1, kind: 'wild', regrow: 34 },
-    stump: { res: null, spr: ['hold_nodes', 'stump'], amount: 0, work: 0, kind: 'dead' },
-    bush: { res: null, spr: ['flora', 'bush'], amount: 0, work: 0, kind: 'dead' }
+    tree: { res: 'wood', spr: ['flora', 'oak'], art: 'n_oak', amount: 60, work: 0.9, kind: 'wood', stump: true },
+    pine: { res: 'wood', spr: ['flora', 'pine'], art: 'n_pine', amount: 60, work: 0.9, kind: 'wood', stump: true },
+    rock: { res: 'stone', spr: ['hold_nodes', 'stone'], art: 'n_rock', amount: 45, work: 1.2, kind: 'ore' },
+    clay: { res: 'clay', spr: ['hold_nodes', 'clay'], art: 'n_clay', amount: 40, work: 1.0, kind: 'ore' },
+    iron: { res: 'iron', spr: ['hold_nodes', 'iron'], art: 'n_iron', amount: 28, work: 1.6, kind: 'ore' },
+    gold: { res: 'gold', spr: ['hold_nodes', 'gold'], art: 'n_gold', amount: 16, work: 2.2, kind: 'ore' },
+    berry: { res: 'food', spr: ['hold_nodes', 'berry'], art: 'n_berry', amount: 40, work: 0.7, kind: 'wild', regrow: 26 },
+    herb: { res: 'herb', spr: ['flora', 'flowers'], art: 'n_flower', amount: 18, work: 1.1, kind: 'wild', regrow: 34 },
+    stump: { res: null, spr: ['hold_nodes', 'stump'], art: 'n_stump', amount: 0, work: 0, kind: 'dead' },
+    bush: { res: null, spr: ['flora', 'bush'], art: 'n_bush', amount: 0, work: 0, kind: 'dead' }
   };
 
   /* Build categories, in left-rail order. */
@@ -88,33 +88,33 @@ window.HH = (() => {
        shoot    { range, dps } for anything that defends itself */
   const BUILD = [
     // ---- dwellings -------------------------------------------------------
-    { id: 'tent', name: 'Tent', cat: 'home', spr: ['hold_homes', 'tent'],
+    { id: 'tent', name: 'Tent', cat: 'home', spr: ['hold_homes', 'tent'], art: 'b_tent', artW: 30, artH: 26,
       cost: { wood: 10 }, fw: 1, fh: 1, hp: 40, build: 3, house: 2, cheer: -2,
       desc: 'Canvas and rope. Sleeps two, pleases nobody, and goes up in an afternoon.' },
-    { id: 'hut', name: 'Thatched Hut', cat: 'home', spr: ['hold_homes', 'hut'],
+    { id: 'hut', name: 'Thatched Hut', cat: 'home', spr: ['hold_homes', 'hut'], art: 'b_hut', artW: 26, artH: 32,
       cost: { wood: 25, clay: 5 }, fw: 1, fh: 1, hp: 70, build: 6, house: 3,
       desc: 'A single warm room under thatch. The first thing a settlement should build.' },
-    { id: 'cottage', name: 'Cottage', cat: 'home', spr: ['hold_homes', 'cottage'],
+    { id: 'cottage', name: 'Cottage', cat: 'home', spr: ['hold_homes', 'cottage'], art: 'b_cottage', artW: 40, artH: 46,
       cost: { wood: 40, stone: 15, clay: 10 }, fw: 2, fh: 2, hp: 130, build: 10, house: 5, cheer: 3,
       desc: 'Plank walls, a real hearth and glass in the windows. Sleeps five in comfort.' },
-    { id: 'house', name: 'Stone House', cat: 'home', spr: ['hold_homes', 'house'],
+    { id: 'house', name: 'Stone House', cat: 'home', spr: ['hold_homes', 'house'], art: 'b_house', artW: 50, artH: 50,
       cost: { wood: 55, stone: 40, clay: 20 }, fw: 2, fh: 2, hp: 190, build: 15, house: 8, cheer: 6,
       desc: 'Two storeys on a stone footing. Sleeps eight and raises the tone of the whole street.' },
-    { id: 'market', name: 'Market Stall', cat: 'home', spr: ['hold_homes', 'market'],
+    { id: 'market', name: 'Market Stall', cat: 'home', spr: ['hold_homes', 'market'], art: 'b_market', artW: 52, artH: 36,
       cost: { wood: 35, coin: 10 }, fw: 2, fh: 2, hp: 90, build: 8, jobs: 2, cheer: 5,
       makes: { from: { food: 2 }, to: { coin: 3 }, rate: 6 },
       desc: 'Sells the surplus. Turns spare food into coin and gives people somewhere to gossip.' },
     // ---- industry --------------------------------------------------------
-    { id: 'woodcutter', name: "Woodcutter's Lodge", cat: 'work', spr: ['hold_works', 'woodcutter'],
+    { id: 'woodcutter', name: "Woodcutter's Lodge", cat: 'work', spr: ['hold_works', 'woodcutter'], art: 'b_wood', artW: 34, artH: 30,
       cost: { wood: 20 }, fw: 2, fh: 2, hp: 110, build: 7, jobs: 3, gather: ['wood'], store: 40,
       desc: 'Sends three axes out to the nearest standing timber and stacks what comes back.' },
-    { id: 'quarry', name: 'Quarry', cat: 'work', spr: ['hold_works', 'quarry'],
+    { id: 'quarry', name: 'Quarry', cat: 'work', spr: ['hold_works', 'quarry'], art: 'b_quarry', artW: 34, artH: 34,
       cost: { wood: 25, stone: 10 }, fw: 2, fh: 2, hp: 120, build: 9, jobs: 3, gather: ['ore'], store: 40,
       desc: 'Works any stone, clay or ore seam in reach. Slower than felling trees, and worth it.' },
-    { id: 'granary', name: 'Granary', cat: 'work', spr: ['hold_works', 'granary'],
+    { id: 'granary', name: 'Granary', cat: 'work', spr: ['hold_works', 'granary'], art: 'b_granary', artW: 30, artH: 32,
       cost: { wood: 30, stone: 10 }, fw: 2, fh: 2, hp: 100, build: 8, jobs: 2, gather: ['wild'], store: 60,
       desc: 'Stores the harvest off the ground and sends foragers after berries and herbs.' },
-    { id: 'storehouse', name: 'Storehouse', cat: 'work', spr: ['hold_works', 'storehouse'],
+    { id: 'storehouse', name: 'Storehouse', cat: 'work', spr: ['hold_works', 'storehouse'], art: 'b_store', artW: 40, artH: 25,
       cost: { wood: 35 }, fw: 2, fh: 2, hp: 120, build: 8, jobs: 1, store: 120,
       desc: 'Raises the settlement’s carrying capacity. Without one, full stockpiles are simply lost.' },
     { id: 'kiln', name: 'Kiln', cat: 'work', spr: ['hold_works', 'kiln'],
@@ -149,14 +149,14 @@ window.HH = (() => {
     { id: 'gate', name: 'Gate', cat: 'wall', wall: 3, spr: ['hold_keep', 'gate_closed'],
       cost: { wood: 24, iron: 6 }, fw: 2, fh: 1, hp: 140, build: 5, gate: true,
       desc: 'A way through your own wall. Set it to shut itself at dusk and it will never be left open.' },
-    { id: 'tower', name: 'Watchtower', cat: 'wall', spr: ['hold_keep', 'tower'],
+    { id: 'tower', name: 'Watchtower', cat: 'wall', spr: ['hold_keep', 'tower'], art: 'b_tower', artW: 32, artH: 50,
       cost: { wood: 15, stone: 50 }, fw: 2, fh: 2, hp: 220, build: 14, jobs: 1,
       shoot: { range: 7.5, dps: 14 }, light: 5,
       desc: 'Looses arrows at anything hostile inside seven tiles, and lights the ground beneath it.' },
-    { id: 'barracks', name: 'Barracks', cat: 'wall', spr: ['hold_keep', 'barracks'],
+    { id: 'barracks', name: 'Barracks', cat: 'wall', spr: ['hold_keep', 'barracks'], art: 'b_barracks', artW: 44, artH: 52,
       cost: { wood: 45, stone: 30, iron: 12 }, fw: 2, fh: 2, hp: 200, build: 16, guard: 4,
       desc: 'Billets four soldiers. Villagers can only take up arms where there are arms to take up.' },
-    { id: 'brazier', name: 'Brazier', cat: 'wall', spr: ['hold_keep', 'brazier'],
+    { id: 'brazier', name: 'Brazier', cat: 'wall', spr: ['hold_keep', 'brazier'], art: 'b_brazier', artW: 24, artH: 16,
       cost: { wood: 8, coin: 3 }, fw: 1, fh: 1, hp: 40, build: 2, light: 4.5, cheer: 2,
       desc: 'Burns through the night. Raiders will not walk into a lit street if there is a dark one.' },
     { id: 'banner', name: 'Banner', cat: 'wall', spr: ['hold_keep', 'banner'],
@@ -180,7 +180,7 @@ window.HH = (() => {
   /* The town hall is never in the palette: you start with one, you cannot
      build a second, and losing it ends the run. */
   const HALL = {
-    id: 'hall', name: 'Town Hall', cat: null, spr: ['hold_homes', 'hall'],
+    id: 'hall', name: 'Town Hall', cat: null, spr: ['hold_homes', 'hall'], art: 'b_hall', artW: 58, artH: 43,
     cost: {}, fw: 2, fh: 2, hp: 800, build: 0, house: 4, cheer: 5, store: 150, light: 4,
     desc: 'The heart of the settlement. Everything is hauled here, and if it falls the hold is finished.'
   };

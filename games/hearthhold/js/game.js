@@ -95,6 +95,9 @@
     ART.ground = GB.sliceTiles('hold_ground', 'sheet', 16, 16, 4);
     ART.palisade = GB.sliceTiles('hold_palisade', 'sheet', 16, 16, 4);
     ART.rampart = GB.sliceTiles('hold_rampart', 'sheet', 16, 16, 4);
+    /* Image sheets load asynchronously; the game stays fully playable on the
+       procedural art until they arrive, then promoteArt() swaps the look in. */
+    if (window.HHArt) HHArt.load();
     ART.ready = true;
   }
   const spr = (id, state, t) => GB.at(id, state, t || 0);
@@ -106,7 +109,7 @@
     world: null, diff: DIFFS[1], res: {}, cap: 0,
     folk: [], raiders: [], arrows: [], pops: [], sparks: [],
     builds: new Map(), nextId: 1, hall: null,
-    day: 1, hour: 7, dayLen: 90, night: false, rain: 0, rainT: 0,
+    day: 1, hour: 7, dayLen: 90, night: false,
     speed: 1, running: false, over: false, won: false,
     cheer: 60, cheerTarget: 60,
     tool: null, cat: 'home', drag: null, hover: { x: -1, y: -1 },
@@ -974,13 +977,6 @@
         for (const r of S.raiders.slice()) if (Math.random() < 0.5) killRaider(r);
       }
     }
-    // weather: a front rolls through every couple of days
-    S.rainT -= dt;
-    if (S.rainT <= 0) {
-      S.rainT = 30 + Math.random() * 70;
-      S.rainWant = Math.random() < 0.34 ? 1 : 0;
-    }
-    S.rain += ((S.rainWant || 0) - S.rain) * Math.min(1, dt * 0.5);
     if (before > S.hour) assignHomes();
   }
 
@@ -1045,12 +1041,22 @@
   function drawPaletteIcon(icv, def) {
     const g = icv.getContext('2d');
     g.imageSmoothingEnabled = false;
+    if (def.art && window.HHArt) {
+      const c = HHArt.get(def.art);
+      if (c) {
+        const s = Math.min(32 / c.width, 32 / c.height);
+        g.drawImage(c, 0, 0, c.width, c.height,
+          (32 - c.width * s) / 2, (32 - c.height * s) / 2, c.width * s, c.height * s);
+        return;
+      }
+    }
     if (def.spr) {
       const f = sprFrame(def.spr[0], def.spr[1], 0);
       if (f) g.drawImage(f.cv, 0, 0);
       return;
     }
     if (def.wall) {
+      if (ART.fenceP && def.wall !== 3) { g.drawImage(ART.fenceP, 0, 8, 32, 16); return; }
       const sheet = def.wall === 2 ? ART.rampart : ART.palisade;
       if (sheet && sheet[10]) { g.drawImage(sheet[10], 0, 8); g.drawImage(sheet[10], 16, 8); }
       return;
@@ -1094,8 +1100,12 @@
 
     if (sel.kind === 'folk') {
       const v = sel.ref;
-      const f = sprFrame(v.role === 'soldier' ? 'tiny_blade' : 'tiny_drudge', 'idle_down', 0);
-      if (f) g.drawImage(f.cv, 0, 0);
+      const fic = window.HHArt && HHArt.get(v.role === 'soldier' ? 'ps0_0' : 'pw0_0');
+      if (fic) g.drawImage(fic, 0, 0, 16, 16, 0, 0, 32, 32);
+      else {
+        const f = sprFrame(v.role === 'soldier' ? 'tiny_blade' : 'tiny_drudge', 'idle_down', 0);
+        if (f) g.drawImage(f.cv, 0, 0);
+      }
       mk('b', null, rows, v.name);
       mk('span', null, rows, v.role === 'soldier' ? 'Soldier' : 'Settler');
       const stats = mk('div', 'istats', el.insp);
@@ -1362,7 +1372,7 @@
     S.folk.length = 0; S.raiders.length = 0; S.arrows.length = 0;
     S.pops.length = 0; S.sparks.length = 0;
     S.builds.clear(); S.nextId = 1;
-    S.day = 1; S.hour = 7; S.night = false; S.rain = 0; S.rainT = 0; S.rainWant = 0;
+    S.day = 1; S.hour = 7; S.night = false;
     S.cheer = 62; S.cheerTarget = 62;
     S.score = 0; S.kills = 0; S.raised = 0; S.lost = 0; S.wave = 0; S.waveNight = 0;
     S.tool = null; S.sel = null; S.sendMode = null; S.over = false; S.won = false;
@@ -1436,10 +1446,111 @@
     const g = groundCv.getContext('2d');
     g.imageSmoothingEnabled = false;
     for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-      const t = ART.ground[S.world.ground[W.idx(x, y)]];
+      const i = W.idx(x, y);
+      const gi = S.world.ground[i];
+      let t = ART.ground[gi];
+      if (ART.aground) t = gi === G.GRASS ? ART.agrass[(x * 7 + y * 13) & 3] : ART.aground[gi];
       if (t) g.drawImage(t, x * T, y * T);
     }
     groundDirty = false;
+  }
+
+  /* Image-asset promotion. Once HHArt has sliced its sheets the terrain tiles
+     and fence rails swap from procedural to painted and the ground cache
+     repaints. Until then — or headless, where there is no Image — every draw
+     site below falls back to the procedural art it always used. */
+  function shrink(name) {
+    const src = HHArt.get(name);
+    const t = document.createElement('canvas');
+    t.width = T; t.height = T;
+    if (src) {
+      const g = t.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      g.drawImage(src, 0, 0, src.width, src.height, 0, 0, T, T);
+    }
+    return t;
+  }
+  function railTile(dark) {
+    const src = HHArt.get('fence_rail');
+    const t = document.createElement('canvas');
+    t.width = T; t.height = T;
+    const g = t.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    if (src) {
+      g.drawImage(src, 0, 0, src.width, src.height, 0, 3, T, 10);
+      if (dark) { g.fillStyle = 'rgba(10,8,20,0.4)'; g.fillRect(0, 0, T, T); }
+    }
+    return t;
+  }
+  function railTileV(dark) {
+    const src = HHArt.get('fence_rail');
+    const t = document.createElement('canvas');
+    t.width = T; t.height = T;
+    const g = t.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    if (src) {
+      g.save();
+      g.translate(T / 2, T / 2);
+      g.rotate(Math.PI / 2);
+      g.drawImage(src, 0, 0, src.width, src.height, -T / 2, -5, T, 10);
+      g.restore();
+      if (dark) { g.fillStyle = 'rgba(10,8,20,0.4)'; g.fillRect(0, 0, T, T); }
+    }
+    return t;
+  }
+  function promoteArt() {
+    ART.agrass = [shrink('g_grass0'), shrink('g_grass1'), shrink('g_grass2'), shrink('g_grass3')];
+    const M = {};
+    M[G.TUFT] = 'g_grass1'; M[G.BLOOM] = 'g_grass2'; M[G.ROAD] = 'g_cob0';
+    M[G.RUT] = 'g_dirt0'; M[G.TILL] = 'g_dirt0'; M[G.WET] = 'g_dirt1';
+    M[G.SAND] = 'g_dirt1'; M[G.WATER] = 'g_water0'; M[G.SHALLOW] = 'g_water1';
+    M[G.COBBLE] = 'g_cob1'; M[G.PLANK] = 'g_dirt0'; M[G.GRAVEL] = 'g_dirt1';
+    M[G.ASH] = 'g_dirt1'; M[G.MOSS] = 'g_grass3'; M[G.RUBBLE] = 'g_dirt0';
+    ART.aground = ART.ground.map((fb, gi) => {
+      if (gi === G.GRASS || !M[gi] || !HHArt.get(M[gi])) return gi === G.GRASS ? ART.agrass[0] : fb;
+      return shrink(M[gi]);
+    });
+    /* Flowering meadow: meadow grass with a blossom stamped on it. */
+    const bloom = document.createElement('canvas');
+    bloom.width = T; bloom.height = T;
+    const bb = bloom.getContext('2d');
+    bb.imageSmoothingEnabled = false;
+    const bgg = HHArt.get('g_grass2'), bls = HHArt.get('flower_w');
+    if (bgg) bb.drawImage(bgg, 0, 0, bgg.width, bgg.height, 0, 0, T, T);
+    if (bls) bb.drawImage(bls, 0, 0, bls.width, bls.height, 3, 2, 10, 9);
+    ART.aground[G.BLOOM] = bloom;
+    ART.fenceP = railTile(false);
+    ART.fenceR = railTile(true);
+    ART.fencePV = railTileV(false);
+    ART.fenceRV = railTileV(true);
+  }
+
+  /* Draw size in world pixels for each keyed flora sprite, anchored with its
+     feet on the tile's ground line so tall trees overflow upward correctly. */
+  const NODE_ART = {
+    n_oak: [36, 48], n_pine: [32, 48], n_rock: [30, 30],
+    n_clay: [20, 20], n_iron: [20, 20], n_gold: [20, 20],
+    n_berry: [18, 20], n_flower: [18, 18], n_stump: [26, 22], n_bush: [26, 26]
+  };
+  function drawArtNode(it) {
+    const A = window.HHArt;
+    if (!A || !it.akey) return false;
+    const c = A.get(it.akey);
+    if (!c) return false;
+    const s = NODE_ART[it.akey] || [24, 24];
+    ctx.drawImage(c, 0, 0, c.width, c.height, it.x * T + 8 - s[0] / 2, (it.ty + 1) * T - s[1], s[0], s[1]);
+    return true;
+  }
+  function drawArtCrop(x, y, i) {
+    const A = window.HHArt;
+    if (!A) return false;
+    const id = S.world.occ[i], bd = id && S.builds.get(id);
+    const pre = bd && bd.def.field === 'herb' ? 'c_herb' : 'c_wheat';
+    const c = A.get(pre + clamp(S.world.crop[i], 1, 5));
+    if (!c) return false;
+    const h = 8 + S.world.crop[i] * 2.5, w = Math.max(6, Math.round(h * c.width / c.height));
+    ctx.drawImage(c, 0, 0, c.width, c.height, x * T + 8 - w / 2, (y + 1) * T - h, w, h);
+    return true;
   }
 
   function draw() {
@@ -1448,6 +1559,7 @@
     ctx.fillStyle = '#10141f';
     ctx.fillRect(0, 0, w, h);
     if (!S.world) return;
+    if (window.HHArt && HHArt.ready() && !ART.aground) { promoteArt(); dirtyGround(); }
     if (groundDirty) repaintGround();
 
     ctx.save();
@@ -1467,6 +1579,7 @@
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const i = W.idx(x, y);
       if (!S.world.crop[i]) continue;
+      if (drawArtCrop(x, y, i)) continue;
       const f = sprFrame('farm_crops', 'wheat' + S.world.crop[i], 0);
       if (f) ctx.drawImage(f.cv, x * T - 8, y * T - 12);
     }
@@ -1475,6 +1588,12 @@
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const i = W.idx(x, y), wl = S.world.wall[i];
       if (!wl || wl === 3) continue;
+      if (ART.fenceP) {
+        const m = W.wallMask(S.world, x, y);
+        const vert = (m & 5) && !(m & 10);
+        ctx.drawImage(wl === 2 ? (vert ? ART.fenceRV : ART.fenceR) : (vert ? ART.fencePV : ART.fenceP), x * T, y * T);
+        continue;
+      }
       const sheet = wl === 2 ? ART.rampart : ART.palisade;
       const tile = sheet[W.wallMask(S.world, x, y)];
       if (tile) ctx.drawImage(tile, x * T, y * T);
@@ -1491,7 +1610,8 @@
       if (!d) continue;
       const key = W.nodeKey(S.world, i);
       const shown = (d.res && S.world.amt[i] <= 0 && d.regrow) ? 'bush' : key;
-      items.push({ y: y + 0.5, kind: 'node', x, ty: y, spr: NODES[shown].spr });
+      items.push({ y: y + 0.5, kind: 'node', x, ty: y,
+        spr: NODES[shown].spr, akey: NODES[shown].art });
     }
     for (const b of S.builds.values()) {
       if (b.x > x1 + 2 || b.y > y1 + 2 || b.x + b.def.fw < x0 - 2 || b.y + b.def.fh < y0 - 2) continue;
@@ -1503,6 +1623,7 @@
 
     for (const it of items) {
       if (it.kind === 'node') {
+        if (drawArtNode(it)) continue;
         const f = sprFrame(it.spr[0], it.spr[1], 0);
         if (f) ctx.drawImage(f.cv, it.x * T - 8, it.ty * T - 16);
       } else if (it.kind === 'build') drawBuild(it.b);
@@ -1529,7 +1650,6 @@
     ctx.restore();
 
     drawNight(w, h);
-    drawWeather(w, h);
     drawFloaters();
   }
 
@@ -1548,6 +1668,15 @@
     if (b.def.wall === 3) {                     // gate: its own two-tile sprite
       const f = sprFrame('hold_keep', b.open ? 'gate_open' : 'gate_closed', 0);
       if (f) ctx.drawImage(f.cv, b.x * T, b.y * T - 8);
+    } else if (b.def.art && window.HHArt) {
+      const ac = HHArt.get(b.def.art);
+      if (ac) ctx.drawImage(ac, 0, 0, ac.width, ac.height,
+        (b.x + b.def.fw / 2) * T - b.def.artW / 2, (b.y + b.def.fh) * T - b.def.artH,
+        b.def.artW, b.def.artH);
+      else {
+        const f = b.def.spr && spr(b.def.spr[0], b.def.spr[1], S.t + b.anim);
+        if (f) ctx.drawImage(f.cv, px, py);
+      }
     } else if (b.def.spr) {
       const f = spr(b.def.spr[0], b.def.spr[1], S.t + b.anim);
       if (f) ctx.drawImage(f.cv, px, py);
@@ -1565,6 +1694,38 @@
   }
 
   function drawFolk(v) {
+    /* Settlers come out of the DawnLike player rows: eight peasant looks for
+       workers, eight armoured looks for soldiers, file 0/1 shuffling as the
+       two-frame walk. The column follows the villager, so faces stay stable
+       enough to tell people apart at a glance. */
+    const A = window.HHArt;
+    const col = ((v.id % 8) + 8) % 8;
+    const moving = !!v.path;
+    const fr = A && A.get((v.role === 'soldier' ? 'ps' : 'pw') +
+      (moving ? Math.floor(v.anim * 2) % 2 : Math.floor(S.t * 2 + v.id) % 2) + '_' + col);
+    if (fr) {
+      const px = Math.round(v.x * T), py = Math.round(v.y * T) + 10 - 16;
+      if (v.asleep) ctx.globalAlpha = 0.75;
+      ctx.drawImage(fr, 0, 0, 16, 16, px, py, 16, 16);
+      ctx.globalAlpha = 1;
+      if (v.hurtT > 0) {
+        ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff6b6b';
+        ctx.fillRect(px, py, 16, 16);
+        ctx.globalAlpha = 1;
+      }
+      if (v.asleep) {
+        ctx.fillStyle = '#cfe0ff';
+        const z = Math.floor(S.t * 2) % 3;
+        ctx.fillRect(px + 14, py - 2 - z * 2, 3, 3);
+      }
+      if (v.carry) {
+        ctx.fillStyle = '#8a5a2e';
+        ctx.fillRect(px + 11, py + 6, 5, 4);
+      }
+      if (v.hp < v.maxHp) hpBar(px, py - 3, 16, v.hp / v.maxHp, '#7fe0a8');
+      if (S.sel && S.sel.kind === 'folk' && S.sel.ref === v) ring(v.x, v.y, '#fee761');
+      return;
+    }
     const id = v.role === 'soldier' ? 'tiny_blade' : 'tiny_drudge';
     let state;
     if (v.asleep) state = 'idle_down';
@@ -1589,7 +1750,27 @@
   }
 
   function drawRaider(r) {
-    const state = r.path && r.pi < r.path.length ? 'walk_' + r.face : (r.cd > 0.6 ? 'attack_' + r.face : 'idle_' + r.face);
+    /* Raiders march out of the DawnLike monster rows — slime, goblin, orc and
+       gnoll, one species per raider kind — front-on with a two-frame shuffle.
+       Striking just shuffles faster under the hurt flash; the procedural rig
+       below is the fallback when the images have not arrived (or headless). */
+    const A = window.HHArt;
+    const attacking = r.cd > 0.6;
+    const moving = !!(r.path && r.pi < r.path.length);
+    const f2 = moving || attacking ? Math.floor(r.anim * 3) % 2 : Math.floor(S.t * 2 + r.id) % 2;
+    const fr = A && A.get('r_' + (r.kind.id === 'archer' ? 'arch' : r.kind.id) + f2);
+    if (fr) {
+      const px = Math.round(r.x * T), py = Math.round(r.y * T) + 10 - 16;
+      ctx.drawImage(fr, 0, 0, 16, 16, px, py, 16, 16);
+      if (r.hurtT > 0) {
+        ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff6b6b';
+        ctx.fillRect(px, py, 16, 16);
+        ctx.globalAlpha = 1;
+      }
+      hpBar(px, py - 3, 16, r.hp / r.maxHp, '#d9536a');
+      return;
+    }
+    const state = moving ? 'walk_' + r.face : (r.cd > 0.6 ? 'attack_' + r.face : 'idle_' + r.face);
     const f = spr(r.kind.spr, state, r.anim / 6 + r.id);
     if (!f) return;
     const px = Math.round(r.x * T) - 8, py = Math.round(r.y * T) - 22;
@@ -1619,7 +1800,10 @@
     ctx.fillStyle = ok ? '#7fe0a8' : '#f2606a';
     footprint(d, S.hover.x, S.hover.y, (x, y) => ctx.fillRect(x * T, y * T, T, T));
     ctx.globalAlpha = 0.72;
-    if (d.spr) {
+    const gc = d.art && window.HHArt && HHArt.get(d.art);
+    if (gc) ctx.drawImage(gc, 0, 0, gc.width, gc.height,
+      (S.hover.x + d.fw / 2) * T - d.artW / 2, (S.hover.y + d.fh) * T - d.artH, d.artW, d.artH);
+    else if (d.spr) {
       const f = sprFrame(d.spr[0], d.spr[1], 0);
       if (f) ctx.drawImage(f.cv, (S.hover.x + d.fw / 2) * T - 16, (S.hover.y + d.fh) * T - 32);
     }
@@ -1646,7 +1830,7 @@
     const dusk = S.hour >= 19 && S.hour < 20 ? (S.hour - 19)
       : S.hour >= 20 || S.hour < 5 ? 1
         : S.hour >= 5 && S.hour < 7 ? 1 - (S.hour - 5) / 2 : 0;
-    const dark = dusk * 0.72 + S.rain * 0.12;
+    const dark = dusk * 0.72;
     if (dark <= 0.01) return;
     if (!nightCv) nightCv = document.createElement('canvas');
     if (nightCv.width !== w || nightCv.height !== h) { nightCv.width = w; nightCv.height = h; }
@@ -1675,20 +1859,6 @@
     }
     n.globalCompositeOperation = 'source-over';
     ctx.drawImage(nightCv, 0, 0);
-  }
-
-  function drawWeather(w, h) {
-    if (S.rain < 0.05) return;
-    const f = spr('rpg_weather', 'rain', S.t);
-    if (!f) return;
-    ctx.save();
-    ctx.globalAlpha = S.rain * 0.55;
-    const s = 2;
-    const ox = -((S.t * 40) % (f.w * s)), oy = -((S.t * 260) % (f.h * s));
-    for (let y = oy; y < h; y += f.h * s)
-      for (let x = ox; x < w; x += f.w * s)
-        ctx.drawImage(f.cv, 0, 0, f.w, f.h, x, y, f.w * s, f.h * s);
-    ctx.restore();
   }
 
   function drawFloaters() {

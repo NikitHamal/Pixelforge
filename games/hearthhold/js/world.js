@@ -115,13 +115,14 @@ window.HHWorld = (() => {
 
     /* Clear a plaza at the centre and lay the first crossroads. A settlement
        that opens with its hall wedged between two boulders is not a challenge,
-       it is a bad deal. */
+       it is a bad deal. The yard is packed dirt, farm-style, so the hall reads
+       as a farmstead rather than a meadow with a house dropped on it. */
     const cx = MW >> 1, cy = MH >> 1;
     for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) {
       if (!inb(x, y)) continue;
       const i = idx(x, y);
       w.node[i] = 0; w.amt[i] = 0;
-      if (w.ground[i] === G.WATER || w.ground[i] === G.SHALLOW) w.ground[i] = G.GRASS;
+      w.ground[i] = G.RUT;
     }
     for (let k = -14; k <= 14; k++) {
       if (inb(cx + k, cy + 2)) w.ground[idx(cx + k, cy + 2)] = G.ROAD;
